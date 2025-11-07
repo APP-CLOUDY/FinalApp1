@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="HomeLoginViewController" customModule="Cloudyyy_App" customModuleProvider="target">
+            <connections>
+                <outlet property="bottomContainer" destination="aR4-iH-D9p" id="pOV-MX-U7N"/>
+                <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+            <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="KAn-gr-0DU" userLabel="TopContainer">
+                    <rect key="frame" x="0.0" y="0.0" width="393" height="426"/>
+                    <subviews>
+                        <stackView opaque="NO" contentMode="scaleToFill" misplaced="YES" axis="vertical" alignment="center" spacing="8" translatesAutoresizingMaskIntoConstraints="NO" id="XBU-2e-ois">
+                            <rect key="frame" x="141" y="152" width="348" height="100"/>
+                            <subviews>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Cloudyyy" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QU0-rB-d2a">
+                                    <rect key="frame" x="43" y="0.0" width="262" height="71.666666666666671"/>
+                                    <fontDescription key="fontDescription" type="boldSystem" pointSize="60"/>
+                                    <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                                <label opaque="NO" userInteractionEnabled="NO" alpha="0.80000000000000004" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Organize tasks, Motivate Kids, Track Progress" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="q1h-UC-xI4">
+                                    <rect key="frame" x="0.0" y="79.666666666666657" width="348" height="20.333333333333329"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                    <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                            </subviews>
+                        </stackView>
+                    </subviews>
+                    <color key="backgroundColor" systemColor="systemBlueColor"/>
+                    <constraints>
+                        <constraint firstItem="XBU-2e-ois" firstAttribute="centerY" secondItem="KAn-gr-0DU" secondAttribute="centerY" id="MUu-6r-4TC"/>
+                        <constraint firstItem="XBU-2e-ois" firstAttribute="centerX" secondItem="KAn-gr-0DU" secondAttribute="centerX" id="avm-4R-iKl"/>
+                    </constraints>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="aR4-iH-D9p" userLabel="Bottom Container">
+                    <rect key="frame" x="0.0" y="426" width="393" height="426"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Welcome Family" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Is8-O1-1VC">
+                            <rect key="frame" x="105.66666666666667" y="40" width="181.66666666666663" height="28.666666666666671"/>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="24"/>
+                            <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" alpha="0.80000000000000004" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Get Started With your Family" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="3ZG-P1-W4R">
+                            <rect key="frame" x="92.666666666666686" y="76.666666666666686" width="208" height="19.333333333333329"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="16"/>
+                            <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="fillEqually" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="4gI-da-BT4">
+                            <rect key="frame" x="20" y="128" width="353" height="182"/>
+                            <subviews>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Wf5-m8-Zqx">
+                                    <rect key="frame" x="0.0" y="0.0" width="353" height="50"/>
+                                    <color key="backgroundColor" systemColor="systemBlueColor"/>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="50" id="nSv-5u-fBY"/>
+                                    </constraints>
+                                    <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Log In">
+                                        <backgroundConfiguration key="background" cornerRadius="10"/>
+                                    </buttonConfiguration>
+                                    <connections>
+                                        <action selector="loginButtonTapped:" destination="-1" eventType="touchUpInside" id="iqw-NI-rFv"/>
+                                    </connections>
+                                </button>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="wxH-zJ-wd3" customClass="GlassButton" customModule="Cloudyyy_App" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="66" width="353" height="50"/>
+                                    <color key="backgroundColor" systemColor="tableCellBlueTextColor"/>
+                                    <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Sign up">
+                                        <backgroundConfiguration key="background" cornerRadius="10"/>
+                                    </buttonConfiguration>
+                                    <connections>
+                                        <action selector="signupButtonTapped:" destination="-1" eventType="touchUpInside" id="a5b-3L-xOg"/>
+                                    </connections>
+                                </button>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Uxb-bl-xtE" customClass="GlassButton" customModule="Cloudyyy_App" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="132" width="353" height="50"/>
+                                    <color key="backgroundColor" red="0.090196078430000007" green="0.43529411759999997" blue="0.96078431369999995" alpha="1" colorSpace="calibratedRGB"/>
+                                    <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Join with Code">
+                                        <backgroundConfiguration key="background" cornerRadius="10"/>
+                                    </buttonConfiguration>
+                                    <connections>
+                                        <action selector="joinWithCodeButtonTapped:" destination="-1" eventType="touchUpInside" id="Api-0R-XAH"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                        </stackView>
+                    </subviews>
+                    <color key="backgroundColor" systemColor="viewFlipsideBackgroundColor"/>
+                    <constraints>
+                        <constraint firstItem="Is8-O1-1VC" firstAttribute="centerX" secondItem="aR4-iH-D9p" secondAttribute="centerX" id="9Gf-zA-fzk"/>
+                        <constraint firstItem="3ZG-P1-W4R" firstAttribute="centerX" secondItem="aR4-iH-D9p" secondAttribute="centerX" id="JSS-HY-ngc"/>
+                        <constraint firstItem="3ZG-P1-W4R" firstAttribute="top" secondItem="Is8-O1-1VC" secondAttribute="bottom" constant="8" id="K5E-4F-a8R"/>
+                        <constraint firstItem="4gI-da-BT4" firstAttribute="leading" secondItem="aR4-iH-D9p" secondAttribute="leading" constant="20" id="Smb-Cs-LvF"/>
+                        <constraint firstItem="Is8-O1-1VC" firstAttribute="top" secondItem="aR4-iH-D9p" secondAttribute="top" constant="40" id="TL2-2N-aFT"/>
+                        <constraint firstItem="4gI-da-BT4" firstAttribute="top" secondItem="3ZG-P1-W4R" secondAttribute="bottom" constant="32" id="bEW-vo-49x"/>
+                        <constraint firstAttribute="trailing" secondItem="4gI-da-BT4" secondAttribute="trailing" constant="20" id="nZN-8w-Uyp"/>
+                    </constraints>
+                </view>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstAttribute="bottom" secondItem="aR4-iH-D9p" secondAttribute="bottom" id="49Z-ib-8oQ"/>
+                <constraint firstItem="KAn-gr-0DU" firstAttribute="height" secondItem="aR4-iH-D9p" secondAttribute="height" id="4SO-Jb-Yaj"/>
+                <constraint firstItem="KAn-gr-0DU" firstAttribute="trailing" secondItem="i5M-Pr-FkT" secondAttribute="trailing" id="5ew-9t-0tq"/>
+                <constraint firstItem="KAn-gr-0DU" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" id="9Dm-3f-fTh"/>
+                <constraint firstItem="KAn-gr-0DU" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="Ogu-cJ-Eeb"/>
+                <constraint firstItem="aR4-iH-D9p" firstAttribute="trailing" secondItem="i5M-Pr-FkT" secondAttribute="trailing" id="SOY-me-AUf"/>
+                <constraint firstItem="aR4-iH-D9p" firstAttribute="top" secondItem="KAn-gr-0DU" secondAttribute="bottom" id="keO-7D-a6o"/>
+                <constraint firstItem="aR4-iH-D9p" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="yn0-7c-7qV"/>
+            </constraints>
+            <point key="canvasLocation" x="67.938931297709928" y="124.64788732394366"/>
+        </view>
+    </objects>
+    <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+        <systemColor name="systemBlueColor">
+            <color red="0.0" green="0.53333333333333333" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="tableCellBlueTextColor">
+            <color red="0.0" green="0.53333333333333333" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="viewFlipsideBackgroundColor">
+            <color red="0.12156862745098039" green="0.12941176470588237" blue="0.14117647058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+    </resources>
+</document>
