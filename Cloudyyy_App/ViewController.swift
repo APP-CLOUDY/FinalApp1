@@ -42,11 +42,7 @@ class ViewController: UIViewController {
     
     private func goToSplash() {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let splashVC = storyboard.instantiateViewController(withIdentifier: "SplashViewController") as? SplashViewControllerViewController {
-            splashVC.modalTransitionStyle = .crossDissolve
-            splashVC.modalPresentationStyle = .fullScreen
-            self.present(splashVC, animated: true)
-        }
-    }
+        let splashVC = storyboard.instantiateViewController(withIdentifier: "SplashViewController") as! SplashViewControllerViewController
+        self.navigationController?.pushViewController(splashVC, animated: true)
+    }    }
     
-}

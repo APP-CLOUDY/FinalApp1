@@ -2,28 +2,17 @@
 //  LoginViewController.swift
 //  Cloudyyy_App
 //
-//  Created by user@5 on 06/11/25.
-//
 
 import UIKit
 
 class LoginViewController: UIViewController {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    @IBOutlet weak var emailTextField: UITextField!
+    @IBOutlet weak var passwordTextField: UITextField!
 
-        // Do any additional setup after loading the view.
+    @IBAction func loginButtonTapped(_ sender: UIButton) {
+        print("Login button tapped!")
+        let dashboardVC = ParentDashboardViewController(nibName: "ParentDashboardViewController", bundle: nil)
+        self.navigationController?.pushViewController(dashboardVC, animated: true)
     }
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }

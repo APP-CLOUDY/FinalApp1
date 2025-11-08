@@ -156,6 +156,9 @@
                                         <backgroundConfiguration key="background" cornerRadius="10"/>
                                         <directionalEdgeInsets key="contentInsets" top="0.0" leading="0.0" bottom="0.0" trailing="0.0"/>
                                     </buttonConfiguration>
+                                    <connections>
+                                        <action selector="loginButtonTapped:" destination="-1" eventType="touchUpInside" id="G0r-6a-9Rh"/>
+                                    </connections>
                                 </button>
                                 <stackView opaque="NO" contentMode="scaleToFill" alignment="center" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="MrX-Sz-YcR">
                                     <rect key="frame" x="0.0" y="326.33333333333331" width="353" height="20.333333333333314"/>

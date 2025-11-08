@@ -54,7 +54,7 @@ class GlassButton: UIButton {
         let blurEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
         blurView = UIVisualEffectView(effect: blurEffect)
         blurView.frame = self.bounds
-        
+        blurView.isUserInteractionEnabled = false
         // Add the blur as the very first layer (at index 0)
         self.insertSubview(blurView, at: 0)
         

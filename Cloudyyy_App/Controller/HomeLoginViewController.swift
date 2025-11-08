@@ -69,13 +69,11 @@ class HomeLoginViewController: UIViewController {
     // MARK: - IBActions
 
     @IBAction func loginButtonTapped(_ sender: UIButton) {
-            print("Log In button tapped!")
-            
-            // This code will now work
-            let loginVC = LoginViewController()
-            loginVC.modalPresentationStyle = .fullScreen
-            self.present(loginVC, animated: true)
-        }
+           print("Login button tapped!")
+           let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
+           self.navigationController?.pushViewController(loginVC, animated: true)
+       }
+
     
     @IBAction func signupButtonTapped(_ sender: UIButton) {
         print("Sign Up button tapped!")
@@ -87,11 +85,10 @@ class HomeLoginViewController: UIViewController {
     }
     
     @IBAction func joinWithCodeButtonTapped(_ sender: UIButton) {
-        print("Join with Code button tapped!")
+            print("Join with Code button tapped!")
 
-        // TODO: Add your navigation code here
-        // let joinVC = JoinViewController()
-        // joinVC.modalPresentationStyle = .fullScreen
-        // self.present(joinVC, animated: true)
-    }
+            // ✅ Navigate to ChildHomeViewController (XIB)
+            let childHomeVC = childHome(nibName: "childHome", bundle: nil)
+            self.navigationController?.pushViewController(childHomeVC, animated: true)
+        }
 }
