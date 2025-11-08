@@ -88,7 +88,7 @@ class HomeLoginViewController: UIViewController {
             print("Join with Code button tapped!")
 
             // ✅ Navigate to ChildHomeViewController (XIB)
-            let childHomeVC = childHome(nibName: "childHome", bundle: nil)
+            let childHomeVC = JoinViewController(nibName: "JoinViewController", bundle: nil)
             self.navigationController?.pushViewController(childHomeVC, animated: true)
         }
 }
