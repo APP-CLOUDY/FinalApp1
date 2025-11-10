@@ -11,6 +11,7 @@ class ApprovalViewController: UIViewController, UITableViewDelegate, UITableView
     
     @IBOutlet var SegmentControl: UISegmentedControl!
     
+    @IBOutlet weak var containerView: UIView!
     private var backgroundGradientLayer: CAGradientLayer?
     private var tableView: UITableView!
     
