@@ -7,14 +7,14 @@ class HomeLoginViewController: UIViewController {
     // Create the gradient layer as a class property
     // so we only have to create it one time.
     let gradientLayer = CAGradientLayer()
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         // Set up the gradient's colors and direction *once*
         setupGradient()
     }
-
+    
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
@@ -52,7 +52,7 @@ class HomeLoginViewController: UIViewController {
         let rect = CGRect(x: 0, y: -cornerRadius,
                           width: bottomContainer.bounds.width,
                           height: bottomContainer.bounds.height + cornerRadius)
-
+        
         // 3. Create the path using this new, taller rect
         let path = UIBezierPath(roundedRect: rect,
                                 byRoundingCorners: [.topLeft, .topRight],
@@ -65,19 +65,19 @@ class HomeLoginViewController: UIViewController {
         // 5. Apply the mask to the container's layer
         bottomContainer.layer.mask = mask
     }
-
+    
     // MARK: - IBActions
-
+    
     @IBAction func loginButtonTapped(_ sender: UIButton) {
-           print("Login button tapped!")
-           let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
-           self.navigationController?.pushViewController(loginVC, animated: true)
-       }
-
+        print("Login button tapped!")
+        let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
+        self.navigationController?.pushViewController(loginVC, animated: true)
+    }
+    
     
     @IBAction func signupButtonTapped(_ sender: UIButton) {
         print("Sign Up button tapped!")
-
+        
         // TODO: Add your navigation code here
         // let signupVC = SignupViewController()
         // signupVC.modalPresentationStyle = .fullScreen
@@ -85,10 +85,13 @@ class HomeLoginViewController: UIViewController {
     }
     
     @IBAction func joinWithCodeButtonTapped(_ sender: UIButton) {
-            print("Join with Code button tapped!")
-
-            // ✅ Navigate to ChildHomeViewController (XIB)
-            let childHomeVC = childHome(nibName: "childHome", bundle: nil)
-            self.navigationController?.pushViewController(childHomeVC, animated: true)
-        }
+        print("Join with Code button tapped!")
+        
+        // Create the new capsule nav container (MainTabContainerViewController)
+        let tabContainer = MainTabContainerViewController()
+        tabContainer.modalPresentationStyle = .fullScreen
+        
+        // Present it modally so it replaces onboarding
+        self.present(tabContainer, animated: true, completion: nil)
+    }
 }

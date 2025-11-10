@@ -49,10 +49,10 @@ class childHome: UIViewController {
             
             // 1. Use the correct class name: "chatBot"
             // 2. Use the correct NIB name: "chatBot" (with a lowercase 'c')
-            let chatBotVC = chatBot(nibName: "chatBot", bundle: nil)
+        let chatBotVC = ChatBotViewController(nibName: "chatBot", bundle: nil)
             
             // 2. Present the new screen
-            self.present(chatBotVC, animated: true)
+            self.navigationController?.pushViewController(chatBotVC, animated: true)
         }
     
     
@@ -83,3 +83,4 @@ class childHome: UIViewController {
         gradientLayer = gradient // Save reference for updating frame
     }
 }
+
