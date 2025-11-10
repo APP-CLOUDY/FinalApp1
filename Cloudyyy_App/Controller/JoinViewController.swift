@@ -50,12 +50,15 @@ class JoinViewController: UIViewController {
     }
     
     @IBAction func joinButtonTapped(_ sender: UIButton) {
-            print("Join with Code button tapped!")
-
-            // ✅ Navigate to ChildHomeViewController (XIB)
-            let childHomeVC = childHome(nibName: "childHome", bundle: nil)
-            self.navigationController?.pushViewController(childHomeVC, animated: true)
-        }
+        print("Join with Code button tapped!")
+                
+                // Create the new capsule nav container (MainTabContainerViewController)
+                let tabContainer = MainTabContainerViewController()
+                tabContainer.modalPresentationStyle = .fullScreen
+                
+                // Present it modally so it replaces onboarding
+                self.present(tabContainer, animated: true, completion: nil)
+            }
     /*
     // MARK: - Navigation
 
