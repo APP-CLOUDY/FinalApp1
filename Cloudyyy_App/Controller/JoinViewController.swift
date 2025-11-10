@@ -1,14 +1,14 @@
 //
-//  SignupViewController.swift
+//  JoinViewController.swift
 //  Cloudyyy_App
 //
-//  Created by user@5 on 07/11/25.
+//  Created by user@5 on 08/11/25.
 //
 
 import UIKit
 
-class SignupViewController: UIViewController {
-
+class JoinViewController: UIViewController {
+    
     @IBOutlet weak var topContainer: UIView!
     private var gradientLayer: CAGradientLayer?
     override func viewDidLoad() {
@@ -39,7 +39,6 @@ class SignupViewController: UIViewController {
             topContainer.layer.insertSublayer(gradient, at: 0)
             gradientLayer = gradient
         }
-
     @IBAction func backButtonTapped(_ sender: UIButton) {
         print("✅ Back button tapped")
         
@@ -49,6 +48,17 @@ class SignupViewController: UIViewController {
             self.dismiss(animated: true, completion: nil)
         }
     }
+    
+    @IBAction func joinButtonTapped(_ sender: UIButton) {
+        print("Join with Code button tapped!")
+                
+                // Create the new capsule nav container (MainTabContainerViewController)
+                let tabContainer = MainTabContainerViewController()
+                tabContainer.modalPresentationStyle = .fullScreen
+                
+                // Present it modally so it replaces onboarding
+                self.present(tabContainer, animated: true, completion: nil)
+            }
     /*
     // MARK: - Navigation
 

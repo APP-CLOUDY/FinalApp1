@@ -11,9 +11,12 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="ParentDashboardViewController" customModule="Cloudyyy_App">
             <connections>
                 <outlet property="ContentView" destination="BSN-Oa-UTe" id="m2o-K7-QPM"/>
+                <outlet property="PendingApproval" destination="9wk-l5-u4e" id="0uA-mu-Zpp"/>
                 <outlet property="ScrollView" destination="AZh-Ie-ihN" id="mge-pc-W7u"/>
+                <outlet property="TodayGlimpse" destination="kyK-Zv-NaA" id="YGZ-7D-PV8"/>
                 <outlet property="WeeklyChart" destination="CT8-m9-2Wy" id="UP0-cG-zUy"/>
                 <outlet property="progressChartView" destination="q1J-Du-T2j" id="snj-Vc-Xe1"/>
+                <outlet property="rewardBox" destination="gkR-lf-brb" id="PJ7-zc-6Go"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>
@@ -35,7 +38,7 @@
                                             <rect key="frame" x="0.0" y="0.0" width="398" height="100"/>
                                             <subviews>
                                                 <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="equalSpacing" alignment="top" spacing="6" translatesAutoresizingMaskIntoConstraints="NO" id="2qj-0c-PyM" userLabel="Left Stack View">
-                                                    <rect key="frame" x="20" y="6" width="83.333333333333329" height="84"/>
+                                                    <rect key="frame" x="10" y="6" width="83.333333333333329" height="84"/>
                                                     <subviews>
                                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" ambiguous="YES" text="Home" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" id="CyL-6o-zwp">
                                                             <rect key="frame" x="0.0" y="0.0" width="83.333333333333329" height="40.666666666666664"/>
@@ -62,8 +65,8 @@
                                                         <constraint firstItem="Jyy-5B-4xV" firstAttribute="top" secondItem="2qj-0c-PyM" secondAttribute="top" constant="30" id="XA3-wB-JIi"/>
                                                     </constraints>
                                                 </stackView>
-                                                <stackView opaque="NO" contentMode="scaleToFill" ambiguous="YES" distribution="equalSpacing" alignment="center" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="yCm-0K-aVV" userLabel="Right Stack View">
-                                                    <rect key="frame" x="255" y="1" width="113" height="34.333333333333343"/>
+                                                <stackView opaque="NO" contentMode="scaleToFill" ambiguous="YES" distribution="equalSpacing" alignment="center" spacing="5" translatesAutoresizingMaskIntoConstraints="NO" id="yCm-0K-aVV" userLabel="Right Stack View">
+                                                    <rect key="frame" x="266" y="1" width="102" height="34.333333333333343"/>
                                                     <subviews>
                                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Thp-3S-NX9">
                                                             <rect key="frame" x="0.0" y="0.0" width="49" height="34.333333333333336"/>
@@ -72,7 +75,7 @@
                                                             <buttonConfiguration key="configuration" style="plain" image="bell.badge" catalog="system"/>
                                                         </button>
                                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="y88-kw-MNM">
-                                                            <rect key="frame" x="65" y="0.0" width="48" height="34.333333333333336"/>
+                                                            <rect key="frame" x="54" y="0.0" width="48" height="34.333333333333336"/>
                                                             <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                             <state key="normal" title="Button"/>
                                                             <buttonConfiguration key="configuration" style="plain" image="person" catalog="system"/>
@@ -85,7 +88,7 @@
                                             <constraints>
                                                 <constraint firstItem="yCm-0K-aVV" firstAttribute="centerY" secondItem="CyL-6o-zwp" secondAttribute="centerY" id="0MX-fB-Y36"/>
                                                 <constraint firstItem="2qj-0c-PyM" firstAttribute="top" secondItem="Tzb-Ft-usj" secondAttribute="top" constant="6" id="G3v-cH-u5I"/>
-                                                <constraint firstItem="2qj-0c-PyM" firstAttribute="leading" secondItem="Tzb-Ft-usj" secondAttribute="leading" constant="20" id="OWV-C4-DFU"/>
+                                                <constraint firstItem="2qj-0c-PyM" firstAttribute="leading" secondItem="Tzb-Ft-usj" secondAttribute="leading" constant="10" id="OWV-C4-DFU"/>
                                                 <constraint firstAttribute="trailing" secondItem="yCm-0K-aVV" secondAttribute="trailing" constant="30" id="PV3-ng-7k0"/>
                                                 <constraint firstAttribute="bottom" secondItem="2qj-0c-PyM" secondAttribute="bottom" priority="999" constant="10" id="kWk-3W-cJG"/>
                                                 <constraint firstAttribute="height" constant="100" id="mls-oo-V5A"/>
@@ -313,10 +316,13 @@
                                                 <segment title="Weekly"/>
                                                 <segment title="Monthly"/>
                                             </segments>
+                                            <connections>
+                                                <action selector="WeeklyChartChanged:" destination="-1" eventType="valueChanged" id="eh2-iT-s7D"/>
+                                            </connections>
                                         </segmentedControl>
-                                        <view contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="OS9-0v-LSa" userLabel="Graph View">
+                                        <view contentMode="redraw" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="OS9-0v-LSa" userLabel="Graph View">
                                             <rect key="frame" x="0.0" y="520" width="398" height="128"/>
-                                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         </view>
                                     </subviews>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
@@ -324,7 +330,9 @@
                                         <constraint firstAttribute="trailing" secondItem="OS9-0v-LSa" secondAttribute="trailing" constant="35" id="1L6-29-rL8"/>
                                         <constraint firstItem="CEz-2Y-B49" firstAttribute="top" secondItem="RAk-zP-mR1" secondAttribute="bottom" constant="16" id="53l-vk-oCM"/>
                                         <constraint firstAttribute="trailing" secondItem="RAk-zP-mR1" secondAttribute="trailing" constant="35" id="Icf-aN-UVb"/>
+                                        <constraint firstAttribute="bottom" secondItem="OS9-0v-LSa" secondAttribute="bottom" constant="20" id="ads-SL-y2p"/>
                                         <constraint firstItem="RAk-zP-mR1" firstAttribute="leading" secondItem="RWj-Df-wgi" secondAttribute="leading" constant="35" id="dkK-bl-A0f"/>
+                                        <constraint firstItem="OS9-0v-LSa" firstAttribute="top" secondItem="CT8-m9-2Wy" secondAttribute="bottom" constant="20" id="eBR-cD-2gI"/>
                                         <constraint firstItem="OS9-0v-LSa" firstAttribute="leading" secondItem="RWj-Df-wgi" secondAttribute="leading" constant="35" id="ffP-vK-sYQ"/>
                                         <constraint firstItem="CT8-m9-2Wy" firstAttribute="leading" secondItem="RWj-Df-wgi" secondAttribute="leading" constant="35" id="hto-OF-C3W"/>
                                         <constraint firstAttribute="trailing" secondItem="CT8-m9-2Wy" secondAttribute="trailing" constant="35" id="j2M-Jh-KPO"/>
@@ -389,7 +397,7 @@
             <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="secondarySystemBackgroundColor">
-            <color red="0.94901960784313721" green="0.94901960784313721" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>

@@ -76,6 +76,7 @@ class HomeLoginViewController: UIViewController {
     
     
     @IBAction func signupButtonTapped(_ sender: UIButton) {
+<<<<<<< HEAD
         print("Sign Up button tapped!")
         
         // TODO: Add your navigation code here
@@ -94,4 +95,23 @@ class HomeLoginViewController: UIViewController {
         // Present it modally so it replaces onboarding
         self.present(tabContainer, animated: true, completion: nil)
     }
+=======
+            print("Sign Up button tapped!")
+
+            // 1. Make sure you have "SignupViewController.swift" and
+            //    "SignupViewController.xib" files in your project.
+            let signupVC = SignupViewController(nibName: "SignupViewController", bundle: nil)
+            
+            // 2. Push it onto the navigation stack
+            self.navigationController?.pushViewController(signupVC, animated: true)
+        }
+    
+    @IBAction func joinWithCodeButtonTapped(_ sender: UIButton) {
+            print("Join with Code button tapped!")
+
+            // ✅ Navigate to ChildHomeViewController (XIB)
+            let childHomeVC = JoinViewController(nibName: "JoinViewController", bundle: nil)
+            self.navigationController?.pushViewController(childHomeVC, animated: true)
+        }
+>>>>>>> dev
 }

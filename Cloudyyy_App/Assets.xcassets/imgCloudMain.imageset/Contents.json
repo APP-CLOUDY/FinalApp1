@@ -1,15 +1,27 @@
 {
   "images" : [
     {
+<<<<<<< HEAD
       "filename" : "cloudflaticon.png",
+=======
+      "filename" : "image.png",
+>>>>>>> dev
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+<<<<<<< HEAD
+=======
+      "filename" : "image 1.png",
+>>>>>>> dev
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
+<<<<<<< HEAD
+=======
+      "filename" : "image 2.png",
+>>>>>>> dev
       "idiom" : "universal",
       "scale" : "3x"
     }
