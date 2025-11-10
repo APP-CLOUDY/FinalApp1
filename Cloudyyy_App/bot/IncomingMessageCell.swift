@@ -25,7 +25,7 @@ final class IncomingMessageCell: UITableViewCell {
 
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         messageLabel.numberOfLines = 0
-        messageLabel.font = UIFont.systemFont(ofSize: 16)
+        messageLabel.font = UIFont(name: "San Francisco", size: 16)
         messageLabel.textColor = .darkText
         bubbleView.addSubview(messageLabel)
 
