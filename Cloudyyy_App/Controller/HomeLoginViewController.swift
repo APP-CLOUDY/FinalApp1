@@ -76,13 +76,15 @@ class HomeLoginViewController: UIViewController {
 
     
     @IBAction func signupButtonTapped(_ sender: UIButton) {
-        print("Sign Up button tapped!")
+            print("Sign Up button tapped!")
 
-        // TODO: Add your navigation code here
-        // let signupVC = SignupViewController()
-        // signupVC.modalPresentationStyle = .fullScreen
-        // self.present(signupVC, animated: true)
-    }
+            // 1. Make sure you have "SignupViewController.swift" and
+            //    "SignupViewController.xib" files in your project.
+            let signupVC = SignupViewController(nibName: "SignupViewController", bundle: nil)
+            
+            // 2. Push it onto the navigation stack
+            self.navigationController?.pushViewController(signupVC, animated: true)
+        }
     
     @IBAction func joinWithCodeButtonTapped(_ sender: UIButton) {
             print("Join with Code button tapped!")
