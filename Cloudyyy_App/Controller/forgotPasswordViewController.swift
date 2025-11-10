@@ -1,14 +1,15 @@
 //
-//  SignupViewController.swift
+//  forgotPasswordViewController.swift
 //  Cloudyyy_App
 //
-//  Created by user@5 on 07/11/25.
+//  Created by user@5 on 09/11/25.
 //
 
 import UIKit
 
-class SignupViewController: UIViewController {
+class forgotPasswordViewController: UIViewController {
 
+    
     @IBOutlet weak var topContainer: UIView!
     private var gradientLayer: CAGradientLayer?
     override func viewDidLoad() {
@@ -39,7 +40,6 @@ class SignupViewController: UIViewController {
             topContainer.layer.insertSublayer(gradient, at: 0)
             gradientLayer = gradient
         }
-
     @IBAction func backButtonTapped(_ sender: UIButton) {
         print("✅ Back button tapped")
         
@@ -49,6 +49,8 @@ class SignupViewController: UIViewController {
             self.dismiss(animated: true, completion: nil)
         }
     }
+
+
     /*
     // MARK: - Navigation
 

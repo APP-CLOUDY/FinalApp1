@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="23727" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23721"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -10,8 +10,9 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="LoginViewController" customModule="Cloudyyy_App" customModuleProvider="target">
             <connections>
-                <outlet property="emailTextField" destination="eoT-hA-gaz" id="ZHc-L8-fnU"/>
-                <outlet property="passwordTextField" destination="Tl1-J2-fkb" id="mjv-1R-FYd"/>
+                <outlet property="emailTextField" destination="eoT-hA-gaz" id="q9l-OO-gMM"/>
+                <outlet property="passwordTextField" destination="Tl1-J2-fkb" id="tka-eh-N9Z"/>
+                <outlet property="topContainer" destination="eDb-mT-pvK" id="c2q-D2-632"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>
@@ -23,6 +24,14 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="eDb-mT-pvK" userLabel="TopContainer">
                     <rect key="frame" x="0.0" y="0.0" width="393" height="322.66666666666669"/>
                     <subviews>
+                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="XYO-fg-x2Y">
+                            <rect key="frame" x="14.999999999999996" y="70" width="39.666666666666657" height="34.333333333333343"/>
+                            <state key="normal" title="Button"/>
+                            <buttonConfiguration key="configuration" style="plain" image="chevron.left" catalog="system"/>
+                            <connections>
+                                <action selector="backButtonTapped:" destination="-1" eventType="touchUpInside" id="6nB-Ik-Sua"/>
+                            </connections>
+                        </button>
                         <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="top" spacing="25" translatesAutoresizingMaskIntoConstraints="NO" id="tto-Ne-Quu">
                             <rect key="frame" x="20" y="125.99999999999999" width="393" height="156.66666666666663"/>
                             <subviews>
@@ -63,7 +72,9 @@
                     </subviews>
                     <color key="backgroundColor" systemColor="viewFlipsideBackgroundColor"/>
                     <constraints>
+                        <constraint firstItem="XYO-fg-x2Y" firstAttribute="leading" secondItem="eDb-mT-pvK" secondAttribute="leading" constant="15" id="0Xu-2C-Nk2"/>
                         <constraint firstAttribute="bottom" secondItem="tto-Ne-Quu" secondAttribute="bottom" constant="40" id="PQw-1D-Ij0"/>
+                        <constraint firstItem="XYO-fg-x2Y" firstAttribute="top" secondItem="eDb-mT-pvK" secondAttribute="top" constant="70" id="gMp-CT-qgI"/>
                         <constraint firstAttribute="trailing" secondItem="tto-Ne-Quu" secondAttribute="trailing" constant="-20" id="gRt-vJ-vkB"/>
                         <constraint firstItem="tto-Ne-Quu" firstAttribute="leading" secondItem="eDb-mT-pvK" secondAttribute="leading" constant="20" id="urf-GZ-Itl"/>
                     </constraints>
@@ -87,7 +98,7 @@
                                         <constraint firstAttribute="height" constant="50" id="8sM-ga-MP9"/>
                                     </constraints>
                                     <fontDescription key="fontDescription" type="system" pointSize="16"/>
-                                    <textInputTraits key="textInputTraits"/>
+                                    <textInputTraits key="textInputTraits" keyboardType="emailAddress"/>
                                 </textField>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hFi-wy-8AW">
                                     <rect key="frame" x="0.0" y="83" width="353" height="20"/>
@@ -136,6 +147,9 @@
                                             <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="14"/>
                                             <inset key="imageEdgeInsets" minX="0.0" minY="0.0" maxX="2.2250738585072014e-308" maxY="0.0"/>
                                             <state key="normal" title="Forgot Password?"/>
+                                            <connections>
+                                                <action selector="forgotPasswordButtonTapped:" destination="-1" eventType="touchUpInside" id="SiV-RV-FJg"/>
+                                            </connections>
                                         </button>
                                     </subviews>
                                 </stackView>
@@ -249,22 +263,23 @@
     </objects>
     <resources>
         <image name="apple.logo" catalog="system" width="105" height="128"/>
+        <image name="chevron.left" catalog="system" width="97" height="128"/>
         <image name="google_logo" width="100" height="100"/>
         <image name="square" catalog="system" width="128" height="114"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemBlueColor">
-            <color red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.0" green="0.53333333333333333" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemGray4Color">
-            <color red="0.81960784310000001" green="0.81960784310000001" blue="0.83921568629999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.81960784313725488" green="0.81960784313725488" blue="0.83921568627450982" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemGray6Color">
-            <color red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.94901960784313721" green="0.94901960784313721" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemGrayColor">
-            <color red="0.5568627451" green="0.5568627451" blue="0.57647058819999997" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.55686274509803924" green="0.55686274509803924" blue="0.57647058823529407" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="viewFlipsideBackgroundColor">
             <color red="0.12156862745098039" green="0.12941176470588237" blue="0.14117647058823529" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
