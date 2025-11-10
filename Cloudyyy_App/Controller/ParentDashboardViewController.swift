@@ -16,23 +16,46 @@ class ParentDashboardViewController: UIViewController {
     
     @IBOutlet var WeeklyChart: UISegmentedControl!
     
+    @IBOutlet var TodayGlimpse: UIStackView!
     
+    @IBOutlet var PendingApproval: UIView!
+    @IBOutlet var rewardBox: UIView!
     
         // MARK: - Layers
             private var backgroundGradientLayer: CAGradientLayer?
             private var ringGradientLayer: CAGradientLayer?
             private var progressLayer: CAShapeLayer?
+    
+    @IBAction func WeeklyChartChanged(_ sender: UISegmentedControl) {
+        guard let chartView = ContentView.subviews.first(where: { $0 is WeeklyChartView }) as? WeeklyChartView else { return }
+        chartView.updateMode(isWeekly: sender.selectedSegmentIndex == 0)
+    }
+
 
             // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackgroundGradient()
+        setupWeeklySegmentControl()
+
 
         let chartView = WeeklyChartView()
         chartView.translatesAutoresizingMaskIntoConstraints = false
         chartView.backgroundColor = UIColor.lightGray// light gray
         chartView.layer.cornerRadius = 20
         
+        let rewardsTap = UITapGestureRecognizer(target: self, action: #selector(rewardsBoxTapped))
+           rewardBox.isUserInteractionEnabled = true
+           rewardBox.addGestureRecognizer(rewardsTap)
+        
+        let approvalsTap = UITapGestureRecognizer(target: self, action: #selector(approvalsBoxTapped))
+            PendingApproval.isUserInteractionEnabled = true
+            PendingApproval.addGestureRecognizer(approvalsTap)
+
+            // ✅ Today’s Glimpse tap
+            let glimpseTap = UITapGestureRecognizer(target: self, action: #selector(glimpseBoxTapped))
+            TodayGlimpse.isUserInteractionEnabled = true
+            TodayGlimpse.addGestureRecognizer(glimpseTap)
 
         // ✅ Add to the same container as your segmented control
         ContentView.addSubview(chartView)
@@ -46,7 +69,49 @@ class ParentDashboardViewController: UIViewController {
         ])
     }
 
+    // MARK: - Weekly Segment Control Styling
+    private func setupWeeklySegmentControl() {
+        // Background and tint setup
+        WeeklyChart.backgroundColor = UIColor(white: 1, alpha: 0.15)
+        WeeklyChart.selectedSegmentTintColor = .white
 
+        // Text appearance
+        let normalAttrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.white.withAlphaComponent(0.9),
+            .font: UIFont.systemFont(ofSize: 16, weight: .medium)
+        ]
+
+        let selectedAttrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.black,
+            .font: UIFont.boldSystemFont(ofSize: 16)
+        ]
+
+        WeeklyChart.setTitleTextAttributes(normalAttrs, for: .normal)
+        WeeklyChart.setTitleTextAttributes(selectedAttrs, for: .selected)
+
+        // Rounded corners
+        WeeklyChart.layer.cornerRadius = 10
+        WeeklyChart.layer.masksToBounds = true
+    }
+    @objc private func approvalsBoxTapped() {
+        let approvalVC = ApprovalViewController()
+        navigationController?.pushViewController(approvalVC, animated: true)
+    }
+
+
+    @objc private func glimpseBoxTapped() {
+        print("Today's Glimpse tapped!") // Debug log
+
+        // Instead of opening a new screen, switch to Progress tab
+        tabBarController?.selectedIndex = 1 // 1 = Progress tab
+    }
+
+    @objc private func rewardsBoxTapped() {
+        print("Rewards box tapped!") // Debug log
+
+        // Switch to Rewards tab (instead of presenting)
+        tabBarController?.selectedIndex = 3 // 3 = Rewards tab
+    }
 
             override func viewDidLayoutSubviews() {
                 super.viewDidLayoutSubviews()
