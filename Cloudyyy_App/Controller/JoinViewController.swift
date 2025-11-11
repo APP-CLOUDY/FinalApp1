@@ -50,15 +50,30 @@ class JoinViewController: UIViewController {
     }
     
     @IBAction func joinButtonTapped(_ sender: UIButton) {
+        // Create your ChildHomeViewController (from its XIB)
         print("Join with Code button tapped!")
-                
-                // Create the new capsule nav container (MainTabContainerViewController)
-                let tabContainer = MainTabContainerViewController()
-                tabContainer.modalPresentationStyle = .fullScreen
-                
-                // Present it modally so it replaces onboarding
-                self.present(tabContainer, animated: true, completion: nil)
+
+            // Initialize your ChildHomeViewController (programmatic)
+            let childHomeVC = ChildHomeViewController()
+
+            // Wrap it inside a navigation controller (so you can push ChatBot later)
+            let navController = UINavigationController(rootViewController: childHomeVC)
+            navController.modalPresentationStyle = .fullScreen
+            navController.setNavigationBarHidden(true, animated: false)
+
+            // Replace the window’s root view controller — guaranteed to work
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                window.rootViewController = navController
+                window.makeKeyAndVisible()
+
+                // Optional: smooth fade transition
+                let transition = CATransition()
+                transition.type = .fade
+                transition.duration = 0.3
+                window.layer.add(transition, forKey: kCATransition)
             }
+    }
     /*
     // MARK: - Navigation
 

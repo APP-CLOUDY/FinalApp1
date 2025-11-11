@@ -86,24 +86,27 @@ final class ChildHomeViewController: UIViewController {
         // Quote bubble
         quoteBubble.backgroundColor = UIColor(red: 240/255, green: 228/255, blue: 241/255, alpha: 1)
         quoteBubble.layer.cornerRadius = 20
+        quoteBubble.layer.masksToBounds = true
         quoteBubble.layer.shadowColor = UIColor.black.cgColor
         quoteBubble.layer.shadowOpacity = 0.1
         quoteBubble.layer.shadowRadius = 4
         quoteBubble.layer.shadowOffset = CGSize(width: 0, height: 2)
 
         quoteLabel.text = "Let’s Finish our Missions today !!"
-        quoteLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        quoteLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         quoteLabel.textColor = .black
         quoteLabel.numberOfLines = 0
+        quoteLabel.textAlignment = .center
+        quoteLabel.lineBreakMode = .byWordWrapping
 
         quoteBubble.addSubview(quoteLabel)
         quoteLabel.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            quoteLabel.topAnchor.constraint(equalTo: quoteBubble.topAnchor, constant: 10),
-            quoteLabel.bottomAnchor.constraint(equalTo: quoteBubble.bottomAnchor, constant: -10),
-            quoteLabel.leadingAnchor.constraint(equalTo: quoteBubble.leadingAnchor, constant: 12),
-            quoteLabel.trailingAnchor.constraint(equalTo: quoteBubble.trailingAnchor, constant: -12)
-        ])
+            NSLayoutConstraint.activate([
+                quoteLabel.topAnchor.constraint(equalTo: quoteBubble.topAnchor, constant: 12),
+                quoteLabel.leadingAnchor.constraint(equalTo: quoteBubble.leadingAnchor, constant: 16),
+                quoteLabel.trailingAnchor.constraint(equalTo: quoteBubble.trailingAnchor, constant: -16),
+                quoteLabel.bottomAnchor.constraint(equalTo: quoteBubble.bottomAnchor, constant: -12)
+            ])
 
         // Mascot
         mascotImageView.image = UIImage(named: "imgCloudMain")
@@ -143,7 +146,7 @@ final class ChildHomeViewController: UIViewController {
             guitarCloud.widthAnchor.constraint(equalToConstant: 50),
             guitarCloud.heightAnchor.constraint(equalToConstant: 50),
 
-            powerLabel.leadingAnchor.constraint(equalTo: guitarCloud.trailingAnchor, constant: 12),
+            powerLabel.leadingAnchor.constraint(equalTo: guitarCloud.trailingAnchor, constant: 36),
             powerLabel.topAnchor.constraint(equalTo: achievementCard.topAnchor, constant: 20),
             powerLabel.trailingAnchor.constraint(equalTo: achievementCard.trailingAnchor, constant: -12),
 
@@ -154,7 +157,8 @@ final class ChildHomeViewController: UIViewController {
 
         // Achievements
         achievementsTitle.text = "Your achievements :"
-        achievementsTitle.font = UIFont.boldSystemFont(ofSize: 18)
+        achievementsTitle.font = UIFont.systemFont(ofSize: 22, weight: .bold)
+
         achievementsTitle.textColor = .white
 
         habitIcon.image = UIImage(named: "imgCloudGuitar")
@@ -212,9 +216,11 @@ final class ChildHomeViewController: UIViewController {
             bellButton.widthAnchor.constraint(equalToConstant: 26),
             bellButton.heightAnchor.constraint(equalToConstant: 26),
 
-            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 30),
-            quoteBubble.leadingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: -30),
-            quoteBubble.widthAnchor.constraint(equalToConstant: 200),
+            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70),
+            quoteBubble.leadingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: -60),
+            quoteBubble.widthAnchor.constraint(equalToConstant: 180),
+            quoteBubble.heightAnchor.constraint(equalToConstant: 80),
+            
             
 
             mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 60),
@@ -227,40 +233,44 @@ final class ChildHomeViewController: UIViewController {
             achievementCard.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
             achievementCard.heightAnchor.constraint(equalToConstant: 100),
 
-            achievementsTitle.topAnchor.constraint(equalTo: achievementCard.bottomAnchor, constant: 24),
+            achievementsTitle.topAnchor.constraint(equalTo: achievementCard.bottomAnchor, constant: 28),
             achievementsTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
-            habitIcon.leadingAnchor.constraint(equalTo: achievementsTitle.leadingAnchor),
-            habitIcon.topAnchor.constraint(equalTo: achievementsTitle.bottomAnchor, constant: 12),
-            habitIcon.widthAnchor.constraint(equalToConstant: 30),
-            habitIcon.heightAnchor.constraint(equalToConstant: 30),
+            // Habits layout (vertical)
+           
+                habitIcon.leadingAnchor.constraint(equalTo: achievementsTitle.leadingAnchor),
+                habitIcon.topAnchor.constraint(equalTo: achievementsTitle.bottomAnchor, constant: 20),
+                habitIcon.widthAnchor.constraint(equalToConstant: 36),
+                habitIcon.heightAnchor.constraint(equalToConstant: 36),
 
-            habitLabel.centerYAnchor.constraint(equalTo: habitIcon.centerYAnchor),
-            habitLabel.leadingAnchor.constraint(equalTo: habitIcon.trailingAnchor, constant: 10),
+                habitLabel.topAnchor.constraint(equalTo: habitIcon.topAnchor),
+                habitLabel.leadingAnchor.constraint(equalTo: habitIcon.trailingAnchor, constant: 10),
 
-            habitProgress.centerYAnchor.constraint(equalTo: habitIcon.centerYAnchor),
-            habitProgress.leadingAnchor.constraint(equalTo: habitLabel.trailingAnchor, constant: 20),
-            habitProgress.trailingAnchor.constraint(equalTo: habitPercentLabel.leadingAnchor, constant: -10),
-            habitProgress.widthAnchor.constraint(equalToConstant: 140),
+                habitProgress.topAnchor.constraint(equalTo: habitLabel.bottomAnchor, constant: 8),
+                habitProgress.leadingAnchor.constraint(equalTo: habitLabel.leadingAnchor),
+                habitProgress.trailingAnchor.constraint(equalTo: habitPercentLabel.leadingAnchor, constant: -10),
+                habitProgress.heightAnchor.constraint(equalToConstant: 8),
 
-            habitPercentLabel.centerYAnchor.constraint(equalTo: habitIcon.centerYAnchor),
-            habitPercentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+                habitPercentLabel.centerYAnchor.constraint(equalTo: habitProgress.centerYAnchor),
+                habitPercentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+           
+
 
             extraIcon.leadingAnchor.constraint(equalTo: achievementsTitle.leadingAnchor),
-            extraIcon.topAnchor.constraint(equalTo: habitIcon.bottomAnchor, constant: 30),
-            extraIcon.widthAnchor.constraint(equalToConstant: 30),
-            extraIcon.heightAnchor.constraint(equalToConstant: 30),
+                extraIcon.topAnchor.constraint(equalTo: habitProgress.bottomAnchor, constant: 30),
+                extraIcon.widthAnchor.constraint(equalToConstant: 36),
+                extraIcon.heightAnchor.constraint(equalToConstant: 36),
 
-            extraLabel.centerYAnchor.constraint(equalTo: extraIcon.centerYAnchor),
-            extraLabel.leadingAnchor.constraint(equalTo: extraIcon.trailingAnchor, constant: 10),
+                extraLabel.topAnchor.constraint(equalTo: extraIcon.topAnchor),
+                extraLabel.leadingAnchor.constraint(equalTo: extraIcon.trailingAnchor, constant: 10),
 
-            extraProgress.centerYAnchor.constraint(equalTo: extraIcon.centerYAnchor),
-            extraProgress.leadingAnchor.constraint(equalTo: extraLabel.trailingAnchor, constant: 20),
-            extraProgress.trailingAnchor.constraint(equalTo: extraPercentLabel.leadingAnchor, constant: -10),
-            extraProgress.widthAnchor.constraint(equalToConstant: 140),
+                extraProgress.topAnchor.constraint(equalTo: extraLabel.bottomAnchor, constant: 8),
+                extraProgress.leadingAnchor.constraint(equalTo: extraLabel.leadingAnchor),
+                extraProgress.trailingAnchor.constraint(equalTo: extraPercentLabel.leadingAnchor, constant: -10),
+                extraProgress.heightAnchor.constraint(equalToConstant: 8),
 
-            extraPercentLabel.centerYAnchor.constraint(equalTo: extraIcon.centerYAnchor),
-            extraPercentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+                extraPercentLabel.centerYAnchor.constraint(equalTo: extraProgress.centerYAnchor),
+                extraPercentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
         ])
     }
 
