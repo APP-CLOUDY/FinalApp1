@@ -1,128 +1,146 @@
-//
-//  ApprovalViewController.swift
-//  Cloudyyy_App
-//
-//  Created by user@10 on 09/11/25.
-//
-
 import UIKit
 
 class ApprovalViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
-    
-    @IBOutlet var SegmentControl: UISegmentedControl!
-    
-    private var backgroundGradientLayer: CAGradientLayer?
-    private var tableView: UITableView!
-    
-    // MARK: - Sample Data
+
+    private let nameLabel = UILabel()
+    private let segmentControl = UISegmentedControl(items: ["Pending", "Approved", "Redeemed"])
+    private let tableView = UITableView()
+    private var backgroundGradientLayer: CAGradientLayer!
+    private var currentData: [[String: String]] = []
+
+    // Sample Data
     private let pendingTasks = [
         ["title": "Quick Reward", "subtitle": "Water Your Plant", "date": "Requested on 24/10/2020", "points": "100 ⭐️"],
         ["title": "Task", "subtitle": "Clean Your Room", "date": "Requested on 23/10/2020", "points": "80 ⭐️"]
     ]
-    
     private let approvedTasks = [
         ["title": "Task", "subtitle": "Finish Homework", "date": "Approved on 22/10/2020", "points": "100 ⭐️"]
     ]
-    
     private let redeemedTasks = [
         ["title": "DREAM IT", "subtitle": "Build A Cycle", "date": "Redeemed on 26/10/2020", "points": "100 ⭐️"]
     ]
-    
+
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("ApprovalViewController")
-        setupBackgroundGradient()
-        setupSegmentControl()
-        setupTableView()
+        setupGradient()
+        setupNavigationBar()
+        setupUI()
+        updateData(for: 0)
     }
-    
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        tabBarController?.tabBar.isHidden = true
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        tabBarController?.tabBar.isHidden = false
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        backgroundGradientLayer?.frame = view.bounds
+        backgroundGradientLayer.frame = view.bounds
     }
-    
-    // MARK: - Setup Segment Control
-    private func setupSegmentControl() {
-        SegmentControl.backgroundColor = UIColor(white: 1, alpha: 0.15)
-        SegmentControl.selectedSegmentTintColor = .white
-        
-        let normalAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.white.withAlphaComponent(0.9),
-            .font: UIFont.systemFont(ofSize: 16, weight: .medium)
-        ]
-        let selectedAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.black,
-            .font: UIFont.boldSystemFont(ofSize: 16)
-        ]
-        
-        SegmentControl.setTitleTextAttributes(normalAttrs, for: .normal)
-        SegmentControl.setTitleTextAttributes(selectedAttrs, for: .selected)
-        SegmentControl.layer.cornerRadius = 10
-        SegmentControl.layer.masksToBounds = true
-        
-        // Add action
-        SegmentControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+
+    // MARK: - Navigation Bar Setup
+    private func setupNavigationBar() {
+        title = "Approval"
+        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationController?.navigationBar.tintColor = .white
+        navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.isTranslucent = true
+        navigationItem.backButtonDisplayMode = .minimal
     }
-    
-    // MARK: - Setup TableView
-    private func setupTableView() {
-        tableView = UITableView(frame: .zero, style: .plain)
+
+    // MARK: - Gradient Background
+    private func setupGradient() {
+        backgroundGradientLayer = CAGradientLayer()
+        backgroundGradientLayer.colors = [
+            UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1).cgColor,
+            UIColor(red: 24/255, green: 30/255, blue: 74/255, alpha: 1).cgColor
+        ]
+        backgroundGradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        backgroundGradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        backgroundGradientLayer.frame = view.bounds
+        view.layer.insertSublayer(backgroundGradientLayer, at: 0)
+    }
+
+    // MARK: - Setup UI
+    private func setupUI() {
+        view.addSubview(nameLabel)
+        view.addSubview(segmentControl)
+        view.addSubview(tableView)
+
+        nameLabel.text = "Bob"
+        nameLabel.font = UIFont.systemFont(ofSize: 18)
+        nameLabel.textColor = .white
+
+        segmentControl.selectedSegmentIndex = 0
+        segmentControl.backgroundColor = UIColor(white: 1, alpha: 0.15)
+        segmentControl.selectedSegmentTintColor = .white
+        segmentControl.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
+        segmentControl.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
+        segmentControl.layer.cornerRadius = 10
+        segmentControl.clipsToBounds = true
+        segmentControl.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
+
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 140
         tableView.register(ApprovalCell.self, forCellReuseIdentifier: "ApprovalCell")
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        
-        view.addSubview(tableView)
-        
+
+        // Enable Auto Layout
+        [nameLabel, segmentControl, tableView].forEach { $0.translatesAutoresizingMaskIntoConstraints = false }
+
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: SegmentControl.bottomAnchor, constant: 20),
+            nameLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            nameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+
+            segmentControl.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 16),
+            segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            segmentControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            segmentControl.heightAnchor.constraint(equalToConstant: 36),
+
+            tableView.topAnchor.constraint(equalTo: segmentControl.bottomAnchor, constant: 20),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
-    
-    @objc private func segmentChanged() {
-        UIView.transition(with: tableView, duration: 0.25, options: .transitionCrossDissolve, animations: {
-            self.tableView.reloadData()
-        })
+
+    // MARK: - Segment Logic
+    @objc private func segmentChanged(_ sender: UISegmentedControl) {
+        updateData(for: sender.selectedSegmentIndex)
     }
-    
-    // MARK: - TableView DataSource
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch SegmentControl.selectedSegmentIndex {
-        case 0: return pendingTasks.count
-        case 1: return approvedTasks.count
-        case 2: return redeemedTasks.count
-        default: return 0
+
+    private func updateData(for index: Int) {
+        switch index {
+        case 0: currentData = pendingTasks
+        case 1: currentData = approvedTasks
+        case 2: currentData = redeemedTasks
+        default: currentData = []
         }
+        tableView.reloadData()
     }
-    
+
+    // MARK: - Table DataSource
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return currentData.count
+    }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: "ApprovalCell", for: indexPath) as? ApprovalCell else {
             return UITableViewCell()
         }
-        
-        let data: [String: String]
-        let showButtons: Bool
-        
-        switch SegmentControl.selectedSegmentIndex {
-        case 0:
-            data = pendingTasks[indexPath.row]
-            showButtons = true
-        case 1:
-            data = approvedTasks[indexPath.row]
-            showButtons = false
-        case 2:
-            data = redeemedTasks[indexPath.row]
-            showButtons = false
-        default:
-            data = [:]
-            showButtons = false
-        }
-        
+
+        let data = currentData[indexPath.row]
+        let showButtons = (segmentControl.selectedSegmentIndex == 0)
         cell.configure(
             title: data["title"] ?? "",
             subtitle: data["subtitle"] ?? "",
@@ -130,23 +148,16 @@ class ApprovalViewController: UIViewController, UITableViewDelegate, UITableView
             points: data["points"] ?? "",
             showButtons: showButtons
         )
+
+        // Handle button actions
+        cell.onApproveTapped = {
+            print("✅ Approved: \(data["title"] ?? "")")
+        }
+
+        cell.onDeclineTapped = {
+            print("❌ Declined: \(data["title"] ?? "")")
+        }
+
         return cell
-    }
-    
-    // MARK: - Gradient Setup
-    private func setupBackgroundGradient() {
-        backgroundGradientLayer?.removeFromSuperlayer()
-        
-        let gradient = CAGradientLayer()
-        gradient.colors = [
-            UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1).cgColor,
-            UIColor(red: 24/255, green: 30/255, blue: 74/255, alpha: 1).cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint = CGPoint(x: 1, y: 1)
-        gradient.frame = view.bounds
-        
-        view.layer.insertSublayer(gradient, at: 0)
-        backgroundGradientLayer = gradient
     }
 }

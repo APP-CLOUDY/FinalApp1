@@ -9,6 +9,15 @@ import UIKit
 
 class RewardHomeViewController: UIViewController {
     
+    
+
+    @IBAction func addNewRewardTapped(_ sender: UIButton) {
+        let newRewardVC = NewRewardViewController()
+            navigationController?.pushViewController(newRewardVC, animated: true)
+        
+    }
+    
+    
     private var backgroundGradientLayer: CAGradientLayer?
     
     override func viewDidLoad() {
@@ -23,6 +32,8 @@ class RewardHomeViewController: UIViewController {
         backgroundGradientLayer?.frame = view.bounds
     }
     
+       
+
     // MARK: - Gradient Setup
     private func setupBackgroundGradient() {
         // Remove existing gradient (avoid duplicates when layout refreshes)

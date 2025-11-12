@@ -100,6 +100,10 @@ class ParentDashboardViewController: UIViewController {
 
 
     @objc private func glimpseBoxTapped() {
+        let progressVC = ProgressViewController()
+        progressVC.modalPresentationStyle = .fullScreen
+        present(progressVC, animated: true)
+        
         print("Today's Glimpse tapped!") // Debug log
 
         // Instead of opening a new screen, switch to Progress tab
