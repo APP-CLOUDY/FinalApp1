@@ -12,25 +12,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
 
-
     func scene(_ scene: UIScene,
-               willConnectTo session: UISceneSession,
-               options connectionOptions: UIScene.ConnectionOptions) {
-        guard let windowScene = (scene as? UIWindowScene) else { return }
+                   willConnectTo session: UISceneSession,
+                   options connectionOptions: UIScene.ConnectionOptions) {
+            guard let windowScene = (scene as? UIWindowScene) else { return }
 
-        window = UIWindow(windowScene: windowScene)
+            window = UIWindow(windowScene: windowScene)
 
-        // Load initial ViewController from Main.storyboard
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        let startVC = storyboard.instantiateViewController(withIdentifier: "OnboardingViewController") as! ViewController
-        
-        // Add navigation controller to manage XIB transitions later
-        let nav = UINavigationController(rootViewController: startVC)
-        nav.setNavigationBarHidden(true, animated: false)
+            // Load initial ViewController from Main.storyboard
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            let startVC = storyboard.instantiateViewController(withIdentifier: "OnboardingViewController") as! ViewController
+            
+            // Add navigation controller to manage XIB transitions later
+            let nav = UINavigationController(rootViewController: startVC)
+            nav.setNavigationBarHidden(true, animated: false)
 
-        window?.rootViewController = nav
-        window?.makeKeyAndVisible()
-    }
+            window?.rootViewController = nav
+            window?.makeKeyAndVisible()
+        }
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
