@@ -20,7 +20,10 @@ final class ChoiceMessageCell: UITableViewCell {
         setup()
     }
 
-    required init?(coder: NSCoder) { super.init(coder: coder); setup() }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
 
     private func setup() {
         backgroundColor = .clear
@@ -35,7 +38,7 @@ final class ChoiceMessageCell: UITableViewCell {
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         messageLabel.numberOfLines = 0
         messageLabel.font = UIFont.systemFont(ofSize: 16)
-        messageLabel.textColor = .darkText
+        messageLabel.textColor = .black
         bubbleView.addSubview(messageLabel)
 
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -44,17 +47,10 @@ final class ChoiceMessageCell: UITableViewCell {
         stack.alignment = .center
         bubbleView.addSubview(stack)
 
-        [leftButton, rightButton].forEach { btn in
-            btn.translatesAutoresizingMaskIntoConstraints = false
-            btn.heightAnchor.constraint(equalToConstant: 48).isActive = true
-            btn.layer.cornerRadius = 18
-            btn.setTitleColor(.white, for: .normal)
-            btn.backgroundColor = UIColor(red: 36/255, green: 64/255, blue: 110/255, alpha: 1)
-            stack.addArrangedSubview(btn)
-            btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
-            btn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 18, bottom: 8, right: 18)
-            btn.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
-        }
+        configureButton(leftButton)
+        configureButton(rightButton)
+        stack.addArrangedSubview(leftButton)
+        stack.addArrangedSubview(rightButton)
 
         NSLayoutConstraint.activate([
             bubbleView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
@@ -73,11 +69,29 @@ final class ChoiceMessageCell: UITableViewCell {
         ])
     }
 
+    private func configureButton(_ button: UIButton) {
+        if #available(iOS 15.0, *) {
+            var config = UIButton.Configuration.filled()
+            config.cornerStyle = .capsule
+            config.baseBackgroundColor = UIColor(red: 36/255, green: 64/255, blue: 110/255, alpha: 1)
+            config.baseForegroundColor = .white
+            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20)
+            button.configuration = config
+        } else {
+            button.layer.cornerRadius = 18
+            button.backgroundColor = UIColor(red: 36/255, green: 64/255, blue: 110/255, alpha: 1)
+            button.setTitleColor(.white, for: .normal)
+        }
+
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        button.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
+    }
+
     func configure(with model: ChatMessage) {
         messageLabel.text = model.text
         if let choices = model.choices {
-            if choices.count > 0 { leftButton.setTitle(choices[0], for: .normal) } else { leftButton.setTitle("", for: .normal) }
-            if choices.count > 1 { rightButton.setTitle(choices[1], for: .normal) } else { rightButton.setTitle("", for: .normal) }
+            leftButton.setTitle(choices.count > 0 ? choices[0] : "", for: .normal)
+            rightButton.setTitle(choices.count > 1 ? choices[1] : "", for: .normal)
         }
     }
 

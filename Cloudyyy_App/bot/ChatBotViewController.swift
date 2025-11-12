@@ -41,11 +41,12 @@ final class ChatBotViewController: UIViewController {
         bgView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bgView)
         gradientLayer.colors = [
-            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
-            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
+            UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 1).cgColor,
+            UIColor(red: 30/255, green: 45/255, blue: 85/255, alpha: 1).cgColor
         ]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+
         bgView.layer.insertSublayer(gradientLayer, at: 0)
 
         // back chevron
@@ -62,6 +63,7 @@ final class ChatBotViewController: UIViewController {
         avatarImageView.contentMode = .scaleAspectFit
         avatarImageView.image = UIImage(named: "imgCloudMain")
         view.addSubview(avatarImageView)
+        
 
         // table view
         tableView.translatesAutoresizingMaskIntoConstraints = false
