@@ -20,7 +20,7 @@ class SplashViewControllerViewController: UIViewController {
             }
         })
 
-        let homeLoginVC = HomeLoginViewController(nibName: "HomeLoginViewController", bundle: nil)
-        self.navigationController?.pushViewController(homeLoginVC, animated: true)
+//        let homeLoginVC = HomeLoginViewController(nibName: "HomeLoginViewController", bundle: nil)
+//        self.navigationController?.pushViewController(homeLoginVC, animated: true)
     }
 }

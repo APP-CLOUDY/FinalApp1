@@ -29,7 +29,7 @@
                         <view contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tEt-3C-3So" userLabel="Content View">
                             <rect key="frame" x="0.0" y="0.0" width="393" height="744.33333333333337"/>
                             <subviews>
-                                <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Irl-2S-vnh">
+                                <stackView opaque="NO" contentMode="scaleToFill" ambiguous="YES" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Irl-2S-vnh">
                                     <rect key="frame" x="0.0" y="0.0" width="393" height="744.33333333333337"/>
                                     <subviews>
                                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="0Lv-kW-D9J">
@@ -166,11 +166,11 @@
             <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
             <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
-                <constraint firstItem="yV2-Bn-U3A" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="ZoS-LW-MOk"/>
-                <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="yV2-Bn-U3A" secondAttribute="trailing" id="hvi-tR-UM1"/>
-                <constraint firstItem="yV2-Bn-U3A" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="j46-93-JXi"/>
+                <constraint firstItem="yV2-Bn-U3A" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" constant="118" id="ZoS-LW-MOk"/>
+                <constraint firstAttribute="trailing" secondItem="yV2-Bn-U3A" secondAttribute="trailing" id="hvi-tR-UM1"/>
+                <constraint firstItem="yV2-Bn-U3A" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="j46-93-JXi"/>
                 <constraint firstItem="tEt-3C-3So" firstAttribute="width" secondItem="i5M-Pr-FkT" secondAttribute="width" id="lGH-RG-h0i"/>
-                <constraint firstItem="fnl-2z-Ty3" firstAttribute="bottom" secondItem="yV2-Bn-U3A" secondAttribute="bottom" id="z1V-3d-Jhd"/>
+                <constraint firstAttribute="bottom" secondItem="yV2-Bn-U3A" secondAttribute="bottom" id="z1V-3d-Jhd"/>
             </constraints>
             <point key="canvasLocation" x="139" y="154"/>
         </view>

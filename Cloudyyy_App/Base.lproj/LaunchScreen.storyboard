@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
@@ -12,11 +12,45 @@
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                    <view key="view" contentMode="scaleToFill" id="btA-jL-4X3">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="cloudyy_logo" translatesAutoresizingMaskIntoConstraints="NO" id="RYv-mH-dhg">
+                                <rect key="frame" x="121.66666666666669" y="271" width="150" height="150"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="150" id="iCy-tb-DHE"/>
+                                    <constraint firstAttribute="width" constant="150" id="vyE-7e-wxe"/>
+                                </constraints>
+                            </imageView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Cloudyyy" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="6SC-5p-xf3">
+                                <rect key="frame" x="122" y="441" width="149" height="40"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="40" id="gN1-ER-Vd3"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" name="HelveticaNeue-Bold" family="Helvetica Neue" pointSize="34"/>
+                                <color key="textColor" systemColor="systemBackgroundColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Organize tasks, Motivate Kids, Track Progress" textAlignment="center" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Dzk-8c-wQi">
+                                <rect key="frame" x="30" y="491" width="333" height="18"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                                <color key="textColor" systemColor="secondarySystemBackgroundColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="h8S-qH-tD4"/>
+                        <color key="backgroundColor" systemColor="systemBlueColor"/>
+                        <constraints>
+                            <constraint firstItem="Dzk-8c-wQi" firstAttribute="top" secondItem="6SC-5p-xf3" secondAttribute="bottom" constant="10" id="1mP-cu-9LE"/>
+                            <constraint firstItem="RYv-mH-dhg" firstAttribute="centerY" secondItem="btA-jL-4X3" secondAttribute="centerY" constant="-80" id="Lhw-c1-RbL"/>
+                            <constraint firstItem="RYv-mH-dhg" firstAttribute="centerX" secondItem="btA-jL-4X3" secondAttribute="centerX" id="Qqy-xe-bd1"/>
+                            <constraint firstItem="6SC-5p-xf3" firstAttribute="centerX" secondItem="btA-jL-4X3" secondAttribute="centerX" id="gPG-OM-HEB"/>
+                            <constraint firstItem="Dzk-8c-wQi" firstAttribute="centerX" secondItem="btA-jL-4X3" secondAttribute="centerX" id="lY5-VY-05V"/>
+                            <constraint firstItem="Dzk-8c-wQi" firstAttribute="leading" secondItem="h8S-qH-tD4" secondAttribute="leading" constant="30" id="nv7-hy-x23"/>
+                            <constraint firstItem="6SC-5p-xf3" firstAttribute="top" secondItem="RYv-mH-dhg" secondAttribute="bottom" constant="20" id="pX5-OI-mGg"/>
+                            <constraint firstItem="h8S-qH-tD4" firstAttribute="trailing" secondItem="Dzk-8c-wQi" secondAttribute="trailing" constant="30" id="xdz-7C-h1g"/>
+                        </constraints>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
@@ -25,8 +59,15 @@
         </scene>
     </scenes>
     <resources>
+        <image name="cloudyy_logo" width="100" height="100"/>
+        <systemColor name="secondarySystemBackgroundColor">
+            <color red="0.94901960784313721" green="0.94901960784313721" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+        <systemColor name="systemBlueColor">
+            <color red="0.0" green="0.53333333333333333" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>

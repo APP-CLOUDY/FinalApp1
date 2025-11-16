@@ -12,24 +12,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
 
-    func scene(_ scene: UIScene,
-                   willConnectTo session: UISceneSession,
-                   options connectionOptions: UIScene.ConnectionOptions) {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+            
+            // 1. Make sure we have a UIWindowScene
             guard let windowScene = (scene as? UIWindowScene) else { return }
 
-            window = UIWindow(windowScene: windowScene)
+            // 2. Create a new UIWindow
+            let window = UIWindow(windowScene: windowScene)
 
-            // Load initial ViewController from Main.storyboard
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            let startVC = storyboard.instantiateViewController(withIdentifier: "OnboardingViewController") as! ViewController
+            // 3. Create an instance of your view controller
+            let rootViewController = RewardsViewController()
             
-            // Add navigation controller to manage XIB transitions later
-            let nav = UINavigationController(rootViewController: startVC)
-            nav.setNavigationBarHidden(true, animated: false)
+            // 4. (Recommended) Embed it in a Navigation Controller for testing
+            let navigationController = UINavigationController(rootViewController: rootViewController)
 
-            window?.rootViewController = nav
-            window?.makeKeyAndVisible()
+            // 5. Set the navigation controller as the window's root
+            window.rootViewController = navigationController
+            
+            // 6. Set the window for the scene and make it visible
+            self.window = window
+            window.makeKeyAndVisible()
         }
+    
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
