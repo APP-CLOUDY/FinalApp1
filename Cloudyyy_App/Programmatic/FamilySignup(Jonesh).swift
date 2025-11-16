@@ -1,10 +1,3 @@
-//
-//  FamilySignup.swift
-//  Cloudyyy_App
-//
-//  Created by user@5 on 16/11/25.
-//
-
 import UIKit
 
 // --- Custom Gradient View ---
@@ -165,6 +158,20 @@ class FamilyViewController: UIViewController {
         return button
     }()
     
+    // --- New Properties for Scroll View ---
+    private let scrollView: UIScrollView = {
+        let sv = UIScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        return sv
+    }()
+    
+    private let contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    // --- End New Properties ---
+    
     // We need this to resize the button's gradient when the view lays out
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -194,10 +201,19 @@ class FamilyViewController: UIViewController {
         navigationController?.navigationBar.tintColor = .white
         
         let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
+        appearance.configureWithTransparentBackground()
         appearance.backgroundColor = darkBlueBackground
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
         appearance.shadowColor = .clear
+        
+        // --- NEW: Force default button styles to be blank ---
+        // This is the key to removing the "glass" circle background
+        let buttonAppearance = UIBarButtonItemAppearance(style: .plain)
+        buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear] // Hide any text
+        
+        appearance.buttonAppearance = buttonAppearance
+        appearance.backButtonAppearance = buttonAppearance
+        // --- END NEW ---
         
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
@@ -241,7 +257,7 @@ class FamilyViewController: UIViewController {
             let subtitle2Label = UILabel()
             subtitle2Label.text = subtitle2
             subtitle2Label.textColor = .systemGray
-            subtitle2Label.font = .systemFont(ofSize: 14)
+            subtitle2Label.font = .systemFont(ofSize: 14) // <-- Corrected typo: was ofLife
             textStackView.addArrangedSubview(subtitle2Label)
         }
         
@@ -267,45 +283,80 @@ class FamilyViewController: UIViewController {
     }
 
     private func setupUI() {
-        view.addSubview(searchBar)
+        // --- Add buttons and scrollview to the main view ---
+        view.addSubview(nextButton)
+        view.addSubview(addButton)
+        view.addSubview(scrollView)
         
-        view.addSubview(familyNameLabel)
-        view.addSubview(familyNameContainer)
+        // --- Add the content view to the scroll view ---
+        scrollView.addSubview(contentView)
+        
+        // --- Add content *inside* the contentView ---
+        contentView.addSubview(searchBar)
+        
+        contentView.addSubview(familyNameLabel)
+        contentView.addSubview(familyNameContainer)
         familyNameContainer.addSubview(familyNameTextField)
         familyNameContainer.addSubview(editIcon)
         
-        view.addSubview(parentsLabel)
+        contentView.addSubview(parentsLabel)
         let parentCard = createMemberCard(
             avatarImage: UIImage(named: "mom_avatar") ?? UIImage(systemName: "person.fill")!,
             name: "Ridu Mom",
             subtitle1: "Mom",
             subtitle2: nil
         )
-        view.addSubview(parentCard)
+        contentView.addSubview(parentCard)
         
-        view.addSubview(childrenLabel)
+        contentView.addSubview(childrenLabel)
         let childCard = createMemberCard(
             avatarImage: UIImage(named: "child_avatar") ?? UIImage(systemName: "person.fill")!,
             name: "Ananya varshini",
             subtitle1: "Anu",
             subtitle2: "Code: 33501"
         )
-        view.addSubview(childCard)
+        contentView.addSubview(childCard)
         
-        view.addSubview(addButton)
-        view.addSubview(nextButton)
-        
+        // --- Activate Constraints ---
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            // --- Stick buttons to the bottom safe area ---
+            nextButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            nextButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            nextButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            nextButton.heightAnchor.constraint(equalToConstant: 50),
+            
+            addButton.bottomAnchor.constraint(equalTo: nextButton.topAnchor, constant: -16),
+            addButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addButton.heightAnchor.constraint(equalToConstant: 50),
+            
+            // --- Configure Scroll View ---
+            // Pin scroll view to top safe area and the top of the "Add" button
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -16), // Space above the button
+
+            // --- Configure Content View (inside scroll view) ---
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            
+            // This constraint is key for a vertical-only scroll view
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+
+            // --- Constraints for items inside the Content View ---
+            searchBar.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            searchBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            searchBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
 
             familyNameLabel.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 24),
-            familyNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            familyNameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             familyNameContainer.topAnchor.constraint(equalTo: familyNameLabel.bottomAnchor, constant: 12),
-            familyNameContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            familyNameContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            familyNameContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            familyNameContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             familyNameContainer.heightAnchor.constraint(equalToConstant: 50),
             
             editIcon.centerYAnchor.constraint(equalTo: familyNameContainer.centerYAnchor),
@@ -318,28 +369,21 @@ class FamilyViewController: UIViewController {
             familyNameTextField.trailingAnchor.constraint(equalTo: editIcon.leadingAnchor, constant: -8),
             
             parentsLabel.topAnchor.constraint(equalTo: familyNameContainer.bottomAnchor, constant: 30),
-            parentsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            parentsLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             parentCard.topAnchor.constraint(equalTo: parentsLabel.bottomAnchor, constant: 12),
-            parentCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            parentCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            parentCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            parentCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             childrenLabel.topAnchor.constraint(equalTo: parentCard.bottomAnchor, constant: 30),
-            childrenLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            childrenLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             childCard.topAnchor.constraint(equalTo: childrenLabel.bottomAnchor, constant: 12),
-            childCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            childCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-
-            nextButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            nextButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            nextButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            nextButton.heightAnchor.constraint(equalToConstant: 50),
+            childCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            childCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            addButton.bottomAnchor.constraint(equalTo: nextButton.topAnchor, constant: -16),
-            addButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            addButton.heightAnchor.constraint(equalToConstant: 50)
+            // This last constraint is also key: it tells the scroll view how tall its content is.
+            childCard.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20) // Add padding at the very bottom
         ])
     }
 }

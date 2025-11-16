@@ -241,12 +241,13 @@ final class Signup: UIViewController {
     }
     
     @objc private func didTapLogin() {
-        // Navigate to Login screen (or call delegate)
-        showAlert(title: "Login", message: "Navigate to Login screen.")
+        let vc = Login()
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     @objc private func didTapSignUp() {
         view.endEditing(true)
+
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let pass = passwordField.text ?? ""
@@ -256,13 +257,30 @@ final class Signup: UIViewController {
             return
         }
 
-        // Example: extract role and dob
         let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex) ?? "Mom"
         let dob = dobField.text ?? ""
 
-        // Replace with actual sign up logic (API / DB)
-        showAlert(title: "Success", message: "Name: \(name)\nEmail: \(email)\nRole: \(role)\nDOB: \(dob)")
+        let alert = UIAlertController(
+            title: "Success",
+            message: "Name: \(name)\nEmail: \(email)\nRole: \(role)\nDOB: \(dob)",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
+            let vc = FamilyName()
+
+//            // Optional passing of data
+//            vc.userName = name
+//            vc.userEmail = email
+//            vc.userRole = role
+//            vc.userDOB = dob
+
+            self.navigationController?.pushViewController(vc, animated: true)
+        }))
+
+        present(alert, animated: true)
     }
+    
 
     @objc private func dismissKeyboard() {
         view.endEditing(true)

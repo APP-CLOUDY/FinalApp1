@@ -397,6 +397,7 @@ final class AddChild: UIViewController {
 
     private func childSelected() {
         // FIX: Replaced UIAlertController with print()
-        print("Child selected")
+        let vc = Addchildform()
+            navigationController?.pushViewController(vc, animated: true)
     }
 }

@@ -360,7 +360,8 @@ final class Addchildform: UIViewController {
         let gender = genderSelector.selectedGender.rawValue
 
         print("Submit -> name:\(name) nick:\(nick) dob:\(dob) gender:\(gender)")
-        // Implement validation and persistence logic here
+        let vc = FamilyViewController()
+            navigationController?.pushViewController(vc, animated: true)
     }
 
     // MARK: - Helpers

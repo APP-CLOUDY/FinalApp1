@@ -195,6 +195,8 @@ final class FamilyName: UIViewController {
     
     @objc private func doneTapped() {
         print("Done tapped. Family Name: \(familyNameTextField.text ?? "N/A")")
+        let vc = AddChild()
+        navigationController?.pushViewController(vc, animated: true)
         // Handle logic for saving family name
     }
     

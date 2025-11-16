@@ -273,7 +273,8 @@ final class Login: UIViewController {
     }
 
     @objc private func handleSignup() {
-        showAlert("Navigate", "Go to Signup screen")
+        let vc = Signup()
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     @objc private func handleForgot() {

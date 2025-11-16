@@ -12,28 +12,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
 
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-            
-            // 1. Make sure we have a UIWindowScene
-            guard let windowScene = (scene as? UIWindowScene) else { return }
+    func scene(_ scene: UIScene,
+                       willConnectTo session: UISceneSession,
+                       options connectionOptions: UIScene.ConnectionOptions) {
+                
+                guard let windowScene = scene as? UIWindowScene else { return }
+                
+                window = UIWindow(windowScene: windowScene)
 
-            // 2. Create a new UIWindow
-            let window = UIWindow(windowScene: windowScene)
+                // Start the app with your animated launch screen
+                let launchVC = LaunchAnimationViewController()
+                let nav = UINavigationController(rootViewController: launchVC)
+                nav.isNavigationBarHidden = true   // hides nav bar for first screens
 
-            // 3. Create an instance of your view controller
-            let rootViewController = RewardsViewController()
-            
-            // 4. (Recommended) Embed it in a Navigation Controller for testing
-            let navigationController = UINavigationController(rootViewController: rootViewController)
-
-            // 5. Set the navigation controller as the window's root
-            window.rootViewController = navigationController
-            
-            // 6. Set the window for the scene and make it visible
-            self.window = window
-            window.makeKeyAndVisible()
-        }
-    
+                window?.rootViewController = nav
+                window?.makeKeyAndVisible()
+            }
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
