@@ -231,7 +231,11 @@ final class JoinWithCode: UIViewController {
             return
         }
         view.endEditing(true)
-        showAlert(title: "Joining", message: "Joining with code: \(code)")
+        
+        // <<< MODIFIED: Navigate to child home >>>
+        navigateToChildHome()
+        // showAlert(title: "Joining", message: "Joining with code: \(code)") // <<< REMOVED
+        
         // optionally clear:
         // codeField.text = ""
     }
@@ -243,6 +247,13 @@ final class JoinWithCode: UIViewController {
             return
         }
         trySubmitCode()
+    }
+    
+    // <<< ADDED: Navigation action >>>
+    private func navigateToChildHome() {
+        // This assumes ChildHomeViewController() exists in your project
+        let vc = ChildHomeViewController()
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     // MARK: - Keyboard handling
@@ -293,3 +304,9 @@ extension JoinWithCode: UITextFieldDelegate {
         return currentCount < codeLength
     }
 }
+
+
+// <<< ADDED: Placeholder for navigation target >>>
+// (You can replace this with your actual view controller)
+
+
