@@ -18,12 +18,9 @@ final class SelectUserViewController: UIViewController {
         l.textColor = .white
         l.textAlignment = .center
         l.numberOfLines = 2
-        return l // <-- FIX: Added missing return statement
+        return l
     }()
     
-    // MARK: - FIX: Added missing subtitleLabel definition
-    // This was causing the "Cannot find in scope" errors.
-    // Copied from Homelogin.swift to match.
     private let subtitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -35,13 +32,6 @@ final class SelectUserViewController: UIViewController {
         return l
     }()
     
-    // MARK: - Back Button (same as other screens)
-    /* Back Button Removed
-    private let backButton: UIButton = {
-        ...
-    }()
-    */
-
     // MARK: - Bottom card (dark gradient)
     private let bottomCard: UIView = {
         let v = UIView()
@@ -131,7 +121,6 @@ final class SelectUserViewController: UIViewController {
         setupHierarchy()
         setupConstraints()
         configureCardShadow()
-        // backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside) // Removed
     }
 
     override func viewDidLayoutSubviews() {
@@ -158,7 +147,6 @@ final class SelectUserViewController: UIViewController {
         // Top content
         topContainer.addSubview(appTitleLabel)
         topContainer.addSubview(subtitleLabel)
-        // topContainer.addSubview(backButton) // Removed
 
         // Bottom content
         // Add scroll view to card
@@ -195,14 +183,6 @@ final class SelectUserViewController: UIViewController {
             bottomCard.topAnchor.constraint(equalTo: topContainer.bottomAnchor, constant: -40), // -40 overlap
             bottomCard.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.5, constant: 40) // 50% + 40 overlap
         ])
-
-        /* Back button constraints removed
-        // Back button (Identical to Homelogin)
-        NSLayoutConstraint.activate([
-            backButton.leadingAnchor.constraint(equalTo: topContainer.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: topContainer.safeAreaLayoutGuide.topAnchor, constant: 16),
-        ])
-        */
 
         // Title & subtitle centered in top container (Identical to Homelogin)
         NSLayoutConstraint.activate([
@@ -297,10 +277,15 @@ final class SelectUserViewController: UIViewController {
         viewGradient = viewG
 
         let cardG = CAGradientLayer()
+        
+        // --- 🎨 GRADIENT UPDATED HERE ---
+        // These colors now match the gradient from Homelogin.swift
         cardG.colors = [
-            UIColor(red: 18/255, green: 20/255, blue: 33/255, alpha: 1).cgColor,
-            UIColor(red: 28/255, green: 30/255, blue: 45/255, alpha: 1).cgColor
+            UIColor(red: 12/255, green: 12/255, blue: 12/255, alpha: 1).cgColor,  // #0C0C0C
+            UIColor(red: 32/255, green: 59/255, blue: 111/255, alpha: 1).cgColor // #203B6F
         ]
+        // --- End of update ---
+        
         cardG.startPoint = CGPoint(x: 0.5, y: 0)
         cardG.endPoint = CGPoint(x: 0.5, y: 1)
         cardG.frame = bottomCard.bounds.integral
@@ -394,12 +379,6 @@ final class SelectUserViewController: UIViewController {
     }
 
     // MARK: - Actions
-    /*
-    @objc private func backButtonTapped() {
-        print("Back button tapped on SelectUserViewController")
-        navigationController?.popViewController(animated: true)
-    }
-    */
 
     @objc private func circleTapped(_ sender: UITapGestureRecognizer) {
         guard let id = sender.view?.accessibilityIdentifier else { return }
