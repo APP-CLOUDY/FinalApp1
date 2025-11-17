@@ -70,7 +70,7 @@ final class ChatBotViewController: UIViewController, TaskBubbleCellDelegate, UIT
         // avatar
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         avatarImageView.contentMode = .scaleAspectFit
-        avatarImageView.image = UIImage(named: "imgCloudMain")
+        avatarImageView.image = UIImage(named: "cloudyy_logo")
         view.addSubview(avatarImageView)
         
 

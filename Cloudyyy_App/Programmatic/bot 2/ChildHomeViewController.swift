@@ -109,7 +109,7 @@ final class ChildHomeViewController: UIViewController {
             ])
 
         // Mascot
-        mascotImageView.image = UIImage(named: "imgCloudMain")
+        mascotImageView.image = UIImage(named: "cloudyy_logo")
         mascotImageView.contentMode = .scaleAspectFit
         mascotImageView.isUserInteractionEnabled = true
 

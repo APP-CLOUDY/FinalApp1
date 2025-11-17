@@ -157,7 +157,18 @@ class FamilyViewController: UIViewController {
         
         return button
     }()
-    
+    @objc private func handleNext() {
+        // 1. (Optional) You can add validation here
+        // (e.g., check if familyNameTextField.text is not empty).
+        // If setup is complete:
+
+        // 2. Instantiate your main app's tab bar controller.
+        let mainTabBarController = CustomTabBarController()
+
+        // 3. Set this tab bar as the new "root" of the navigation controller.
+        // This removes the FamilyViewController from the stack, so the user can't go "back" to it.
+        navigationController?.setViewControllers([mainTabBarController], animated: true)
+    }
     // --- New Properties for Scroll View ---
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -185,6 +196,8 @@ class FamilyViewController: UIViewController {
         view.backgroundColor = darkBlueBackground
         setupNavigation()
         setupUI()
+        
+        nextButton.addTarget(self, action: #selector(handleNext), for: .touchUpInside)
     }
 
     private func setupNavigation() {

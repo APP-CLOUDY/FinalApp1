@@ -129,7 +129,7 @@ extension TaskDetailViewController {
         chatBubble.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(chatBubble)
         
-        cloudImage.image = UIImage(named: "imgCloudMain")
+        cloudImage.image = UIImage(named: "cloudyy_logo")
         cloudImage.contentMode = .scaleAspectFit
         cloudImage.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(cloudImage)

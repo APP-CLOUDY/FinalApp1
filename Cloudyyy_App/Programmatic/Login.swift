@@ -282,7 +282,16 @@ final class Login: UIViewController {
     }
 
     @objc private func handleLogin() {
-        showAlert("Login", "Perform login action")
+        // 1. (Optional) Add your email/password validation logic here.
+        // If login is successful:
+
+        // 2. Instantiate your main app's tab bar controller.
+        let mainTabBarController = CustomTabBarController()
+
+        // 3. Set this tab bar as the new "root" of the navigation controller.
+        // This removes the Login (and any Signup) screens from the stack.
+        // The 'animated: true' gives a nice cross-fade transition.
+        navigationController?.setViewControllers([mainTabBarController], animated: true)
     }
 
     @objc private func handleApple() {

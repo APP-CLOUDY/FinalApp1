@@ -382,7 +382,7 @@ final class Addchildform: UIViewController {
         tf.font = UIFont.systemFont(ofSize: 15)
         tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
         tf.layer.cornerRadius = 10
-        tf.setLeftPaddingPoints(12)
+        tf.setLeftPaddingPointss(12)
         tf.heightAnchor.constraint(equalToConstant: 48).isActive = true
         return tf
     }
@@ -524,7 +524,7 @@ private class GenderSelector: UIControl {
 // MARK: - UITextField padding helper
 
 private extension UITextField {
-    func setLeftPaddingPoints(_ amount: CGFloat) {
+    func setLeftPaddingPointss(_ amount: CGFloat) {
         let pad = UIView(frame: CGRect(x: 0, y: 0, width: amount, height: 48))
         leftView = pad
         leftViewMode = .always

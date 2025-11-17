@@ -21,7 +21,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 let window = UIWindow(windowScene: windowScene)
 
                 // 3. Create an instance of your view controller
-                let rootViewController = CheckEmailViewController()
+                let rootViewController = RewardsViewController()
                 
                 // 4. (Recommended) Embed it in a Navigation Controller for testing
                 let navigationController = UINavigationController(rootViewController: rootViewController)
