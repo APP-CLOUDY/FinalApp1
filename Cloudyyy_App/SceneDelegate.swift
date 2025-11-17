@@ -12,21 +12,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
 
-    func scene(_ scene: UIScene,
-                       willConnectTo session: UISceneSession,
-                       options connectionOptions: UIScene.ConnectionOptions) {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
                 
-                guard let windowScene = scene as? UIWindowScene else { return }
+                // 1. Make sure we have a UIWindowScene
+                guard let windowScene = (scene as? UIWindowScene) else { return }
+
+                // 2. Create a new UIWindow
+                let window = UIWindow(windowScene: windowScene)
+
+                // 3. Create an instance of your view controller
+                let rootViewController = CheckEmailViewController()
                 
-                window = UIWindow(windowScene: windowScene)
+                // 4. (Recommended) Embed it in a Navigation Controller for testing
+                let navigationController = UINavigationController(rootViewController: rootViewController)
 
-                // Start the app with your animated launch screen
-                let launchVC = LaunchAnimationViewController()
-                let nav = UINavigationController(rootViewController: launchVC)
-                nav.isNavigationBarHidden = true   // hides nav bar for first screens
-
-                window?.rootViewController = nav
-                window?.makeKeyAndVisible()
+                // 5. Set the navigation controller as the window's root
+                window.rootViewController = navigationController
+                
+                // 6. Set the window for the scene and make it visible
+                self.window = window
+                window.makeKeyAndVisible()
             }
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
