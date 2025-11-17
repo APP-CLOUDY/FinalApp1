@@ -28,15 +28,10 @@ class ApprovalViewController: UIViewController, UITableViewDelegate, UITableView
         setupUI()
         updateData(for: 0)
     }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        tabBarController?.tabBar.isHidden = true
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        tabBarController?.tabBar.isHidden = false
+    @objc private func openApprovalPage() {
+        let vc = ApprovalViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     override func viewDidLayoutSubviews() {

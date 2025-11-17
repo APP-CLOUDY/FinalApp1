@@ -1,228 +1,431 @@
-//
-//  ParentDashboardViewController.swift
-//  Cloudyyy_App
-//
-//  Created by user@10 on 06/11/25.
-//
-import UIKit
+import SwiftUI
+import Charts
+   // required for SwiftUI Chart; it's okay in a UIKit file as long as iOS 16+
 
-class ParentDashboardViewController: UIViewController {
-
-   
-    @IBOutlet var progressChartView: UIView!
-
-    @IBOutlet var ScrollView: UIScrollView!
-    @IBOutlet var ContentView: UIView!
+final class ParentDashboardViewController: UIViewController {
     
-    @IBOutlet var WeeklyChart: UISegmentedControl!
+    // MARK: - UI
+    private let gradient = CAGradientLayer()
+    private let header = HomeHeaderView(title: "Home")
     
-    @IBOutlet var TodayGlimpse: UIStackView!
+    // Overview card
+    private let overviewCard = OverviewCardView()
+    private let missionsLabel = UILabel()
+    private let redeemedLabel = UILabel()
+    private let circleArc = HomeProgressArcView() // reuse the small arc drawn earlier (if available)
     
-    @IBOutlet var PendingApproval: UIView!
-    @IBOutlet var rewardBox: UIView!
+    // Small stats (pending / allocated)
+    private let pendingLabel = UILabel()
+    private let allocatedLabel = UILabel()
     
-        // MARK: - Layers
-            private var backgroundGradientLayer: CAGradientLayer?
-            private var ringGradientLayer: CAGradientLayer?
-            private var progressLayer: CAShapeLayer?
+    // Segmented control and chart container
+    private let segment = UISegmentedControl(items: ["Weekly", "Monthly"])
+    private var chartContainer: UIView?   // ChartContainerView when iOS16+
     
-    @IBAction func WeeklyChartChanged(_ sender: UISegmentedControl) {
-        guard let chartView = ContentView.subviews.first(where: { $0 is WeeklyChartView }) as? WeeklyChartView else { return }
-        chartView.updateMode(isWeekly: sender.selectedSegmentIndex == 0)
-    }
-
-
-            // MARK: - Lifecycle
+    // Layout container
+    private let contentScroll = UIScrollView()
+    private let content = UIView()
+    
+    // keep current chart data for updates
+    private var currentWeekly: [HomeChartItem] = []
+    private var currentMonthly: [HomeChartItem] = []
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupBackgroundGradient()
-        setupWeeklySegmentControl()
-
-
-        let chartView = WeeklyChartView()
-        chartView.translatesAutoresizingMaskIntoConstraints = false
-        chartView.backgroundColor = UIColor.lightGray// light gray
-        chartView.layer.cornerRadius = 20
         
-        let rewardsTap = UITapGestureRecognizer(target: self, action: #selector(rewardsBoxTapped))
-           rewardBox.isUserInteractionEnabled = true
-           rewardBox.addGestureRecognizer(rewardsTap)
+        view.backgroundColor = .clear
+        setupGradient()
+        setupHeader()
+        setupContentLayout()
+        OverviewCardView()
         
-        let approvalsTap = UITapGestureRecognizer(target: self, action: #selector(approvalsBoxTapped))
-            PendingApproval.isUserInteractionEnabled = true
-            PendingApproval.addGestureRecognizer(approvalsTap)
+        
+        // header dropdown
+        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        
+        // listen for kid changes
+        NotificationCenter.default.addObserver(self, selector: #selector(onKidChanged(_:)), name: ChildManager.kidChangedNotification, object: nil)
+        
+        // default selection
+        if let kid = ChildManager.shared.selectedKid {
+            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+            loadHomeData(for: kid)
+        } else if let first = ChildManager.shared.kids.first {
+            ChildManager.shared.selectedKid = first
+        }
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        gradient.frame = view.bounds
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        contentScroll.contentInsetAdjustmentBehavior = .never
+    }
 
-            // ✅ Today’s Glimpse tap
-            let glimpseTap = UITapGestureRecognizer(target: self, action: #selector(glimpseBoxTapped))
-            TodayGlimpse.isUserInteractionEnabled = true
-            TodayGlimpse.addGestureRecognizer(glimpseTap)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        contentScroll.setContentOffset(.zero, animated: false)
+        view.layoutIfNeeded()
+    }
 
-        // ✅ Add to the same container as your segmented control
-        ContentView.addSubview(chartView)
+    // store the hosting controller so we can update its rootView later
+    @available(iOS 16.0, *)
+    private var chartHostingController: UIHostingController<DashboardChartView>?
 
+    // MARK: - Gradient
+    private func setupGradient() {
+        gradient.colors = [
+            UIColor(red: 8/255, green: 12/255, blue: 48/255, alpha: 1).cgColor,
+            UIColor(red: 10/255, green: 18/255, blue: 60/255, alpha: 1).cgColor,
+            UIColor(red: 17/255, green: 41/255, blue: 87/255, alpha: 1).cgColor
+        ]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(gradient, at: 0)
+    }
+    
+    // MARK: - Header
+    private func setupHeader() {
+        view.addSubview(header)
+        header.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            chartView.topAnchor.constraint(equalTo: WeeklyChart.bottomAnchor, constant: 20),
-            chartView.leadingAnchor.constraint(equalTo: ContentView.leadingAnchor, constant: 20),
-            chartView.trailingAnchor.constraint(equalTo: ContentView.trailingAnchor, constant: -20),
-            chartView.heightAnchor.constraint(equalTo: ContentView.heightAnchor, multiplier: 0.35),
-            chartView.bottomAnchor.constraint(equalTo: ContentView.bottomAnchor, constant: -20)
+            header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            header.heightAnchor.constraint(equalToConstant: 110)
         ])
     }
-
-    // MARK: - Weekly Segment Control Styling
-    private func setupWeeklySegmentControl() {
-        // Background and tint setup
-        WeeklyChart.backgroundColor = UIColor(white: 1, alpha: 0.15)
-        WeeklyChart.selectedSegmentTintColor = .white
-
-        // Text appearance
-        let normalAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.white.withAlphaComponent(0.9),
-            .font: UIFont.systemFont(ofSize: 16, weight: .medium)
-        ]
-
-        let selectedAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.black,
-            .font: UIFont.boldSystemFont(ofSize: 16)
-        ]
-
-        WeeklyChart.setTitleTextAttributes(normalAttrs, for: .normal)
-        WeeklyChart.setTitleTextAttributes(selectedAttrs, for: .selected)
-
-        // Rounded corners
-        WeeklyChart.layer.cornerRadius = 10
-        WeeklyChart.layer.masksToBounds = true
-    }
-    @objc private func approvalsBoxTapped() {
-        let approvalVC = ApprovalViewController()
-        navigationController?.pushViewController(approvalVC, animated: true)
-    }
-
-
-    @objc private func glimpseBoxTapped() {
-        let progressVC = ProgressViewController()
-        progressVC.modalPresentationStyle = .fullScreen
-        present(progressVC, animated: true)
+    
+    // MARK: - Content layout
+    private func setupContentLayout() {
+        contentScroll.translatesAutoresizingMaskIntoConstraints = false
+        content.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(contentScroll)
+        contentScroll.addSubview(content)
         
-        print("Today's Glimpse tapped!") // Debug log
-
-        // Instead of opening a new screen, switch to Progress tab
-        tabBarController?.selectedIndex = 1 // 1 = Progress tab
-    }
-
-    @objc private func rewardsBoxTapped() {
-        print("Rewards box tapped!") // Debug log
-
-        // Switch to Rewards tab (instead of presenting)
-        tabBarController?.selectedIndex = 3 // 3 = Rewards tab
-    }
-
-            override func viewDidLayoutSubviews() {
-                super.viewDidLayoutSubviews()
-                backgroundGradientLayer?.frame = view.bounds
-                setupProgressRing()
-            }
-
-            // MARK: - Background Gradient
-            private func setupBackgroundGradient() {
-                let gradient = CAGradientLayer()
-                gradient.colors = [
-                    UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1).cgColor,  // deep navy
-                    UIColor(red: 24/255, green: 30/255, blue: 74/255, alpha: 1).cgColor   // blue
-                ]
-                gradient.startPoint = CGPoint(x: 0, y: 0)
-                gradient.endPoint = CGPoint(x: 1, y: 1)
-                view.layer.insertSublayer(gradient, at: 0)
-                backgroundGradientLayer = gradient
-            }
-
-            // MARK: - Circular Progress Ring
-        private func setupProgressRing() {
-            // Remove old layers before redrawing
-            progressChartView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
-
-            // Ensure consistent circle dimensions
-            let size = min(progressChartView.bounds.width, progressChartView.bounds.height)
-            let radius = (size / 2) - 6
-            let center = CGPoint(x: progressChartView.bounds.midX, y: progressChartView.bounds.midY)
+        NSLayoutConstraint.activate([
+            contentScroll.topAnchor.constraint(equalTo: header.bottomAnchor),
+            contentScroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            contentScroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentScroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // Create one shared path (used for both background and progress)
-            let circlePath = UIBezierPath(
-                arcCenter: center,
-                radius: radius,
-                startAngle: -.pi / 2,
-                endAngle: 1.5 * .pi,
-                clockwise: true
-            )
+            content.topAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.topAnchor),
+            content.leadingAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.bottomAnchor),
+            content.widthAnchor.constraint(equalTo: contentScroll.frameLayoutGuide.widthAnchor)
+        ])
+        
+        // add overview card & chart section
+        overviewCard.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(overviewCard)
+        
+        // pending + allocated
+        let smallStack = UIStackView()
+        smallStack.axis = .horizontal
+        smallStack.spacing = 14
+        smallStack.distribution = .fillEqually
+        smallStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // small card views
+        let pendingCard = makeSmallStatCard(title: "Pending approval", valueLabel: pendingLabel)
+        let allocatedCard = makeSmallStatCard(title: "Allocated Rewards", valueLabel: allocatedLabel)
+        smallStack.addArrangedSubview(pendingCard)
+        smallStack.addArrangedSubview(allocatedCard)
+        content.addSubview(smallStack)
+        
+        // segmented control + chart container placeholder
+        segment.selectedSegmentIndex = 0
+        segment.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
+        segment.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(segment)
+        
+        
+        segment.selectedSegmentTintColor = .white
+        segment.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        segment.setTitleTextAttributes([
+            .foregroundColor: UIColor.white.withAlphaComponent(0.7)
+        ], for: .normal)
 
-            // 🩶 Background Circle (base ring)
-            let backgroundCircle = CAShapeLayer()
-            backgroundCircle.path = circlePath.cgPath
-            backgroundCircle.strokeColor = UIColor.white.withAlphaComponent(0.2).cgColor
-            backgroundCircle.fillColor = UIColor.clear.cgColor
-            backgroundCircle.lineWidth = 10
-            backgroundCircle.lineCap = .round
-            progressChartView.layer.addSublayer(backgroundCircle)
+        segment.setTitleTextAttributes([
+            .foregroundColor: UIColor.black
+        ], for: .selected)
 
-            // 💙 Progress Circle (masked to gradient)
-            let progressShape = CAShapeLayer()
-            progressShape.path = circlePath.cgPath
-            progressShape.strokeColor = UIColor.systemBlue.cgColor
-            progressShape.fillColor = UIColor.clear.cgColor
-            progressShape.lineWidth = 12
-            progressShape.lineCap = .round
-            progressShape.strokeEnd = 0 // start empty
+        segment.layer.cornerRadius = 20
+        segment.layer.masksToBounds = true
 
-            // 🎨 Gradient Overlay
-            let gradient = CAGradientLayer()
-            gradient.frame = progressChartView.bounds
-            gradient.colors = [
-                UIColor.systemBlue.cgColor,
-                UIColor.systemTeal.cgColor
-            ]
-            gradient.startPoint = CGPoint(x: 0, y: 0.5)
-            gradient.endPoint = CGPoint(x: 1, y: 0.5)
-            gradient.mask = progressShape // mask ensures perfect alignment
-            progressChartView.layer.addSublayer(gradient)
+        
+        // chart holder (glass)
+        let chartHolder = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+        chartHolder.layer.cornerRadius = 14
+        chartHolder.layer.masksToBounds = true
+        chartHolder.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(chartHolder)
+        
+        // layout constraints
+        NSLayoutConstraint.activate([
+            overviewCard.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            overviewCard.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+            overviewCard.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            overviewCard.heightAnchor.constraint(equalToConstant: 140),
+            
+            smallStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            smallStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+            smallStack.topAnchor.constraint(equalTo: overviewCard.bottomAnchor, constant: 18),
+            smallStack.heightAnchor.constraint(equalToConstant: 84),
+            
+            segment.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            segment.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+            segment.topAnchor.constraint(equalTo: smallStack.bottomAnchor, constant: 18),
+            segment.heightAnchor.constraint(equalToConstant: 40),
+            
+            chartHolder.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            chartHolder.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+            chartHolder.topAnchor.constraint(equalTo: segment.bottomAnchor, constant: 12),
+            chartHolder.heightAnchor.constraint(equalToConstant: 220),
+            chartHolder.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28)
+        ])
+        
+        // embed SwiftUI chart if available
+        // embed SwiftUI chart if available
+        if #available(iOS 16.0, *) {
+            // make an initial empty points array
+            let placeholderPoints: [DashboardChartPoint] = []
 
-            // Save references
-            progressLayer = progressShape
-            ringGradientLayer = gradient
+            // create hosting controller with the SwiftUI view
+            let hosting = UIHostingController(rootView: DashboardChartView(points: placeholderPoints))
+            hosting.view.backgroundColor = .clear
 
-            // Animate smooth progress
-            let progress: CGFloat = 4.0 / 7.0
-            animateProgress(to: progress)
+            // add as child VC properly
+            addChild(hosting)
+            chartHolder.contentView.addSubview(hosting.view)
+            hosting.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                hosting.view.leadingAnchor.constraint(equalTo: chartHolder.contentView.leadingAnchor, constant: 8),
+                hosting.view.trailingAnchor.constraint(equalTo: chartHolder.contentView.trailingAnchor, constant: -8),
+                hosting.view.topAnchor.constraint(equalTo: chartHolder.contentView.topAnchor, constant: 8),
+                hosting.view.bottomAnchor.constraint(equalTo: chartHolder.contentView.bottomAnchor, constant: -8)
+            ])
+            hosting.didMove(toParent: self)
+
+            // save references for later updates
+            chartContainer = hosting.view
+            chartHostingController = hosting
+
+        } else {
+            // fallback for iOS < 16
+            let lbl = UILabel()
+            lbl.text = "Chart (iOS 16+ required)"
+            lbl.textColor = .white
+            lbl.translatesAutoresizingMaskIntoConstraints = false
+            chartHolder.contentView.addSubview(lbl)
+            NSLayoutConstraint.activate([
+                lbl.centerXAnchor.constraint(equalTo: chartHolder.contentView.centerXAnchor),
+                lbl.centerYAnchor.constraint(equalTo: chartHolder.contentView.centerYAnchor)
+            ])
+        }
+        
+        // --- REWARD TAP ---
+        let rewardButton = UIButton(type: .system)
+        rewardButton.backgroundColor = .clear
+        rewardButton.addTarget(self, action: #selector(openRewardsPage), for: .touchUpInside)
+        rewardButton.translatesAutoresizingMaskIntoConstraints = false
+
+        allocatedCard.contentView.addSubview(rewardButton)
+
+        NSLayoutConstraint.activate([
+            rewardButton.leadingAnchor.constraint(equalTo: allocatedCard.contentView.leadingAnchor),
+            rewardButton.trailingAnchor.constraint(equalTo: allocatedCard.contentView.trailingAnchor),
+            rewardButton.topAnchor.constraint(equalTo: allocatedCard.contentView.topAnchor),
+            rewardButton.bottomAnchor.constraint(equalTo: allocatedCard.contentView.bottomAnchor)
+        ])
+
+
+        // --- OVERVIEW CARD TAP ---
+        let overviewButton = UIButton(type: .system)
+        overviewButton.backgroundColor = .clear
+        overviewButton.addTarget(self, action: #selector(openProgressPage), for: .touchUpInside)
+        overviewButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(overviewButton)
+
+        NSLayoutConstraint.activate([
+            overviewButton.leadingAnchor.constraint(equalTo: overviewCard.leadingAnchor),
+            overviewButton.trailingAnchor.constraint(equalTo: overviewCard.trailingAnchor),
+            overviewButton.topAnchor.constraint(equalTo: overviewCard.topAnchor),
+            overviewButton.bottomAnchor.constraint(equalTo: overviewCard.bottomAnchor)
+        ])
+
+        // --- PENDING APPROVAL TAP ---
+        let pendingButton = UIButton(type: .system)
+        pendingButton.backgroundColor = .clear
+        pendingButton.addTarget(self, action: #selector(openApprovalPage), for: .touchUpInside)
+        pendingButton.translatesAutoresizingMaskIntoConstraints = false
+
+        pendingCard.contentView.addSubview(pendingButton)
+
+        NSLayoutConstraint.activate([
+            pendingButton.leadingAnchor.constraint(equalTo: pendingCard.contentView.leadingAnchor),
+            pendingButton.trailingAnchor.constraint(equalTo: pendingCard.contentView.trailingAnchor),
+            pendingButton.topAnchor.constraint(equalTo: pendingCard.contentView.topAnchor),
+            pendingButton.bottomAnchor.constraint(equalTo: pendingCard.contentView.bottomAnchor)
+        ])
+
+
+    }
+    
+    @objc private func openProgressPage() {
+        DispatchQueue.main.async {
+            self.tabBarController?.selectedIndex = 1
         }
 
-            // MARK: - Animation
-            private func animateProgress(to progress: CGFloat) {
-                guard let progressLayer = progressLayer else { return }
-
-                let animation = CABasicAnimation(keyPath: "strokeEnd")
-                animation.fromValue = 0
-                animation.toValue = progress
-                animation.duration = 1.2
-                animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                animation.fillMode = .forwards
-                animation.isRemovedOnCompletion = false
-                progressLayer.add(animation, forKey: "progressAnim")
-
-                // Add subtle “pop” animation for a polished effect
-                UIView.animate(withDuration: 0.4,
-                               delay: 0.2,
-                               usingSpringWithDamping: 0.6,
-                               initialSpringVelocity: 0.4,
-                               options: .curveEaseOut,
-                               animations: {
-                    self.progressChartView.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
-                }) { _ in
-                    UIView.animate(withDuration: 0.3) {
-                        self.progressChartView.transform = .identity
-                    }
-                }
-            }
-        
-        
-      
-           
     }
+
+    
+    @objc private func openApprovalPage() {
+        let vc = ApprovalViewController()
+        vc.hidesBottomBarWhenPushed = true   // REMOVE TAB BAR
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    
+    @objc private func openRewardsPage() {
+        DispatchQueue.main.async {
+            self.tabBarController?.selectedIndex = 3
+        }
+ // REWARDS TAB
+    }
+
+
+    private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+        blur.layer.cornerRadius = 14
+        blur.layer.masksToBounds = true
+        blur.translatesAutoresizingMaskIntoConstraints = false
+
+        // VALUE LABEL (big number)
+        valueLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        valueLabel.textColor = .white
+        valueLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        // TITLE LABEL
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 13)
+        titleLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        // CHEVRON RIGHT ICON
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = .white.withAlphaComponent(0.45)
+        chevron.contentMode = .scaleAspectFit
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+
+        // TITLE + CHEVRON HSTACK
+        let bottomRow = UIStackView(arrangedSubviews: [titleLabel, chevron])
+        bottomRow.axis = .horizontal
+        bottomRow.spacing = 4
+        bottomRow.alignment = .center
+        bottomRow.distribution = .fill
+        bottomRow.translatesAutoresizingMaskIntoConstraints = false
+
+        // MAIN STACK: NUMBER + (TITLE + CHEVRON)
+        let mainStack = UIStackView(arrangedSubviews: [valueLabel, bottomRow])
+        mainStack.axis = .vertical
+        mainStack.spacing = 6
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+
+        blur.contentView.addSubview(mainStack)
+
+        NSLayoutConstraint.activate([
+            mainStack.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor, constant: 14),
+            mainStack.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor, constant: -14),
+            mainStack.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 12),
+            mainStack.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor, constant: -12),
+
+            chevron.widthAnchor.constraint(equalToConstant: 13),
+            chevron.heightAnchor.constraint(equalToConstant: 13)
+        ])
+
+        return blur
+    }
+
+    // MARK: - Setup Overview Card (simple)
+
+
+    
+    // MARK: - Show Floating Dropdown
+    private func showKidsMenu() {
+        let kids = ChildManager.shared.kids
+        guard !kids.isEmpty else { return }
+        let menu = FloatingKidsMenu(kids: kids)
+        menu.onKidSelected = { kid in
+            ChildManager.shared.selectedKid = kid
+        }
+        menu.show(in: view, anchor: header.childButton)
+    }
+    
+    // MARK: - Notification Listener
+    @objc private func onKidChanged(_ n: Notification) {
+        guard let kid = n.object as? Kid else { return }
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        loadHomeData(for: kid)
+    }
+    
+    // MARK: - Load home mock data
+    private func loadHomeData(for kid: Kid) {
+        let data = ChildManager.shared.homeData(for: kid.id)
+
+        // overview card
+        let done = data.overview.missionsDone
+        let total = data.overview.missionsTotal
+        let redeemed = data.overview.redeemedText
+        
+        let progress: CGFloat = total == 0 ? 0 : CGFloat(done) / CGFloat(total)
+
+        overviewCard.configure(
+            missionsDone: done,
+            missionsTotal: total,
+            redeemedText: redeemed,
+            progress: progress,
+            animated: true
+        )
+
+        // small stats
+        pendingLabel.text = "\(data.pending.pendingCount)"
+        allocatedLabel.text = "\(data.allocated.allocatedCount)"
+
+        // chart data
+        currentWeekly = data.weeklyChart
+        currentMonthly = ChildManager.shared.monthlyChartAggregated(for: kid.id)
+
+        updateChartForSegment()
+    }
+
+    
+    // MARK: - Segment changed
+    @objc private func segmentChanged(_ s: UISegmentedControl) {
+        updateChartForSegment()
+    }
+    
+    private func updateChartForSegment() {
+        guard #available(iOS 16.0, *) else { return }
+
+        let isWeekly = (segment.selectedSegmentIndex == 0)
+        let source = isWeekly ? currentWeekly : currentMonthly
+
+        let points = source.map { item in
+            DashboardChartPoint(label: item.day, rewards: item.rewards, tasks: item.tasks)
+        }
+
+        // update the hosting controller's rootView to refresh the chart
+        if let hosting = chartHostingController {
+            hosting.rootView = DashboardChartView(points: points)
+        }
+    }
+
+    
+}
+

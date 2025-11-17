@@ -44,7 +44,7 @@
                         <constraint firstItem="9ti-rh-gsV" firstAttribute="trailing" secondItem="I1K-z9-Xiv" secondAttribute="trailing" id="QvB-Dg-i33"/>
                         <constraint firstItem="9ti-rh-gsV" firstAttribute="top" secondItem="I1K-z9-Xiv" secondAttribute="top" id="Rg3-8X-eVK"/>
                         <constraint firstItem="9ti-rh-gsV" firstAttribute="bottom" secondItem="I1K-z9-Xiv" secondAttribute="bottom" id="oye-yL-5Up"/>
-                        <constraint firstItem="9ti-rh-gsV" firstAttribute="width" secondItem="Ky3-zA-wps" secondAttribute="width" id="uWx-CF-0zG"/>
+                        <constraint firstItem="9ti-rh-gsV" firstAttribute="width" secondItem="Ky3-zA-wps" secondAttribute="width" id="uWx-CF-0zG" userLabel="Content View.width = Scroll View.width"/>
                     </constraints>
                     <viewLayoutGuide key="contentLayoutGuide" id="I1K-z9-Xiv"/>
                     <viewLayoutGuide key="frameLayoutGuide" id="ZFZ-dA-Ttn"/>
