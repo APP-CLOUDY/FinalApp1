@@ -37,7 +37,10 @@
 		6FF3D38C2EBB34840022B8BC /* Exceptions for "Cloudyyy_App" folder in "Cloudyyy_App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Controller/HomeHeaderView.swift,
 				Info.plist,
+				View/DashboardChartPoint.swift,
+				View/OverviewCardView.swift,
 			);
 			target = 6FF3D3632EBB34820022B8BC /* Cloudyyy_App */;
 		};

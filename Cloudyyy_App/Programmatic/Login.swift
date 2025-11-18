@@ -281,10 +281,6 @@ final class Login: UIViewController {
         showAlert("Forgot", "Forgot password action")
     }
 
-    @objc private func handleLogin() {
-        showAlert("Login", "Perform login action")
-    }
-
     @objc private func handleApple() {
         showAlert("Apple", "Apple sign-in")
     }
@@ -299,4 +295,17 @@ final class Login: UIViewController {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+    
+    @objc private func handleLogin() {
+        let tabBar = CustomTabBarController()
+
+        if let nav = navigationController {
+            nav.pushViewController(tabBar, animated: true)
+        } else {
+            tabBar.modalPresentationStyle = .fullScreen
+            present(tabBar, animated: true)
+        }
+    }
+
+
 }
