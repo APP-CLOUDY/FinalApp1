@@ -1,6 +1,14 @@
 import UIKit
 
+// 1. Placeholder for the child view controller
+
+
+
 final class RewardsViewController: UIViewController {
+
+    // MARK: - Properties
+    // Track which segment is selected
+    private var isSpringOnActive: Bool = false
 
     // MARK: - UI Elements
     private let gradientLayer = CAGradientLayer()
@@ -21,13 +29,11 @@ final class RewardsViewController: UIViewController {
         return lb
     }()
 
-    // Using UILabel here to be safe.
-    // If you have a PaddingLabel class, you can change 'UILabel' to 'PaddingLabel'
     private let coinBadge: UILabel = {
         let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
         lb.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
-        lb.text = "  ★ 207  " // Manual padding with spaces
+        lb.text = "  ★ 207  "
         lb.font = .systemFont(ofSize: 14, weight: .semibold)
         lb.textColor = .black
         lb.layer.cornerRadius = 14
@@ -61,9 +67,8 @@ final class RewardsViewController: UIViewController {
     
     // --- Content Elements ---
     
-    // Using your existing StreakCardView if available, otherwise this acts as a placeholder wrapper
     private let streakCard: StreakCardView = {
-        let v = StreakCardView() // Assumes you have this class
+        let v = StreakCardView() // Assumes you have this class file
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
@@ -87,7 +92,7 @@ final class RewardsViewController: UIViewController {
         cv.backgroundColor = .clear
         cv.showsHorizontalScrollIndicator = false
         
-        // Uses your existing RewardCell from the other file
+        // Assumes RewardCell class exists
         cv.register(RewardCell.self, forCellWithReuseIdentifier: RewardCell.reuseID)
         
         cv.dataSource = self
@@ -128,6 +133,8 @@ final class RewardsViewController: UIViewController {
         iv.clipsToBounds = true
         iv.layer.cornerRadius = 18
         iv.backgroundColor = UIColor(white: 1.0, alpha: 0.06)
+        // Enable interaction for tap gesture
+        iv.isUserInteractionEnabled = true
         return iv
     }()
 
@@ -151,7 +158,6 @@ final class RewardsViewController: UIViewController {
         return pc
     }()
 
-    // --- Bottom Padding (Replaces Custom Tab Bar) ---
     private let bottomPaddingView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -186,6 +192,11 @@ final class RewardsViewController: UIViewController {
         
         carouselCard.image = carouselImages.first ?? UIImage()
         
+        // Add Tap Gesture for navigation
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCardTap))
+        carouselCard.addGestureRecognizer(tapGesture)
+        
+        // Initialize state
         selectLeft()
     }
 
@@ -196,9 +207,10 @@ final class RewardsViewController: UIViewController {
 
     // MARK: - Setup
     private func setupGradient() {
+        // THESE ARE THE CHATBOT GRADIENT COLORS
         gradientLayer.colors = [
-            UIColor(red: 7/255, green: 23/255, blue: 42/255, alpha: 1).cgColor,
-            UIColor(red: 16/255, green: 48/255, blue: 81/255, alpha: 1).cgColor
+            UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 1).cgColor,
+            UIColor(red: 30/255, green: 45/255, blue: 85/255, alpha: 1).cgColor
         ]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
@@ -210,8 +222,6 @@ final class RewardsViewController: UIViewController {
         topBarContainer.addSubview(titleLabel)
         topBarContainer.addSubview(coinBadge)
         topBarContainer.addSubview(profileButton)
-        
-        // Removed Custom Tab Bar
         
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
@@ -225,8 +235,6 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(carouselCard)
         carouselCard.addSubview(carouselTitle)
         contentView.addSubview(pageControl)
-        
-        // Add Padding View to push content up
         contentView.addSubview(bottomPaddingView)
     }
 
@@ -234,7 +242,6 @@ final class RewardsViewController: UIViewController {
         let safe = view.safeAreaLayoutGuide
 
         NSLayoutConstraint.activate([
-            // --- Top Bar ---
             topBarContainer.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12),
             topBarContainer.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
             topBarContainer.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -16),
@@ -252,20 +259,17 @@ final class RewardsViewController: UIViewController {
             coinBadge.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             coinBadge.heightAnchor.constraint(equalToConstant: 28),
             
-            // --- Scroll View (Fills screen below top bar) ---
             scrollView.topAnchor.constraint(equalTo: topBarContainer.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // --- Content View ---
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             
-            // --- Elements ---
             streakCard.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
             streakCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             streakCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -305,17 +309,18 @@ final class RewardsViewController: UIViewController {
             pageControl.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 8),
             pageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             
-            // --- Bottom Padding Constraints ---
             bottomPaddingView.topAnchor.constraint(equalTo: pageControl.bottomAnchor, constant: 20),
             bottomPaddingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bottomPaddingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            bottomPaddingView.heightAnchor.constraint(equalToConstant: 100) // Clears the native tab bar
+            bottomPaddingView.heightAnchor.constraint(equalToConstant: 100)
         ])
     }
 
     // MARK: - Actions
     @objc private func selectLeft() {
+        isSpringOnActive = false
+        
         leftSegment.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         leftSegment.setTitleColor(.white, for: .normal)
         
@@ -324,11 +329,23 @@ final class RewardsViewController: UIViewController {
     }
 
     @objc private func selectRight() {
+        isSpringOnActive = true
+        
         rightSegment.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         rightSegment.setTitleColor(.white, for: .normal)
         
         leftSegment.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
         leftSegment.setTitleColor(.white.withAlphaComponent(0.7), for: .normal)
+    }
+    
+    // Navigation logic based on selection
+    @objc private func handleCardTap() {
+        if isSpringOnActive {
+            let vc = SpringOnChildViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
+        } else {
+            print("Dream It is selected - No action taken.")
+        }
     }
 }
 
@@ -341,7 +358,6 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        // This now uses the RewardCell from your other file
         guard let cell = quickCollectionView.dequeueReusableCell(withReuseIdentifier: RewardCell.reuseID, for: indexPath) as? RewardCell else {
             return UICollectionViewCell()
         }
