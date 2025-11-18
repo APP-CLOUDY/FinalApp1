@@ -12,22 +12,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
 
-    func scene(_ scene: UIScene,
-                       willConnectTo session: UISceneSession,
-                       options connectionOptions: UIScene.ConnectionOptions) {
-                
-                guard let windowScene = scene as? UIWindowScene else { return }
-                
-                window = UIWindow(windowScene: windowScene)
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+                  
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+            
+            window = UIWindow(windowScene: windowScene)
+            
+            // ✅ SOLUTION: This loads the container which holds *both*
+            // the tab bar AND the ChildHomeViewController.
+            let rootVC = ChildTabBarController()
+            window?.rootViewController = rootVC
+            
+            window?.makeKeyAndVisible()
+              }
 
-                // Start the app with your animated launch screen
-                let launchVC = LaunchAnimationViewController()
-                let nav = UINavigationController(rootViewController: launchVC)
-                nav.isNavigationBarHidden = true   // hides nav bar for first screens
-
-                window?.rootViewController = nav
-                window?.makeKeyAndVisible()
-            }
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.

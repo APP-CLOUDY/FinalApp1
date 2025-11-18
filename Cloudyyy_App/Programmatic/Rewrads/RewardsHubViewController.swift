@@ -1,7 +1,3 @@
-//
-//  RewardsViewController.swift
-//  Cloudyyy_App (or your app name)
-//
 import UIKit
 
 final class RewardsViewController: UIViewController {
@@ -25,11 +21,13 @@ final class RewardsViewController: UIViewController {
         return lb
     }()
 
+    // Using UILabel here to be safe.
+    // If you have a PaddingLabel class, you can change 'UILabel' to 'PaddingLabel'
     private let coinBadge: UILabel = {
-        let lb = PaddingLabel(top: 4, left: 10, bottom: 4, right: 10)
+        let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
         lb.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
-        lb.text = "★ 207"
+        lb.text = "  ★ 207  " // Manual padding with spaces
         lb.font = .systemFont(ofSize: 14, weight: .semibold)
         lb.textColor = .black
         lb.layer.cornerRadius = 14
@@ -43,12 +41,11 @@ final class RewardsViewController: UIViewController {
         b.setImage(UIImage(systemName: "person.circle.fill"), for: .normal)
         b.tintColor = .white
         b.contentMode = .scaleAspectFit
-        // Make button larger to match screenshot
         b.transform = CGAffineTransform(scaleX: 1.5, y: 1.5)
         return b
     }()
     
-    // --- Scrollable Content ---
+    // --- Scroll View ---
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
@@ -62,9 +59,11 @@ final class RewardsViewController: UIViewController {
         return v
     }()
     
-    // --- UI Components for ScrollView ---
+    // --- Content Elements ---
+    
+    // Using your existing StreakCardView if available, otherwise this acts as a placeholder wrapper
     private let streakCard: StreakCardView = {
-        let v = StreakCardView()
+        let v = StreakCardView() // Assumes you have this class
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
@@ -87,7 +86,10 @@ final class RewardsViewController: UIViewController {
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.backgroundColor = .clear
         cv.showsHorizontalScrollIndicator = false
+        
+        // Uses your existing RewardCell from the other file
         cv.register(RewardCell.self, forCellWithReuseIdentifier: RewardCell.reuseID)
+        
         cv.dataSource = self
         cv.delegate = self
         return cv
@@ -105,7 +107,7 @@ final class RewardsViewController: UIViewController {
         let b = UIButton(type: .system)
         b.setTitle("Dream It", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        b.setTitleColor(.white, for: .normal) // Ensure text is white
+        b.setTitleColor(.white, for: .normal)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }()
@@ -114,7 +116,7 @@ final class RewardsViewController: UIViewController {
         let b = UIButton(type: .system)
         b.setTitle("Spring On", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 14)
-        b.setTitleColor(.white.withAlphaComponent(0.7), for: .normal) // Dim unselected text
+        b.setTitleColor(.white.withAlphaComponent(0.7), for: .normal)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }()
@@ -149,42 +151,41 @@ final class RewardsViewController: UIViewController {
         return pc
     }()
 
-    // --- Bottom Tab Bar ---
-    private let customTabBar: CustomTabBar = {
-        let tb = CustomTabBar()
-        tb.translatesAutoresizingMaskIntoConstraints = false
-        return tb
+    // --- Bottom Padding (Replaces Custom Tab Bar) ---
+    private let bottomPaddingView: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
     }()
 
     // --- Data ---
     private let carouselImages: [UIImage?] = [
-        UIImage(named: "bikePlaceholder"), // replace with your asset
-        UIImage(named: "giftPlaceholder"),
-        UIImage(named: "toyPlaceholder"),
-        UIImage(named: "otherPlaceholder")
+        UIImage(systemName: "bicycle"),
+        UIImage(systemName: "gift.fill"),
+        UIImage(systemName: "gamecontroller.fill"),
+        UIImage(systemName: "headphones")
     ]
 
     private let quickItems: [(title: String, image: UIImage?)] = [
-        ("Screen time", UIImage(named: "screen_icon")),
-        ("Cartoon", UIImage(named: "cartoon_icon")),
-        ("Treats", UIImage(named: "treats_icon")),
-        ("Family", UIImage(named: "family_icon"))
+        ("Screen time", UIImage(systemName: "tv.fill")),
+        ("Cartoon", UIImage(systemName: "play.rectangle.fill")),
+        ("Treats", UIImage(systemName: "birthday.cake.fill")),
+        ("Family", UIImage(systemName: "figure.2.and.child.holdinghands"))
     ]
 
-    // MARK: - lifecycle
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        navigationController?.setNavigationBarHidden(true, animated: false)
         setupGradient()
         setupViews()
-        setupConstraints() // Moved constraints to their own method
+        setupConstraints()
         
-        customTabBar.delegate = self
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
         
-        carouselCard.image = carouselImages.first ?? makePlaceholderBike()
+        carouselCard.image = carouselImages.first ?? UIImage()
         
-        // Set initial segment state
         selectLeft()
     }
 
@@ -193,7 +194,7 @@ final class RewardsViewController: UIViewController {
         gradientLayer.frame = view.bounds
     }
 
-    // MARK: - setup
+    // MARK: - Setup
     private func setupGradient() {
         gradientLayer.colors = [
             UIColor(red: 7/255, green: 23/255, blue: 42/255, alpha: 1).cgColor,
@@ -205,20 +206,16 @@ final class RewardsViewController: UIViewController {
     }
 
     private func setupViews() {
-        // Add top bar
         view.addSubview(topBarContainer)
         topBarContainer.addSubview(titleLabel)
         topBarContainer.addSubview(coinBadge)
         topBarContainer.addSubview(profileButton)
         
-        // Add bottom tab bar
-        view.addSubview(customTabBar)
-
-        // Add scroll view
+        // Removed Custom Tab Bar
+        
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
-        // Add content to the contentView
         contentView.addSubview(streakCard)
         contentView.addSubview(quickLabel)
         contentView.addSubview(quickCollectionView)
@@ -228,6 +225,9 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(carouselCard)
         carouselCard.addSubview(carouselTitle)
         contentView.addSubview(pageControl)
+        
+        // Add Padding View to push content up
+        contentView.addSubview(bottomPaddingView)
     }
 
     private func setupConstraints() {
@@ -250,27 +250,22 @@ final class RewardsViewController: UIViewController {
 
             coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
             coinBadge.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
+            coinBadge.heightAnchor.constraint(equalToConstant: 28),
             
-            // --- Bottom Tab Bar (floating) ---
-            customTabBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            customTabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            customTabBar.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -12),
-            customTabBar.heightAnchor.constraint(equalToConstant: 64),
-
-            // --- Scroll View ---
+            // --- Scroll View (Fills screen below top bar) ---
             scrollView.topAnchor.constraint(equalTo: topBarContainer.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: customTabBar.topAnchor, constant: -12), // Space above tab bar
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // --- Content View (inside scroll view) ---
+            // --- Content View ---
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor), // Constrains width
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             
-            // --- Content constraints (relative to contentView) ---
+            // --- Elements ---
             streakCard.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
             streakCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             streakCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -280,7 +275,7 @@ final class RewardsViewController: UIViewController {
             quickLabel.leadingAnchor.constraint(equalTo: streakCard.leadingAnchor),
 
             quickCollectionView.topAnchor.constraint(equalTo: quickLabel.bottomAnchor, constant: 8),
-            quickCollectionView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor), // Full width for scrolling
+            quickCollectionView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             quickCollectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             quickCollectionView.heightAnchor.constraint(equalToConstant: 110),
 
@@ -309,8 +304,13 @@ final class RewardsViewController: UIViewController {
 
             pageControl.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 8),
             pageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            // *** CRITICAL ***: Pin the last element to the bottom of the contentView
-            pageControl.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+            
+            // --- Bottom Padding Constraints ---
+            bottomPaddingView.topAnchor.constraint(equalTo: pageControl.bottomAnchor, constant: 20),
+            bottomPaddingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            bottomPaddingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            bottomPaddingView.heightAnchor.constraint(equalToConstant: 100) // Clears the native tab bar
         ])
     }
 
@@ -321,7 +321,6 @@ final class RewardsViewController: UIViewController {
         
         rightSegment.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
         rightSegment.setTitleColor(.white.withAlphaComponent(0.7), for: .normal)
-        // update content for left segment
     }
 
     @objc private func selectRight() {
@@ -330,27 +329,10 @@ final class RewardsViewController: UIViewController {
         
         leftSegment.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
         leftSegment.setTitleColor(.white.withAlphaComponent(0.7), for: .normal)
-        // update content for right segment
-    }
-
-    // helper placeholder image if asset missing
-    private func makePlaceholderBike() -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 360))
-        return renderer.image { ctx in
-            UIColor.darkGray.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 600, height: 360))
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 28, weight: .bold),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.8)
-            ]
-            let s = "Bike"
-            let size = s.size(withAttributes: attrs)
-            s.draw(at: CGPoint(x: (600-size.width)/2, y: (360-size.height)/2), withAttributes: attrs)
-        }
     }
 }
 
-// MARK: - UICollectionView DataSource & DelegateFlowLayout
+// MARK: - UICollectionView DataSource
 extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     static let circleSize: CGFloat = 80
 
@@ -359,28 +341,15 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        // This now uses the RewardCell from your other file
         guard let cell = quickCollectionView.dequeueReusableCell(withReuseIdentifier: RewardCell.reuseID, for: indexPath) as? RewardCell else {
             return UICollectionViewCell()
         }
-        let item = quickItems[indexPath.item]
-        cell.configure(title: item.title, image: item.image)
+        cell.configure(title: quickItems[indexPath.item].title, image: quickItems[indexPath.item].image)
         return cell
-    }
-
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        // handle tap
-        print("Selected quick reward: \(quickItems[indexPath.item].title)")
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         return CGSize(width: RewardsViewController.circleSize, height: RewardsViewController.circleSize + 20)
-    }
-}
-
-// MARK: - CustomTabBarDelegate
-extension RewardsViewController: CustomTabBarDelegate {
-    func didSelectTab(at index: Int) {
-        print("Selected tab \(index)")
-        // Handle tab selection, e.g., navigate to a different view controller
     }
 }
