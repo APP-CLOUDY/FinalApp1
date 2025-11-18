@@ -4,11 +4,21 @@
 //
 
 import UIKit
+import Supabase
+
+// Encodable struct used for inserting into `public.users`
+private struct ProfileInsert: Encodable {
+    let id: String
+    let first_name: String
+    let email: String
+    let role: String
+    let date_of_birth: String?
+}
 
 final class Signup: UIViewController {
 
     // MARK: - UI (from CommonUI.swift)
-    private let headerView = GradientHeaderView(dottedImage: UIImage(named: "dots")) // optional dotted overlay image
+    private let headerView = GradientHeaderView(dottedImage: UIImage(named: "dots"))
     private let scrollView: UIScrollView = {
         let s = UIScrollView()
         s.translatesAutoresizingMaskIntoConstraints = false
@@ -24,8 +34,8 @@ final class Signup: UIViewController {
 
     private let card = CardView()
 
-    // Fields (using common UI)
-    private let nameField = CustomTextField(placeholder: "Name") // Using single "Name" field
+    // Fields (using your CommonUI)
+    private let nameField = CustomTextField(placeholder: "Name")
     private let emailField: CustomTextField = {
         let f = CustomTextField(placeholder: "Email")
         f.keyboardType = .emailAddress
@@ -33,32 +43,28 @@ final class Signup: UIViewController {
         f.accessibilityIdentifier = "emailField"
         return f
     }()
-    private let dobField = DateTextField(placeholder: "Birth of date")
-    
-    // --- THIS IS THE FIXED LINE ---
-    private let roleSegmented = makeRoleSegmentedControl(items: ["Mom", "Dad"])
+    private let dobField = DateTextField(placeholder: "Date of birth")
+    private let roleSegmented: UISegmentedControl = makeRoleSegmentedControl()
 
-    // <-- Password field: autofill disabled to remove the yellow cover -->
     private let passwordField: PasswordField = {
         let p = PasswordField(placeholder: "Set Password")
-        // disable the autofill cover so user can always see typed characters
         p.disableAutoFill = true
         return p
     }()
 
     private let signUpButton = GradientButton(title: "Sign Up")
-    
-    // Changed to a chevron 'Back' button
+
     private let closeButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        // Use a chevron for a standard 'back' look
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
         b.setImage(UIImage(systemName: "chevron.backward", withConfiguration: config), for: .normal)
         b.tintColor = .white
         b.accessibilityLabel = "Back"
         return b
     }()
+
+    private let activity = UIActivityIndicatorView(style: .large)
 
     // MARK: - Life Cycle
     override func viewDidLoad() {
@@ -67,12 +73,8 @@ final class Signup: UIViewController {
 
         setupHeader()
         setupHierarchy()
-        setupConstraints() // Using the corrected constraints
+        setupConstraints()
         configureBehaviors()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
     }
 
     deinit {
@@ -101,8 +103,9 @@ final class Signup: UIViewController {
             card.addSubview($0)
         }
         
-        // Add close button to the main view, on top of other elements
+        // Add close button and activity indicator
         view.addSubview(closeButton)
+        view.addSubview(activity)
 
         // Accessibility hints
         nameField.accessibilityLabel = "Full name"
@@ -120,46 +123,38 @@ final class Signup: UIViewController {
             closeButton.widthAnchor.constraint(equalToConstant: 32),
             closeButton.heightAnchor.constraint(equalToConstant: 32),
         
-            // --- 1. Header Constraints (Dynamic Height) ---
+            // Header
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            
-            // Instead of height=360, we pin the header bottom relative to the ScrollView content
-            // This ensures the header shrinks if the screen is short (landscape)
             headerView.bottomAnchor.constraint(equalTo: scrollView.topAnchor, constant: 28),
-            
-            // --- 2. ScrollView Constraints ---
-            // We pin the ScrollView top to the Header's TITLE label
-            // This guarantees the title is always visible, and the card starts just below it
+
+            // ScrollView
             scrollView.topAnchor.constraint(equalTo: headerView.screenTitleLabel.bottomAnchor, constant: 30),
-            
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            // --- 3. Content View Constraints ---
+
+            // Content View
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
-            // --- 4. Card Constraints (With Landscape Max Width) ---
-            // Center the card horizontally
+
+            // Card
             card.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            
-            // Width is the container width minus padding...
             card.widthAnchor.constraint(equalTo: contentView.widthAnchor, constant: -32),
-            
-            // ...BUT cap the width at 500pts so it doesn't stretch too wide in landscape
             card.widthAnchor.constraint(lessThanOrEqualToConstant: 500),
-            
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 40),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
+
+            // Activity center
+            activity.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activity.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // --- 5. Field Constraints inside Card (Unchanged) ---
+        // Fields constraints
         let spacing: CGFloat = 14
         NSLayoutConstraint.activate([
             nameField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -182,34 +177,27 @@ final class Signup: UIViewController {
             passwordField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
             passwordField.topAnchor.constraint(equalTo: roleSegmented.bottomAnchor, constant: spacing),
 
-            // --- Button Spacing Increased ---
             signUpButton.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             signUpButton.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            signUpButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 24), // Increased from 18
-            signUpButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24) // Increased from 18
+            signUpButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 24),
+            signUpButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
         ])
     }
 
     // MARK: - Behaviors
     private func configureBehaviors() {
-        // Action re-enabled
         closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
-    
-        // Header action (log in)
         headerView.actionButton.addTarget(self, action: #selector(didTapLogin), for: .touchUpInside)
-
-        // Button actions
         signUpButton.addTarget(self, action: #selector(didTapSignUp), for: .touchUpInside)
 
-        // Keyboard handling
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
-        // small tweaks
+        // explicit types to avoid inference issues
         roleSegmented.layer.cornerRadius = 18
-        roleSegmented.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        roleSegmented.setContentCompressionResistancePriority(UILayoutPriority.defaultLow, for: NSLayoutConstraint.Axis.horizontal)
 
-        // Add a calendar icon on the right of dobField (template so tint works)
+        // calendar icon for dobField
         let calImage = UIImageView(image: UIImage(systemName: "calendar")?.withRenderingMode(.alwaysTemplate))
         calImage.tintColor = .systemGray
         calImage.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
@@ -217,10 +205,9 @@ final class Signup: UIViewController {
         dobField.rightView = calImage
         dobField.rightViewMode = .always
 
-        // Prefill DOB with a sensible default (optional)
         dobField.selectedDate = Calendar.current.date(byAdding: .year, value: -20, to: Date()) ?? Date()
 
-        // Tap to dismiss keyboard
+        // tap to dismiss
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
@@ -228,14 +215,10 @@ final class Signup: UIViewController {
 
     // MARK: - Actions
     
-    // <<< MODIFIED: This function now handles both 'push' and 'modal' presentations >>>
     @objc private func didTapClose() {
-        // Check if we were pushed onto a navigation controller
         if let nav = self.navigationController {
-            // If yes, pop this view controller
             nav.popViewController(animated: true)
         } else {
-            // Otherwise, we were presented modally. Dismiss ourselves.
             self.dismiss(animated: true, completion: nil)
         }
     }
@@ -245,6 +228,7 @@ final class Signup: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 
+    // MARK: - Sign Up (final corrected: generate local UUID for profile ID)
     @objc private func didTapSignUp() {
         view.endEditing(true)
 
@@ -258,29 +242,80 @@ final class Signup: UIViewController {
         }
 
         let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex) ?? "Mom"
-        let dob = dobField.text ?? ""
 
-        let alert = UIAlertController(
-            title: "Success",
-            message: "Name: \(name)\nEmail: \(email)\nRole: \(role)\nDOB: \(dob)",
-            preferredStyle: .alert
-        )
+        // Convert DateTextField's picker date -> "YYYY-MM-DD"
+        let dobISO: String? = {
+            let date = dobField.selectedDate
+            let fmt = DateFormatter()
+            fmt.timeZone = TimeZone(secondsFromGMT: 0)
+            fmt.dateFormat = "yyyy-MM-dd"
+            return fmt.string(from: date)
+        }()
 
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
-            let vc = FamilyName()
+        setLoading(true)
 
-//            // Optional passing of data
-//            vc.userName = name
-//            vc.userEmail = email
-//            vc.userRole = role
-//            vc.userDOB = dob
+        // Force concurrency Task (safe and avoids name collisions)
+        _Concurrency.Task {
+            do {
+                // 1) Sign up with Supabase Auth (Supabase handles password hashing & storage).
+                // We do not depend on obtaining user.id from the SDK response here.
+                _ = try await SupabaseManager.shared.client.auth.signUp(
+                    email: email,
+                    password: pass
+                )
 
-            self.navigationController?.pushViewController(vc, animated: true)
-        }))
+                // 2) Generate local UUID for the users table primary key.
+                //    (Optional: later you can link auth <-> profile using email or add a server trigger.)
+                let generatedId = UUID().uuidString
 
-        present(alert, animated: true)
+                // 3) Insert profile into public.users
+                let profile = ProfileInsert(
+                    id: generatedId,
+                    first_name: name,
+                    email: email,
+                    role: role,
+                    date_of_birth: dobISO
+                )
+
+                // execute() will throw on failure for many SDK versions; rely on try/await
+                _ = try await SupabaseManager.shared.client
+                    .from("users")
+                    .insert([profile])
+                    .execute()
+
+                // 4) Success — update UI on main actor
+                await MainActor.run {
+                    self.setLoading(false)
+                    let alert = UIAlertController(title: "Success", message: "Account created. Check your email if confirmation is required.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                        let vc = FamilyName()
+                        self.navigationController?.pushViewController(vc, animated: true)
+                    })
+                    self.present(alert, animated: true)
+                }
+            } catch {
+                await MainActor.run {
+                    self.setLoading(false)
+                    self.showAlert(title: "Sign up failed", message: error.localizedDescription)
+                }
+            }
+        } // _Concurrency.Task
     }
-    
+
+    // MARK: - Helpers
+    private func setLoading(_ loading: Bool) {
+        DispatchQueue.main.async {
+            if loading {
+                self.activity.startAnimating()
+                self.signUpButton.isEnabled = false
+                self.signUpButton.alpha = 0.6
+            } else {
+                self.activity.stopAnimating()
+                self.signUpButton.isEnabled = true
+                self.signUpButton.alpha = 1.0
+            }
+        }
+    }
 
     @objc private func dismissKeyboard() {
         view.endEditing(true)
@@ -294,7 +329,6 @@ final class Signup: UIViewController {
         scrollView.contentInset.bottom = bottomInset + 12
         scrollView.verticalScrollIndicatorInsets.bottom = bottomInset + 12
 
-        // If any field is hidden by keyboard, scroll to it
         if let firstResponder = view.currentFirstResponder() as? UIView {
             let converted = firstResponder.convert(firstResponder.bounds, to: scrollView)
             scrollView.scrollRectToVisible(converted.insetBy(dx: 0, dy: -20), animated: true)
@@ -306,7 +340,6 @@ final class Signup: UIViewController {
         scrollView.verticalScrollIndicatorInsets.bottom = 0
     }
 
-    // MARK: - Helpers
     private func showAlert(title: String, message: String) {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))

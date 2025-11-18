@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import Supabase
 
 final class Login: UIViewController {
 
@@ -103,7 +104,7 @@ final class Login: UIViewController {
         return l
     }()
 
-    // Social Buttons (use SF Symbol applelogo and a 'google' asset in Assets.xcassets)
+    // Social Buttons
     private let appleButton: GlassButton = {
         let img = UIImage(systemName: "applelogo")
         let b = GlassButton(title: "Continue with Apple", icon: img)
@@ -112,12 +113,15 @@ final class Login: UIViewController {
     }()
 
     private let googleButton: GlassButton = {
-        let googleImg = UIImage(named: "googleImg") // add a small google logo asset named "google"
+        let googleImg = UIImage(named: "googleImg")
         let b = GlassButton(title: "Continue with Google", icon: googleImg)
         return b
     }()
 
-    // MARK: - Lifecycle
+    // Activity indicator for login
+    private let activity = UIActivityIndicatorView(style: .large)
+
+    // MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -126,6 +130,7 @@ final class Login: UIViewController {
         setupHierarchy()
         setupConstraints()
         setupActions()
+        loadRememberedEmail()
     }
 
     // MARK: - Setup Header
@@ -150,8 +155,9 @@ final class Login: UIViewController {
          loginButton, dividerLeft, dividerLabel, dividerRight,
          appleButton, googleButton]
             .forEach { card.addSubview($0) }
-            
+
         view.addSubview(closeButton)
+        view.addSubview(activity)
     }
 
     // MARK: - Constraints
@@ -162,7 +168,7 @@ final class Login: UIViewController {
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             closeButton.widthAnchor.constraint(equalToConstant: 32),
             closeButton.heightAnchor.constraint(equalToConstant: 32),
-        
+
             // Header constraints (dynamic height)
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -187,13 +193,15 @@ final class Login: UIViewController {
             card.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             card.widthAnchor.constraint(equalTo: contentView.widthAnchor, constant: -32),
             card.widthAnchor.constraint(lessThanOrEqualToConstant: 500),
+
+            // Activity center
+            activity.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activity.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
         // --- Constraints inside the card ---
-        
-        // <<< FIX: This line was moved outside the 'activate' block below >>>
         dividerLabel.setContentHuggingPriority(.required, for: .horizontal)
-        
+
         NSLayoutConstraint.activate([
             emailField.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
             emailField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -221,7 +229,6 @@ final class Login: UIViewController {
             // Robust divider constraints
             dividerLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             dividerLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 26),
-            // <<< The buggy line was removed from here >>>
 
             dividerLeft.centerYAnchor.constraint(equalTo: dividerLabel.centerYAnchor),
             dividerLeft.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
@@ -247,7 +254,7 @@ final class Login: UIViewController {
     // MARK: - Actions
     private func setupActions() {
         closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
-        
+
         headerView.actionButton.addTarget(self, action: #selector(handleSignup), for: .touchUpInside)
         rememberCheckbox.addTarget(self, action: #selector(toggleRemember), for: .touchUpInside)
         forgotPasswordButton.addTarget(self, action: #selector(handleForgot), for: .touchUpInside)
@@ -255,7 +262,7 @@ final class Login: UIViewController {
         appleButton.addTarget(self, action: #selector(handleApple), for: .touchUpInside)
         googleButton.addTarget(self, action: #selector(handleGoogle), for: .touchUpInside)
     }
-    
+
     @objc private func didTapClose() {
         // Check if we were pushed onto a navigation controller
         if let nav = self.navigationController {
@@ -281,17 +288,78 @@ final class Login: UIViewController {
         showAlert("Forgot", "Forgot password action")
     }
 
+    // MARK: - Login flow using Supabase Auth
     @objc private func handleLogin() {
-        // 1. (Optional) Add your email/password validation logic here.
-        // If login is successful:
+        view.endEditing(true)
 
-        // 2. Instantiate your main app's tab bar controller.
-        let mainTabBarController = CustomTabBarController()
+        let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let password = passwordField.text ?? ""
 
-        // 3. Set this tab bar as the new "root" of the navigation controller.
-        // This removes the Login (and any Signup) screens from the stack.
-        // The 'animated: true' gives a nice cross-fade transition.
-        navigationController?.setViewControllers([mainTabBarController], animated: true)
+        guard !email.isEmpty, !password.isEmpty else {
+            showAlert("Missing fields", "Please fill both email and password.")
+            return
+        }
+
+        setLoading(true)
+
+        // Use the concurrency Task (force via _Concurrency to avoid name collisions in odd cases)
+        _Concurrency.Task {
+            do {
+                // 1) Sign in via Supabase Auth
+                _ = try await SupabaseManager.shared.client.auth.signIn(
+                    email: email,
+                    password: password
+                )
+
+                // 2) Optional: fetch profile row from public.users by email
+                let resp = try await SupabaseManager.shared.client
+                    .from("users")
+                    .select()
+                    .eq("email", value: email)
+                    .execute()
+
+                // Decode first row from resp.value (your SDK returns rows in `value`)
+                var profile: UserProfile? = nil
+                if let raw = resp.value as? [[String: Any]],
+                   let first = raw.first
+                {
+                    if let jsonData = try? JSONSerialization.data(withJSONObject: first),
+                       let decoded = try? JSONDecoder().decode(UserProfile.self, from: jsonData)
+                    {
+                        profile = decoded
+                    }
+                } else if let single = resp.value as? [String: Any] {
+                    // sometimes the SDK returns a single dictionary for single row responses
+                    if let jsonData = try? JSONSerialization.data(withJSONObject: single),
+                       let decoded = try? JSONDecoder().decode(UserProfile.self, from: jsonData)
+                    {
+                        profile = decoded
+                    }
+                }
+
+                // 3) Remember me: persist email if checked
+                let rememberChecked = rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill")
+                if rememberChecked {
+                    UserDefaults.standard.set(email, forKey: "Cloudyyy_RememberedEmail")
+                } else {
+                    UserDefaults.standard.removeObject(forKey: "Cloudyyy_RememberedEmail")
+                }
+
+                // 4) Navigate to main UI on success (you can pass profile to root VC if desired)
+                await MainActor.run {
+                    self.setLoading(false)
+                    let mainTabBarController = CustomTabBarController()
+                    // Optionally pass profile to mainTabBarController or root VC
+                    // mainTabBarController.currentUserProfile = profile
+                    self.navigationController?.setViewControllers([mainTabBarController], animated: true)
+                }
+            } catch {
+                await MainActor.run {
+                    self.setLoading(false)
+                    self.showAlert("Login failed", error.localizedDescription)
+                }
+            }
+        }
     }
 
     @objc private func handleApple() {
@@ -307,5 +375,27 @@ final class Login: UIViewController {
         let alert = UIAlertController(title: title, message: msg, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func setLoading(_ loading: Bool) {
+        DispatchQueue.main.async {
+            if loading {
+                self.activity.startAnimating()
+                self.loginButton.isEnabled = false
+                self.loginButton.alpha = 0.6
+            } else {
+                self.activity.stopAnimating()
+                self.loginButton.isEnabled = true
+                self.loginButton.alpha = 1.0
+            }
+        }
+    }
+
+    // MARK: - Remember me
+    private func loadRememberedEmail() {
+        if let saved = UserDefaults.standard.string(forKey: "Cloudyyy_RememberedEmail") {
+            emailField.text = saved
+            rememberCheckbox.setImage(UIImage(systemName: "checkmark.square.fill"), for: .normal)
+        }
     }
 }
