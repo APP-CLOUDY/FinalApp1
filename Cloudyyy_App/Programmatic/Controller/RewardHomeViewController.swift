@@ -288,7 +288,7 @@ final class RewardHomeViewController: UIViewController {
         case "Quick Rewards":
             navigationController?.pushViewController(QuickRewardsViewController(), animated: true)
         case "Dream it":
-            navigationController?.pushViewController(DreamItViewController(), animated: true)
+            navigationController?.pushViewController(ChildDreamItViewController(), animated: true)
         case "Spring On":
             navigationController?.pushViewController(SpringOnViewController(), animated: true)
         default:

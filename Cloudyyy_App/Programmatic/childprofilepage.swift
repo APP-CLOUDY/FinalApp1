@@ -1,26 +1,8 @@
 import UIKit
 
-class ParentProfileViewController: UIViewController {
+class ProfileViewController: UIViewController {
 
     // MARK: - UI Components
-
-    // 1. ScrollView to handle Landscape mode and small screens
-    private let scrollView: UIScrollView = {
-        let sv = UIScrollView()
-        sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.backgroundColor = .white
-        sv.showsVerticalScrollIndicator = false
-        sv.alwaysBounceVertical = true // Allows bouncing even if content fits
-        return sv
-    }()
-
-    // 2. Container View for ScrollView
-    private let contentView: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear // Clear so we see the blue header behind/inside
-        return view
-    }()
     
     // The blue header
     private let blueHeaderView: UIView = {
@@ -30,14 +12,14 @@ class ParentProfileViewController: UIViewController {
         return view
     }()
     
-    // Avatar
+    // Avatar and Name
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
-        iv.image = UIImage(systemName: "person.fill")
+        iv.image = UIImage(named: "ridu_mom_avatar") ?? UIImage(systemName: "person.fill")
         iv.tintColor = .lightGray
         iv.contentMode = .scaleAspectFill
         iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.layer.cornerRadius = 60
+        iv.layer.cornerRadius = 60 // Half of 120
         iv.clipsToBounds = true
         iv.backgroundColor = .systemGray5
         iv.layer.borderColor = UIColor.white.cgColor
@@ -51,7 +33,7 @@ class ParentProfileViewController: UIViewController {
         button.tintColor = .white
         button.backgroundColor = .darkGray.withAlphaComponent(0.8)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.layer.cornerRadius = 15
+        button.layer.cornerRadius = 15 // Half of 30
         button.layer.borderColor = UIColor.white.cgColor
         button.layer.borderWidth = 2
         return button
@@ -59,9 +41,9 @@ class ParentProfileViewController: UIViewController {
     
     private let nameLabel: UILabel = {
         let label = UILabel()
-        label.text = "Ridu Mom"
+        label.text = "Ridu Mom" // Kept as "Ridu Mom"
         label.font = .systemFont(ofSize: 32, weight: .bold)
-        label.textColor = .black
+        label.textColor = .black // On white background
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -69,7 +51,8 @@ class ParentProfileViewController: UIViewController {
     
     private let subtitleLabel: UILabel = {
         let label = UILabel()
-        label.text = "Mom"
+        // --- UPDATED: Text changed ---
+        label.text = "Chore Champion"
         label.font = .systemFont(ofSize: 18, weight: .regular)
         label.textColor = .systemGray
         label.textAlignment = .center
@@ -84,23 +67,38 @@ class ParentProfileViewController: UIViewController {
         view.backgroundColor = .white
         
         view.layer.cornerRadius = 20
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner] // Top-left and Top-right
         
+        view.clipsToBounds = true
+        // Add shadow
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOpacity = 0.1
-        view.layer.shadowOffset = CGSize(width: 0, height: -5) // Shadow upwards slightly
+        view.layer.shadowOffset = CGSize(width: 0, height: 5)
         view.layer.shadowRadius = 10
-        view.layer.masksToBounds = false
+        view.layer.masksToBounds = false // Allow shadow to show
         return view
     }()
     
-    // Menu Stack
+    // This view holds the stack view to enforce the corner radius
+    private let cardContentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .white
+
+        view.layer.cornerRadius = 20
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        
+        view.clipsToBounds = true
+        return view
+    }()
+    
+    // Menu
     private let menuStackView: UIStackView = {
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 30 // Slightly reduced spacing to fit better on small screens
-        stack.distribution = .fill
+        stack.spacing = 40 // More space between items
+        stack.distribution = .fill // Let items size naturally
         return stack
     }()
 
@@ -108,12 +106,13 @@ class ParentProfileViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBlue // Background for the "bounce" area at top
+        view.backgroundColor = .white
         setupNavigationBar()
         setupLayout()
         addMenuItems()
     }
     
+    // Set status bar to light
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
     }
@@ -132,8 +131,11 @@ class ParentProfileViewController: UIViewController {
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemBlue
+        appearance.backgroundColor = .systemBlue // Match the header
+        
+        // Title font size
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 24, weight: .bold)]
+        
         appearance.shadowColor = .clear
         
         navigationController?.navigationBar.standardAppearance = appearance
@@ -143,46 +145,24 @@ class ParentProfileViewController: UIViewController {
     }
     
     private func setupLayout() {
-        // 1. Add ScrollView hierarchy
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        
-        // 2. Add elements to ContentView
-        contentView.addSubview(blueHeaderView)
-        contentView.addSubview(cardView) // Add Card BEFORE avatar so avatar sits on top visually if they overlap
-        contentView.addSubview(avatarImageView)
-        contentView.addSubview(editAvatarButton)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(subtitleLabel)
-        
-        // 3. Add stack to card
-        cardView.addSubview(menuStackView)
+        view.addSubview(blueHeaderView)
+        view.addSubview(avatarImageView)
+        view.addSubview(editAvatarButton)
+        view.addSubview(nameLabel)
+        view.addSubview(subtitleLabel)
+        view.addSubview(cardView)
+        cardView.addSubview(cardContentView) // Add content view inside card
+        cardContentView.addSubview(menuStackView)
 
-        // MARK: - Constraints
-        
         NSLayoutConstraint.activate([
-            // ScrollView Constraints (Fill Screen)
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            // ContentView Constraints (Must define ScrollView Content Size)
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor), // Disable horizontal scroll
-            
             // Blue Header
-            // CHANGED: Fixed height instead of % of screen. This prevents it being too small in Landscape.
-            blueHeaderView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            blueHeaderView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            blueHeaderView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            blueHeaderView.heightAnchor.constraint(equalToConstant: 220),
+            blueHeaderView.topAnchor.constraint(equalTo: view.topAnchor), // To very top
+            blueHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            blueHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            blueHeaderView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.3), // 30% of screen
             
             // Avatar
-            avatarImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            avatarImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             avatarImageView.centerYAnchor.constraint(equalTo: blueHeaderView.bottomAnchor),
             avatarImageView.widthAnchor.constraint(equalToConstant: 120),
             avatarImageView.heightAnchor.constraint(equalToConstant: 120),
@@ -193,35 +173,37 @@ class ParentProfileViewController: UIViewController {
             editAvatarButton.widthAnchor.constraint(equalToConstant: 30),
             editAvatarButton.heightAnchor.constraint(equalToConstant: 30),
             
-            // Labels
+            // Labels (below avatar)
             nameLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
-            nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            nameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            nameLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             
             subtitleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            subtitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            subtitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             
-            // Card View
-            // The Card starts below the labels
+            // Card
             cardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 30),
-            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            cardView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // IMPORTANT: The Card bottom determines the total Scrollable Height.
-            // We add a 'constant' padding at the bottom so it doesn't stick to the very edge.
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50),
+            // Card Content View (for clipping)
+            cardContentView.topAnchor.constraint(equalTo: cardView.topAnchor),
+            cardContentView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
+            cardContentView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
+            cardContentView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor),
             
             // Menu Stack inside Card
-            menuStackView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 30),
-            menuStackView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 24),
-            menuStackView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -24),
-            menuStackView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -30)
+            menuStackView.topAnchor.constraint(equalTo: cardContentView.topAnchor, constant: 30),
+            menuStackView.leadingAnchor.constraint(equalTo: cardContentView.leadingAnchor, constant: 24),
+            menuStackView.trailingAnchor.constraint(equalTo: cardContentView.trailingAnchor, constant: -24),
         ])
     }
     
     private func addMenuItems() {
-        let familyRow = createMenuRow(title: "Family", isDestructive: false)
+        // --- UPDATED: Text changed ---
+        let familyRow = createMenuRow(title: "Family Members", isDestructive: false)
         let accountRow = createMenuRow(title: "Account", isDestructive: false)
         let policyRow = createMenuRow(title: "Privacy and Policy", isDestructive: false)
         let logoutRow = createMenuRow(title: "Logout", isDestructive: true)
@@ -237,16 +219,15 @@ class ParentProfileViewController: UIViewController {
     private func createMenuRow(title: String, isDestructive: Bool) -> UIView {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.heightAnchor.constraint(equalToConstant: 50).isActive = true // Give rows a fixed height for better touch targets
         
         let label = UILabel()
         label.text = title
-        label.font = .systemFont(ofSize: 19, weight: .medium)
+        label.font = .systemFont(ofSize: 19, weight: .medium) // Using medium weight
         label.textColor = isDestructive ? .systemRed : .black
         label.translatesAutoresizingMaskIntoConstraints = false
         
         let chevron = UIImageView()
-        let chevronConfig = UIImage.SymbolConfiguration(weight: .medium)
+        let chevronConfig = UIImage.SymbolConfiguration(weight: .medium) // Lighter chevron
         chevron.image = UIImage(systemName: "chevron.right", withConfiguration: chevronConfig)
         chevron.tintColor = .systemGray
         chevron.contentMode = .scaleAspectFit
@@ -263,12 +244,10 @@ class ParentProfileViewController: UIViewController {
             chevron.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             chevron.widthAnchor.constraint(equalToConstant: 14),
             chevron.heightAnchor.constraint(equalToConstant: 14),
+            
+            label.topAnchor.constraint(equalTo: view.topAnchor),
+            label.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
-        // Make the whole row tappable (optional visual feedback setup)
-        let tap = UITapGestureRecognizer(target: self, action: #selector(menuItemTapped))
-        view.addGestureRecognizer(tap)
-        view.isUserInteractionEnabled = true
         
         return view
     }
@@ -277,9 +256,5 @@ class ParentProfileViewController: UIViewController {
     
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
-    }
-    
-    @objc private func menuItemTapped() {
-        print("Menu item tapped")
     }
 }

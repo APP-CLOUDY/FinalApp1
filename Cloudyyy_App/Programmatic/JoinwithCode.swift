@@ -251,11 +251,10 @@ final class JoinWithCode: UIViewController {
     
     // <<< ADDED: Navigation action >>>
     private func navigateToChildHome() {
-        // This assumes ChildHomeViewController() exists in your project
-        let vc = ChildHomeViewController()
-        navigationController?.pushViewController(vc, animated: true)
+        let vc = ChildTabBarController()
+        navigationController?.setViewControllers([vc], animated: true)
     }
-
+    
     // MARK: - Keyboard handling
     @objc private func kbWillShow(_ n: Notification) {
         guard let info = n.userInfo,
