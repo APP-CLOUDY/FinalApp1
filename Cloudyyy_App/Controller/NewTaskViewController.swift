@@ -1,14 +1,25 @@
+//
+//  NewTaskViewController.swift
+//  Cloudyyy_App
+//
+
 import UIKit
 
 class NewTaskViewController: UIViewController {
 
-    // MARK: UI Base
+    // ===========================================================
+    // MARK: - UI Base Containers
+    // ===========================================================
+
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
 
-    // MARK: Fields
+    // ===========================================================
+    // MARK: - Form Fields
+    // ===========================================================
+
     private let titleField = StyledTextField(placeholder: "Title *")
     private let descriptionView = StyledTextView(placeholder: "Description (Optional)")
 
@@ -20,13 +31,16 @@ class NewTaskViewController: UIViewController {
     private let approvalRow = ApprovalToggleRow(title: "Approval Required")
     private let assignedRow = SelectRow(title: "Assigned To")
 
+    // Date storage
     private var selectedDate: Date?
+
+    // Multi-select storage
     private var assignedSelections = Set<String>()
 
-    // Use MenuManager for persistence + menus
-    private let mm = MenuManager.shared
+    // ===========================================================
+    // MARK: - Lifecycle
+    // ===========================================================
 
-    // MARK: Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "New Task"
@@ -34,10 +48,11 @@ class NewTaskViewController: UIViewController {
 
         setupNavigationBar()
         setupGradient()
-        setupScroll()
+        setupScrollView()
         setupStack()
         setupHeights()
-        configureMenusAndActions()
+        setupMenus()        // Floating menus
+        setupActions()       // Extra behaviors like date picker + list page
     }
 
     override func viewDidLayoutSubviews() {
@@ -45,15 +60,34 @@ class NewTaskViewController: UIViewController {
         gradient.frame = view.bounds
     }
 
-    // MARK: Layout
+    // ===========================================================
+    // MARK: - Navigation Bar
+    // ===========================================================
+
     private func setupNavigationBar() {
         navigationController?.navigationBar.tintColor = .white
         navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         navigationController?.navigationBar.setBackgroundImage(UIImage(), for: .default)
         navigationController?.navigationBar.shadowImage = UIImage()
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneTapped))
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Cancel",
+            style: .plain,
+            target: self,
+            action: #selector(cancelTapped)
+        )
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Done",
+            style: .done,
+            target: self,
+            action: #selector(doneTapped)
+        )
     }
+
+    // ===========================================================
+    // MARK: - Background Gradient
+    // ===========================================================
 
     private func setupGradient() {
         gradient.colors = [
@@ -65,9 +99,14 @@ class NewTaskViewController: UIViewController {
         view.layer.insertSublayer(gradient, at: 0)
     }
 
-    private func setupScroll() {
+    // ===========================================================
+    // MARK: - ScrollView & Stack
+    // ===========================================================
+
+    private func setupScrollView() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
@@ -77,6 +116,7 @@ class NewTaskViewController: UIViewController {
 
         scrollView.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
@@ -91,6 +131,9 @@ class NewTaskViewController: UIViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.spacing = 16
+        stack.alignment = .fill
+        stack.distribution = .fill
+
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -98,18 +141,31 @@ class NewTaskViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
         ])
 
-        // Add fields in order
-        [titleField, descriptionView, priorityRow, pointsRow, dateRow, frequencyRow, listRow, approvalRow, assignedRow]
-            .forEach { v in
-                v.alpha = 0
-                stack.addArrangedSubview(v)
-            }
+        let fields: [UIView] = [
+            titleField,
+            descriptionView,
+            priorityRow,
+            pointsRow,
+            dateRow,
+            frequencyRow,
+            listRow,
+            approvalRow,
+            assignedRow
+        ]
 
-        UIView.animate(withDuration: 0.25) { [weak self] in
-            guard let s = self else { return }
-            s.stack.arrangedSubviews.forEach { $0.alpha = 1 }
+        fields.forEach {
+            $0.alpha = 0
+            stack.addArrangedSubview($0)
+        }
+
+        UIView.animate(withDuration: 0.25) {
+            fields.forEach { $0.alpha = 1 }
         }
     }
+
+    // ===========================================================
+    // MARK: - Heights
+    // ===========================================================
 
     private func setupHeights() {
         titleField.heightAnchor.constraint(equalToConstant: 52).isActive = true
@@ -123,186 +179,155 @@ class NewTaskViewController: UIViewController {
         assignedRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
     }
 
-    // MARK: - Menus & Actions
-    private func configureMenusAndActions() {
+    // ===========================================================
+    // MARK: - Floating Menus (UIMenu)
+    // ===========================================================
 
-        // Priority: simple static menu (no "Add New" requested for priority)
-        let priorityMenu = UIMenu(title: "", children: [
-            UIAction(title: "None", handler: { _ in self.priorityRow.setDetail("None") }),
-            UIAction(title: "Low", handler: { _ in self.priorityRow.setDetail("Low") }),
-            UIAction(title: "Medium", handler: { _ in self.priorityRow.setDetail("Medium") }),
-            UIAction(title: "High", handler: { _ in self.priorityRow.setDetail("High") })
-        ])
+    private func setupMenus() {
+
+        // ---------- Priority ----------
+        let priorityMenu = UIMenu(children: ["None", "Low", "Medium", "High"].map { name in
+            UIAction(title: name) { [weak self] _ in
+                self?.priorityRow.setDetail(name)
+            }
+        })
         priorityRow.setMenu(priorityMenu)
 
-        // Points are manual via PointsRow (already interactive)
-
-        // Date row: open date picker on tap
-        dateRow.onTap = { [weak self] in self?.openDatePicker() }
-
-        // Frequency (has Add New)
-        let freqMenu = mm.menu(title: "", key: .frequency, selectionHandler: { val in
-            self.frequencyRow.setDetail(val)
-        }, addNewHandler: { [weak self] in
-            self?.presentAddNewAlert(for: .frequency, title: "Add Frequency", placeholder: "e.g. Every 2 days") { newVal in
-                self?.frequencyRow.setDetail(newVal)
-                self?.updateFrequencyMenu()
+        // ---------- Frequency ----------
+        let frequencyMenu = UIMenu(children: ["Doesn't repeat", "Daily", "Weekly", "Monthly"].map { name in
+            UIAction(title: name) { [weak self] _ in
+                self?.frequencyRow.setDetail(name)
             }
         })
-        frequencyRow.setMenu(freqMenu)
+        frequencyRow.setMenu(frequencyMenu)
 
-        // List (has Add New)
-        let listMenu = mm.menu(title: "", key: .lists, selectionHandler: { val in
-            self.listRow.setDetail(val)
-        }, addNewHandler: { [weak self] in
-            self?.presentAddNewAlert(for: .lists, title: "Add List", placeholder: "List name") { newVal in
-                self?.listRow.setDetail(newVal)
-                self?.updateListMenu()
-            }
-        })
-        listRow.setMenu(listMenu)
-
-        // Assigned To (multi-select capable)
+        // ---------- Multi-select Assigned Row ----------
         updateAssignedMenu()
-
-        // Approval toggle left as-is (ApprovalToggleRow)
     }
 
-    // Rebuild frequency menu after adding new item
-    private func updateFrequencyMenu() {
-        let newMenu = mm.menu(title: "", key: .frequency, selectionHandler: { val in
-            self.frequencyRow.setDetail(val)
-        }, addNewHandler: { [weak self] in
-            self?.presentAddNewAlert(for: .frequency, title: "Add Frequency", placeholder: "e.g. Every 2 days") { newVal in
-                self?.frequencyRow.setDetail(newVal)
-                self?.updateFrequencyMenu()
-            }
-        })
-        frequencyRow.setMenu(newMenu)
-    }
-
-    // Rebuild list menu after adding new item
-    private func updateListMenu() {
-        let newMenu = mm.menu(title: "", key: .lists, selectionHandler: { val in
-            self.listRow.setDetail(val)
-        }, addNewHandler: { [weak self] in
-            self?.presentAddNewAlert(for: .lists, title: "Add List", placeholder: "List name") { newVal in
-                self?.listRow.setDetail(newVal)
-                self?.updateListMenu()
-            }
-        })
-        listRow.setMenu(newMenu)
-    }
-
-    // Assigned menu is special: allow multi-select. We present a menu where each person toggles selection.
     private func updateAssignedMenu() {
-        let options = mm.values(for: .assigned)
-        var actions: [UIMenuElement] = options.map { name -> UIAction in
-            let isSelected = assignedSelections.contains(name)
-            return UIAction(title: name, state: isSelected ? .on : .off, handler: { [weak self] a in
-                guard let self = self else { return }
+        let options = ["Bob", "Jonesh", "Aisha", "Ramesh"]
+
+        let actions = options.map { name in
+            UIAction(
+                title: name,
+                state: assignedSelections.contains(name) ? .on : .off
+            ) { [weak self] _ in
+                guard let self else { return }
+
                 if self.assignedSelections.contains(name) {
                     self.assignedSelections.remove(name)
                 } else {
                     self.assignedSelections.insert(name)
                 }
-                // Show combined detail like "Bob, Aisha"
-                let text = self.assignedSelections.sorted().joined(separator: ", ")
-                self.assignedRow.setDetail(text.isEmpty ? "Select" : text)
-                self.updateAssignedMenu() // refresh menu to update checkmarks
-            })
+
+                let final = self.assignedSelections.sorted().joined(separator: ", ")
+                self.assignedRow.setDetail(final.isEmpty ? "None" : final)
+
+                // Refresh menu
+                self.updateAssignedMenu()
+            }
         }
 
-        let add = UIAction(title: "➕ Add New...", handler: { [weak self] _ in
-            self?.presentAddNewAlert(for: .assigned, title: "Add Person", placeholder: "Name") { newVal in
-                // auto-select newly added
-                self?.mm.add(newVal, to: .assigned)
-                self?.assignedSelections.insert(newVal)
-                self?.assignedRow.setDetail(self?.assignedSelections.sorted().joined(separator: ", ") ?? newVal)
-                self?.updateAssignedMenu()
-            }
-        })
-
-        actions.append(UIMenu(title: "", options: .displayInline, children: [add]))
-
-        let menu = UIMenu(title: "", children: actions)
-        assignedRow.setMenu(menu)
+        assignedRow.setMenu(UIMenu(children: actions))
     }
 
-    // MARK: - Add New Alert
-    private func presentAddNewAlert(for key: MenuManager.Key, title: String, placeholder: String, completion: @escaping (String)->Void) {
-        let ac = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-        ac.addTextField { tf in
-            tf.placeholder = placeholder
-            tf.autocapitalizationType = .words
+    // ===========================================================
+    // MARK: - Additional Actions
+    // ===========================================================
+
+    private func setupActions() {
+
+        // ---------- Date picker ----------
+        dateRow.onTap = { [weak self] in
+            self?.openDatePicker()
         }
-        ac.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        ac.addAction(UIAlertAction(title: "Add", style: .default, handler: { [weak self] _ in
-            guard let self = self else { return }
-            if let text = ac.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-                self.mm.add(text, to: key)
-                completion(text)
+
+        // ---------- List selection page ----------
+        listRow.onTap = { [weak self] in
+            let vc = ListsViewController()
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            nav.navigationBar.tintColor = .white
+            self?.present(nav, animated: true)
+
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ListSelected"),
+                object: nil,
+                queue: .main
+            ) { notif in
+                if let name = notif.object as? String {
+                    self?.listRow.setDetail(name)
+                }
             }
-        }))
-        present(ac, animated: true)
+        }
     }
 
-    // MARK: - Date Picker sheet (safe from clipping)
+    // ===========================================================
+    // MARK: - Date Picker Popup
+    // ===========================================================
+
     private func openDatePicker() {
-        let pickerVC = UIViewController()
-        pickerVC.title = "Select Date & Time"
-        pickerVC.view.backgroundColor = .systemBackground
+        let vc = UIViewController()
+        vc.modalPresentationStyle = .pageSheet
+        vc.view.backgroundColor = .systemBackground
 
         let picker = UIDatePicker()
         picker.datePickerMode = .dateAndTime
         picker.preferredDatePickerStyle = .wheels
         picker.translatesAutoresizingMaskIntoConstraints = false
 
-        pickerVC.view.addSubview(picker)
+        vc.view.addSubview(picker)
+
         NSLayoutConstraint.activate([
-            picker.leadingAnchor.constraint(equalTo: pickerVC.view.leadingAnchor),
-            picker.trailingAnchor.constraint(equalTo: pickerVC.view.trailingAnchor),
-            picker.topAnchor.constraint(equalTo: pickerVC.view.topAnchor, constant: 16),
-            picker.heightAnchor.constraint(equalToConstant: 220)
+            picker.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
+            picker.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
+            picker.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 20),
+            picker.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -80)
         ])
 
-        // Done button as right bar button to capture selection
-        let done = UIBarButtonItem(title: "Done", style: .done, target: nil, action: nil)
-        done.primaryAction = UIAction(handler: { [weak self] _ in
-            guard let self = self else { return }
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: nil, action: nil)
+        vc.navigationItem.rightBarButtonItem?.primaryAction = UIAction(handler: { _ in
             let df = DateFormatter()
             df.dateFormat = "MMM d, h:mm a"
             self.selectedDate = picker.date
             self.dateRow.setDetail(df.string(from: picker.date))
-            pickerVC.dismiss(animated: true)
+            vc.dismiss(animated: true)
         })
-        pickerVC.navigationItem.rightBarButtonItem = done
 
-        let nav = UINavigationController(rootViewController: pickerVC)
-        nav.modalPresentationStyle = .pageSheet
+        let nav = UINavigationController(rootViewController: vc)
         present(nav, animated: true)
     }
 
-    // MARK: Save / Cancel
-    @objc private func cancelTapped() { dismiss(animated: true) }
+    // ===========================================================
+    // MARK: - Save
+    // ===========================================================
 
     @objc private func doneTapped() {
-        // validate
+
         var missing: [String] = []
-        if titleField.textValue.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("Title") }
-        if pointsRow.countValue <= 0 { missing.append("Points") }
+
+        if titleField.textValue.isEmpty { missing.append("Title") }
+        if priorityRow.detailText == nil { missing.append("Priority") }
+        if dateRow.detailText == nil { missing.append("Date") }
         if frequencyRow.detailText == nil { missing.append("Frequency") }
         if listRow.detailText == nil { missing.append("List") }
-        if assignedRow.detailText == nil { missing.append("Assigned To") }
+        if pointsRow.countValue <= 0 { missing.append("Points") }
+        if assignedSelections.isEmpty { missing.append("Assigned To") }
 
         if !missing.isEmpty {
-            let ac = UIAlertController(title: "Missing", message: "Please fill: " + missing.joined(separator: ", "), preferredStyle: .alert)
+            let msg = "Please fill: " + missing.joined(separator: ", ")
+            let ac = UIAlertController(title: "Missing Fields", message: msg, preferredStyle: .alert)
             ac.addAction(UIAlertAction(title: "OK", style: .default))
             present(ac, animated: true)
             return
         }
 
         print("Saving task…")
+        dismiss(animated: true)
+    }
+
+    @objc private func cancelTapped() {
         dismiss(animated: true)
     }
 }

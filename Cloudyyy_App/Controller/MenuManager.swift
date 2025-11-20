@@ -1,13 +1,8 @@
 import UIKit
 import Foundation
-#if canImport(Supabase)
 
-// Optional: only compile Supabase code if SDK is added
-import Supabase
-#endif
-
-/// Central manager for building UIMenu lists that include an "Add New..." action.
-/// Stores items in UserDefaults per key; optionally persists to Supabase if configured.
+/// TEMP VERSION – Supabase code removed so app builds without SDK.
+/// Local UserDefaults ONLY. You can re-enable remote sync later.
 final class MenuManager {
 
     static let shared = MenuManager()
@@ -25,29 +20,16 @@ final class MenuManager {
         var userDefaultsKey: String { "MenuManager.\(rawValue)" }
     }
 
-    // Optional Supabase client wrapper (nil if not configured)
-    #if canImport(Supabase)
-    private var supabaseClient: SupabaseClient?
-    #endif
-
     private init() {
-        // Optionally initialize Supabase if keys are present in Info.plist
-        #if canImport(Supabase)
-        if let url = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
-           let key = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_KEY") as? String,
-           !url.isEmpty, !key.isEmpty {
-            supabaseClient = SupabaseClient(supabaseURL: URL(string: url)!, supabaseKey: key)
-        }
-        #endif
-
-        // Seed some sensible defaults if not present
         seedDefaultsIfNeeded()
     }
 
+    // ---------------------------------------------------------
+    // MARK: - Seed default values
+    // ---------------------------------------------------------
     private func seedDefaultsIfNeeded() {
         if values(for: .frequency).isEmpty {
-            let defaults = ["Doesn't repeat", "Daily", "Weekly", "Monthly"]
-            setDefaults(defaults, for: .frequency)
+            setDefaults(["Doesn't repeat", "Daily", "Weekly", "Monthly"], for: .frequency)
         }
         if values(for: .assigned).isEmpty {
             setDefaults(["Bob", "Jonesh", "Aisha", "Ramesh"], for: .assigned)
@@ -63,57 +45,35 @@ final class MenuManager {
         }
     }
 
-    // MARK: - Local storage helpers
-
+    // ---------------------------------------------------------
+    // MARK: - Local storage
+    // ---------------------------------------------------------
     func values(for key: Key) -> [String] {
-        return defaults.stringArray(forKey: key.userDefaultsKey) ?? []
+        defaults.stringArray(forKey: key.userDefaultsKey) ?? []
     }
 
     private func setDefaults(_ arr: [String], for key: Key) {
         defaults.set(arr, forKey: key.userDefaultsKey)
     }
 
-    /// Adds a new value locally (front of list) if not duplicate (case-insensitive).
-    /// Also attempts to persist to Supabase if configured.
+    /// Add locally (no Supabase)
     func add(_ value: String, to key: Key, completion: ((Bool) -> Void)? = nil) {
         var arr = values(for: key)
-        // prevent duplicates (case-insensitive)
+
+        // prevent duplicates ignoring case
         if arr.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
             completion?(false)
             return
         }
-        arr.insert(value, at: 0)
+
+        arr.insert(value, at: 0)   // add to top
         defaults.set(arr, forKey: key.userDefaultsKey)
-
-        // Optional remote persist
-        #if canImport(Supabase)
-        if let client = supabaseClient {
-            // Example: write to a generic table named "menu_items" with columns: key, value
-            let payload: [String: Any] = ["menu_key": key.rawValue, "value": value]
-            Task {
-                do {
-                    _ = try await client.database.from("menu_items").insert(values: payload).execute()
-                    completion?(true)
-                } catch {
-                    // remote failed — we still return true because local succeeded
-                    print("Supabase insert failed:", error)
-                    completion?(true)
-                }
-            }
-            return
-        }
-        #endif
-
         completion?(true)
     }
 
-    // MARK: - Menu builder
-
-    /// Build a UIMenu for the given key, with selection and add-new callbacks.
-    /// - parameter title: optional menu title
-    /// - parameter key: which list to read
-    /// - parameter selectionHandler: called when user picks existing item
-    /// - parameter addNewHandler: called when user taps Add New… (we expect VC to show an alert)
+    // ---------------------------------------------------------
+    // MARK: - Build UIMenu with "Add New…"
+    // ---------------------------------------------------------
     func menu(
         title: String? = nil,
         for key: Key,
@@ -122,31 +82,43 @@ final class MenuManager {
     ) -> UIMenu {
 
         let items = values(for: key)
+
+        // Build menu items
         var actions: [UIMenuElement] = items.map { v in
-            UIAction(title: v, handler: { _ in selectionHandler(v) })
+            UIAction(title: v) { _ in selectionHandler(v) }
         }
 
-        // Separator and Add New action
-        let add = UIAction(title: "+ Add New…", image: UIImage(systemName: "plus")) { _ in
-            // ask caller to show add UI; caller will call the provided callback when user submits text
+        // Add New section at bottom
+        let addAction = UIAction(
+            title: "+ Add New…",
+            image: UIImage(systemName: "plus")
+        ) { _ in
             addNewHandler { newValue in
-                // Add locally and call selection
                 self.add(newValue, to: key) { _ in
-                    // update menu is left to caller (they can call setMenu again using this manager)
                     selectionHandler(newValue)
                 }
             }
         }
 
-        actions.append(UIMenu(title: "", options: .displayInline, children: [add]))
+        let addSection = UIMenu(title: "", options: .displayInline, children: [addAction])
+        actions.append(addSection)
 
-        let menu = UIMenu(title: title ?? "", children: actions)
-        return menu
+        return UIMenu(title: title ?? "", children: actions)
     }
 
-    // Convenience: return an updated UIMenu for key (useful after adding)
-    func updatedMenu(title: String? = nil, for key: Key, selectionHandler: @escaping (String)->Void, addNewHandler: @escaping (@escaping (String)->Void)->Void) -> UIMenu {
-        return menu(title: title, for: key, selectionHandler: selectionHandler, addNewHandler: addNewHandler)
+    // Refresh menu after adding items
+    func updatedMenu(
+        title: String? = nil,
+        for key: Key,
+        selectionHandler: @escaping (String)->Void,
+        addNewHandler: @escaping (@escaping (String)->Void)->Void
+    ) -> UIMenu {
+        menu(
+            title: title,
+            for: key,
+            selectionHandler: selectionHandler,
+            addNewHandler: addNewHandler
+        )
     }
 }
 

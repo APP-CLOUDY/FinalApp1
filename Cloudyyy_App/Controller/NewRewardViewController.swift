@@ -399,51 +399,6 @@ extension NewRewardViewController: UIImagePickerControllerDelegate, UINavigation
     }
     
     
-    
-    // Claim Limit
-    let claimMenu = MenuManager.shared.menu(title: "", key: .claimLimits, selectionHandler: { val in
-        self.claimLimitRow.setDetail(val)
-    }, addNewHandler: {
-        self.presentAddNewAlertForReward(key: .claimLimits)
-    })
-    claimLimitRow.setMenu(claimMenu)
-
-    // Reward Type
-    let typeMenu = MenuManager.shared.menu(title: "", key: .rewardTypes, selectionHandler: { val in
-        self.rewardTypeRow.setDetail(val)
-    }, addNewHandler: {
-        self.presentAddNewAlertForReward(key: .rewardTypes)
-    })
-    rewardTypeRow.setMenu(typeMenu)
-
-    // Assigned (on reward page can reuse same assigned behavior if you want)
-    assignedRow.setMenu(MenuManager.shared.menu(title: "", key: .assigned, selectionHandler: { val in
-        self.assignedRow.setDetail(val)
-    }, addNewHandler: {
-        self.presentAddNewAlertForReward(key: .assigned)
-    }))
-
-    private func presentAddNewAlertForReward(key: MenuManager.Key) {
-        let title: String
-        switch key {
-        case .claimLimits: title = "Add Claim Limit"
-        case .rewardTypes: title = "Add Reward Type"
-        case .assigned: title = "Add Person"
-        default: title = "Add"
-        }
-
-        let ac = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-        ac.addTextField { $0.placeholder = "Enter value" }
-        ac.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        ac.addAction(UIAlertAction(title: "Add", style: .default, handler: { _ in
-            if let text = ac.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-                MenuManager.shared.add(text, to: key)
-                // rebuild menus (call the same builder you used)
-                // Example: self.claimLimitRow.setMenu( MenuManager.shared.menu(... ) )
-            }
-        }))
-        present(ac, animated: true)
-    }
-
+   
 }
 
