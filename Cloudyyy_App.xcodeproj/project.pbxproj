@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6FEB0F892ECEC76100DEF8E4 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 6FEB0F882ECEC76100DEF8E4 /* Lottie */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6FF3D37B2EBB34840022B8BC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6FEB0F892ECEC76100DEF8E4 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = Cloudyyy_App;
 			packageProductDependencies = (
+				6FEB0F882ECEC76100DEF8E4 /* Lottie */,
 			);
 			productName = Cloudyyy_App;
 			productReference = 6FF3D3642EBB34820022B8BC /* Cloudyyy_App.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 6FF3D35B2EBB34820022B8BC;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6FEB0F872ECEC63600DEF8E4 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FF3D3652EBB34820022B8BC /* Products */;
 			projectDirPath = "";
@@ -583,6 +592,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6FEB0F872ECEC63600DEF8E4 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6FEB0F882ECEC76100DEF8E4 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6FEB0F872ECEC63600DEF8E4 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6FF3D35C2EBB34820022B8BC /* Project object */;
 }

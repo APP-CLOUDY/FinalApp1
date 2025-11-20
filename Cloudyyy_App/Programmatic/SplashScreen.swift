@@ -1,7 +1,9 @@
 import UIKit
+import Lottie
 
 final class SplashViewController: UIViewController {
 
+    // MARK: - Visuals
     private let familyImageView = UIImageView()
     private let titleLabel = UILabel()
     private let feature1 = UILabel()
@@ -14,17 +16,51 @@ final class SplashViewController: UIViewController {
 
     private let bgGradient = CAGradientLayer()
 
+    // MARK: - Lottie Animations
+    // welcome.json should be added to your Xcode project (or placed at /mnt/data/welcome.json in this environment)
+    private let welcomeAnimationView: LottieAnimationView = {
+        let view = LottieAnimationView(name: "welcome")
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.contentMode = .scaleAspectFit
+        view.loopMode = .playOnce
+        view.backgroundBehavior = .pauseAndRestore
+        view.alpha = 1
+        return view
+    }()
+
+    // This animation overlays the family image area and mirrors sizing so it won't disturb your layout.
+    private let animationView: LottieAnimationView = {
+        let view = LottieAnimationView(name: "welcome") // placeholder — will not be used concurrently
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.contentMode = .scaleAspectFit
+        view.loopMode = .playOnce
+        view.backgroundBehavior = .pauseAndRestore
+        view.alpha = 0
+        return view
+    }()
+
     // Constraints that will switch for portrait/landscape
     private var imageHeightPortrait: NSLayoutConstraint!
     private var imageWidthPortrait: NSLayoutConstraint!
     private var imageWidthLandscape: NSLayoutConstraint!
     private var imageHeightLandscape: NSLayoutConstraint!
 
+    // Also separate constraints for the (secondary) animation
+    private var animHeightPortrait: NSLayoutConstraint!
+    private var animWidthPortrait: NSLayoutConstraint!
+    private var animWidthLandscape: NSLayoutConstraint!
+    private var animHeightLandscape: NSLayoutConstraint!
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackground()
         setupUI()
         continueButton.addTarget(self, action: #selector(didTapContinue), for: .touchUpInside)
+
+        // Start with Cloudyyy UI hidden — we'll reveal it after the welcome animation
+        familyImageView.alpha = 0
+        infoStack.alpha = 0
+        continueContainer.alpha = 0
     }
 
     override func viewDidLayoutSubviews() {
@@ -47,28 +83,57 @@ final class SplashViewController: UIViewController {
     private func setupUI() {
         let safe = view.safeAreaLayoutGuide
 
+        // Add welcome animation on top center
+        view.addSubview(welcomeAnimationView)
+        NSLayoutConstraint.activate([
+            welcomeAnimationView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            welcomeAnimationView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -10),
+            welcomeAnimationView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.85),
+            welcomeAnimationView.heightAnchor.constraint(equalToConstant: 180)
+        ])
+
         // ========= FAMILY IMAGE =========
         familyImageView.translatesAutoresizingMaskIntoConstraints = false
         familyImageView.contentMode = .scaleAspectFit
         familyImageView.image = UIImage(named: "family")
         view.addSubview(familyImageView)
 
-        // -------- Portrait Constraints --------
+        // Add the (secondary) animation view but keep it hidden — we rely on welcomeAnimationView for the intro
+        view.addSubview(animationView)
+
+        // -------- Portrait Constraints (image) --------
         imageHeightPortrait = familyImageView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.48)
         imageWidthPortrait = familyImageView.widthAnchor.constraint(equalTo: view.widthAnchor)
 
-        // -------- Landscape Constraints --------
+        // -------- Landscape Constraints (image) --------
         imageWidthLandscape = familyImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.50)
         imageHeightLandscape = familyImageView.heightAnchor.constraint(equalTo: view.heightAnchor)
 
+        // Shared anchors
         NSLayoutConstraint.activate([
             familyImageView.topAnchor.constraint(equalTo: safe.topAnchor),
-            familyImageView.centerXAnchor.constraint(equalTo: safe.centerXAnchor)
+            familyImageView.centerXAnchor.constraint(equalTo: safe.centerXAnchor),
+
+            // animationView mirrors: top + centerX (so it overlays the image area if needed)
+            animationView.topAnchor.constraint(equalTo: familyImageView.topAnchor),
+            animationView.centerXAnchor.constraint(equalTo: familyImageView.centerXAnchor)
         ])
 
-        // Activate portrait by default
+        // Activate portrait by default (image)
         imageHeightPortrait.isActive = true
         imageWidthPortrait.isActive = true
+
+        // -------- Portrait Constraints (animationView) --------
+        animHeightPortrait = animationView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.48)
+        animWidthPortrait = animationView.widthAnchor.constraint(equalTo: view.widthAnchor)
+
+        // -------- Landscape Constraints (animationView) --------
+        animWidthLandscape = animationView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.50)
+        animHeightLandscape = animationView.heightAnchor.constraint(equalTo: view.heightAnchor)
+
+        // Activate portrait by default (animation)
+        animHeightPortrait.isActive = true
+        animWidthPortrait.isActive = true
 
         // ========= INFO STACK =========
         infoStack.axis = .vertical
@@ -126,6 +191,9 @@ final class SplashViewController: UIViewController {
             continueButton.topAnchor.constraint(equalTo: continueContainer.topAnchor),
             continueButton.bottomAnchor.constraint(equalTo: continueContainer.bottomAnchor)
         ])
+
+        // Make sure the welcome animation stays on top initially
+        view.bringSubviewToFront(welcomeAnimationView)
     }
 
     private func configureLabel(_ label: UILabel, text: String) {
@@ -147,6 +215,7 @@ final class SplashViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         updateForOrientation()
+        playWelcomeThenShowCloudyyy()
     }
 
     private func updateForOrientation() {
@@ -159,6 +228,11 @@ final class SplashViewController: UIViewController {
             imageWidthLandscape.isActive = true
             imageHeightLandscape.isActive = true
 
+            animHeightPortrait.isActive = false
+            animWidthPortrait.isActive = false
+            animWidthLandscape.isActive = true
+            animHeightLandscape.isActive = true
+
             titleLabel.font = UIFont.systemFont(ofSize: 34, weight: .heavy)
         } else {
             // Portrait layout
@@ -167,11 +241,57 @@ final class SplashViewController: UIViewController {
             imageHeightPortrait.isActive = true
             imageWidthPortrait.isActive = true
 
+            animWidthLandscape.isActive = false
+            animHeightLandscape.isActive = false
+            animHeightPortrait.isActive = true
+            animWidthPortrait.isActive = true
+
             titleLabel.font = UIFont.systemFont(ofSize: 44, weight: .heavy)
         }
 
         UIView.animate(withDuration: 0.25) {
             self.view.layoutIfNeeded()
+        }
+    }
+
+    // MARK: Lottie Playback
+    private func playWelcomeThenShowCloudyyy() {
+        // Ensure welcome animation is visible
+        welcomeAnimationView.alpha = 1
+
+        welcomeAnimationView.play { [weak self] finished in
+            guard let self = self else { return }
+
+            // fade out welcome animation then fade in Cloudyyy UI
+            UIView.animate(withDuration: 0.3, animations: {
+                self.welcomeAnimationView.alpha = 0
+            }) { _ in
+                self.welcomeAnimationView.removeFromSuperview()
+
+                // reveal Cloudyyy UI
+                UIView.animate(withDuration: 0.6, delay: 0, options: [.curveEaseInOut], animations: {
+                    self.familyImageView.alpha = 1
+                    self.infoStack.alpha = 1
+                    self.continueContainer.alpha = 1
+                }, completion: nil)
+            }
+        }
+
+        // Safety fallback: if animation stalls, ensure UI appears after 4s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+            guard let self = self else { return }
+            if self.welcomeAnimationView.superview != nil {
+                UIView.animate(withDuration: 0.3, animations: {
+                    self.welcomeAnimationView.alpha = 0
+                }) { _ in
+                    self.welcomeAnimationView.removeFromSuperview()
+                    UIView.animate(withDuration: 0.4) {
+                        self.familyImageView.alpha = 1
+                        self.infoStack.alpha = 1
+                        self.continueContainer.alpha = 1
+                    }
+                }
+            }
         }
     }
 
