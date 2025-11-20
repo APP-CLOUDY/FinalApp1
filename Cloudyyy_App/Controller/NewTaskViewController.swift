@@ -1,428 +1,309 @@
-//
-//  NewTaskViewController.swift
-//  Cloudyyy_App
-//
-//  Updated to use white text and native dark styling
-//
-
 import UIKit
 
 class NewTaskViewController: UIViewController {
 
-    private var backgroundGradientLayer: CAGradientLayer?
-    private var points = 1 { didSet { pointsValueLabel.text = "\(points)" } }
-
-    // MARK: - UI Elements
-    private let cancelButton = UIButton(type: .system)
-    private let doneButton = UIButton(type: .system)
-    private let titleLabel = UILabel()
-
-    private let titleTextField = UITextField()
-    private let descriptionTextView = UITextView()
-
-  
-    private let priorityButton = UIButton(type: .system)
-
-    private let pointsStack = UIStackView()
-    private let minusButton = UIButton(type: .system)
-    private let plusButton = UIButton(type: .system)
-    private let pointsValueLabel = UILabel()
-
-  
-    private let datePicker = UIDatePicker()
-
-    
-    private let frequencyButton = UIButton(type: .system)
-
-  
-    private let listsButton = UIButton(type: .system)
-
-   
-    private let approvalSwitch = UISwitch()
-
-    private let assignedButton = UIButton(type: .system)
-
+    // MARK: UI Base
     private let scrollView = UIScrollView()
-    private let contentView = UIStackView()
-    
-    private var priorityLabel = UILabel()
-    private var frequencyLabel = UILabel()
-    private var listsLabel = UILabel()
-    private var approvalLabel = UILabel()
-    private var assignedLabel = UILabel()
-    private var pointsLabel = UILabel()
-    private var dateLabel = UILabel()
+    private let contentView = UIView()
+    private let stack = UIStackView()
+    private let gradient = CAGradientLayer()
 
+    // MARK: Fields
+    private let titleField = StyledTextField(placeholder: "Title *")
+    private let descriptionView = StyledTextView(placeholder: "Description (Optional)")
 
-    // MARK: - Lifecycle
+    private let priorityRow = SelectRow(title: "Priority")
+    private let pointsRow = PointsRow()
+    private let dateRow = SelectRow(title: "Date & Time")
+    private let frequencyRow = SelectRow(title: "Frequency")
+    private let listRow = SelectRow(title: "List")
+    private let approvalRow = ApprovalToggleRow(title: "Approval Required")
+    private let assignedRow = SelectRow(title: "Assigned To")
+
+    private var selectedDate: Date?
+    private var assignedSelections = Set<String>()
+
+    // Use MenuManager for persistence + menus
+    private let mm = MenuManager.shared
+
+    // MARK: Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        title = "New Task"
+        view.backgroundColor = .black
+
+        setupNavigationBar()
         setupGradient()
-        setupHeader()
-        setupUI()
-        setupLayout()
+        setupScroll()
+        setupStack()
+        setupHeights()
+        configureMenusAndActions()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        backgroundGradientLayer?.frame = view.bounds
-        
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("ListSelected"),
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            if let selectedList = notification.object as? String {
-                self?.listsButton.setTitle(selectedList + " ▸", for: .normal)
-            }
-        }
-
+        gradient.frame = view.bounds
     }
 
-    // MARK: - Setup Gradient
+    // MARK: Layout
+    private func setupNavigationBar() {
+        navigationController?.navigationBar.tintColor = .white
+        navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.setBackgroundImage(UIImage(), for: .default)
+        navigationController?.navigationBar.shadowImage = UIImage()
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneTapped))
+    }
+
     private func setupGradient() {
-        backgroundGradientLayer?.removeFromSuperlayer()
-        let gradient = CAGradientLayer()
         gradient.colors = [
             UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1).cgColor,
             UIColor(red: 24/255, green: 30/255, blue: 74/255, alpha: 1).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint   = CGPoint(x: 1, y: 1)
-        gradient.frame      = view.bounds
+        gradient.endPoint = CGPoint(x: 1, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
-        backgroundGradientLayer = gradient
     }
 
-    // MARK: - Header (Cancel / Title / Done)
-    private func setupHeader() {
-        // Cancel button (left)
-        cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.setTitleColor(.systemBlue, for: .normal)
-        cancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .regular)
-        cancelButton.addTarget(self, action: #selector(dismissSheet), for: .touchUpInside)
-
-        // Done button (right)
-        doneButton.setTitle("Done", for: .normal)
-        doneButton.setTitleColor(.systemBlue, for: .normal)
-        doneButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .regular)
-        doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
-
-        // Center title
-        titleLabel.text = "New Task"
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 20)
-        titleLabel.textColor = .white
-        titleLabel.textAlignment = .center
-    }
-
-    // MARK: - Build UI Controls
-    private func setupUI() {
+    private func setupScroll() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-
-        contentView.axis = .vertical
-        contentView.spacing = 18
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(contentView)
-
-        setupTextFields()
-        setupButtonsAndLabels()
-        setupStacks()
-    }
-
-    private func setupTextFields() {
-        // Title text field
-        titleTextField.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        titleTextField.layer.cornerRadius = 10
-        titleTextField.textColor = .white
-        titleTextField.font = UIFont.systemFont(ofSize: 16)
-        titleTextField.PaddingLeftPoints(12)
-        titleTextField.heightAnchor.constraint(equalToConstant: 48).isActive = true
-
-        // white placeholder with alpha
-        let titlePlaceholder = NSAttributedString(
-            string: "Title *",
-            attributes: [
-                .foregroundColor: UIColor.white.withAlphaComponent(0.55),
-                .font: UIFont.systemFont(ofSize: 15)
-            ])
-        titleTextField.attributedPlaceholder = titlePlaceholder
-
-        // Description text view (multiline)
-        descriptionTextView.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        descriptionTextView.layer.cornerRadius = 10
-        descriptionTextView.textColor = UIColor.white.withAlphaComponent(0.9)
-        descriptionTextView.font = UIFont.systemFont(ofSize: 15)
-        descriptionTextView.isScrollEnabled = false
-        descriptionTextView.heightAnchor.constraint(equalToConstant: 96).isActive = true
-        descriptionTextView.delegate = self
-
-        // Use a faint placeholder-like text initially
-        descriptionTextView.text = "Description"
-        descriptionTextView.textColor = UIColor.white.withAlphaComponent(0.55)
-    }
-
-    private func setupButtonsAndLabels() {
-        func makeSectionLabel(_ text: String) -> UILabel {
-            let l = UILabel()
-            l.text = text
-            l.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
-            l.textColor = .white
-            l.textAlignment = .left
-            return l
-        }
-
-        priorityLabel = makeSectionLabel("Priority")
-        frequencyLabel = makeSectionLabel("Frequency")
-        listsLabel = makeSectionLabel("Lists")
-        approvalLabel = makeSectionLabel("Approval & Photo proof")
-        assignedLabel = makeSectionLabel("Assigned to")
-        pointsLabel = makeSectionLabel("Points")
-        dateLabel = makeSectionLabel("Date")
-
-        // priorityButton (looks like a field)
-        priorityButton.setTitle("None ▾", for: .normal)
-        priorityButton.setTitleColor(.white, for: .normal)
-        priorityButton.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        priorityButton.layer.cornerRadius = 10
-        priorityButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
-        priorityButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        priorityButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        priorityButton.addTarget(self, action: #selector(pickPriority), for: .touchUpInside)
-
-        // Frequency button
-        frequencyButton.setTitle("Select ▾", for: .normal)
-        frequencyButton.setTitleColor(.white, for: .normal)
-        frequencyButton.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        frequencyButton.layer.cornerRadius = 10
-        frequencyButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
-        frequencyButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        frequencyButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        frequencyButton.addTarget(self, action: #selector(pickFrequency), for: .touchUpInside)
-
-        // Lists button
-        listsButton.setTitle("Choose ▸", for: .normal)
-        listsButton.setTitleColor(.white, for: .normal)
-        listsButton.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        listsButton.layer.cornerRadius = 10
-        listsButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
-        listsButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        listsButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        listsButton.addTarget(self, action: #selector(openListsPage), for: .touchUpInside)
-
-        // Assigned button
-        assignedButton.setTitle("Select ▾", for: .normal)
-        assignedButton.setTitleColor(.white, for: .normal)
-        assignedButton.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        assignedButton.layer.cornerRadius = 10
-        assignedButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-
-        // Points stack (minus, value, plus) inside a rounded background
-        minusButton.setTitle("-", for: .normal)
-        minusButton.setTitleColor(.white, for: .normal)
-        minusButton.titleLabel?.font = UIFont.systemFont(ofSize: 22, weight: .semibold)
-        minusButton.addTarget(self, action: #selector(decrementPoints), for: .touchUpInside)
-
-        plusButton.setTitle("+", for: .normal)
-        plusButton.setTitleColor(.white, for: .normal)
-        plusButton.titleLabel?.font = UIFont.systemFont(ofSize: 22, weight: .semibold)
-        plusButton.addTarget(self, action: #selector(incrementPoints), for: .touchUpInside)
-
-        pointsValueLabel.text = "\(points)"
-        pointsValueLabel.textColor = .white
-        pointsValueLabel.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
-        pointsValueLabel.textAlignment = .center
-        pointsValueLabel.widthAnchor.constraint(equalToConstant: 36).isActive = true
-
-        pointsStack.axis = .horizontal
-        pointsStack.alignment = .center
-        pointsStack.distribution = .equalCentering
-        pointsStack.spacing = 16
-        pointsStack.addArrangedSubview(minusButton)
-        pointsStack.addArrangedSubview(pointsValueLabel)
-        pointsStack.addArrangedSubview(plusButton)
-        pointsStack.backgroundColor = UIColor(white: 1.0, alpha: 0.07)
-        pointsStack.layer.cornerRadius = 10
-        pointsStack.heightAnchor.constraint(equalToConstant: 48).isActive = true
-
-        // Date picker styling
-        datePicker.datePickerMode = .dateAndTime
-        datePicker.preferredDatePickerStyle = .compact
-        datePicker.tintColor = .white
-        datePicker.backgroundColor = UIColor(white: 1.0, alpha: 0.03)
-        datePicker.layer.cornerRadius = 10
-    }
-
-    // MARK: - Stack building
-    // MARK: - Stack building
-    private func setupStacks() {
-        
-        // Title and description
-        contentView.addArrangedSubview(titleTextField)
-        contentView.addArrangedSubview(descriptionTextView)
-        
-        func makeRow(left label: UILabel, right view: UIView) -> UIStackView {
-            let row = UIStackView(arrangedSubviews: [label, view])
-            row.axis = .horizontal
-            row.distribution = .equalSpacing
-            row.alignment = .center
-            row.backgroundColor = UIColor(white: 1.0, alpha: 0.08)
-            row.layer.cornerRadius = 12
-            row.isLayoutMarginsRelativeArrangement = true
-            row.layoutMargins = UIEdgeInsets(top: 10, left: 15, bottom: 10, right: 15)
-            row.heightAnchor.constraint(equalToConstant: 50).isActive = true
-            return row
-        }
-
-        // Priority row
-        let priorityRow = makeRow(left: priorityLabel, right: priorityButton)
-        contentView.addArrangedSubview(priorityRow)
-
-        // Points row (custom HStack for - 1 +)
-        let pointsRow = makeRow(left: pointsLabel, right: pointsStack)
-        contentView.addArrangedSubview(pointsRow)
-
-        // Date row
-        let dateRow = makeRow(left: dateLabel, right: datePicker)
-        contentView.addArrangedSubview(dateRow)
-
-        // Frequency row
-        let frequencyRow = makeRow(left: frequencyLabel, right: frequencyButton)
-        contentView.addArrangedSubview(frequencyRow)
-
-        // Lists row
-        let listsRow = makeRow(left: listsLabel, right: listsButton)
-        contentView.addArrangedSubview(listsRow)
-
-        // Approval row (label + switch)
-        let approvalRow = makeRow(left: approvalLabel, right: approvalSwitch)
-        contentView.addArrangedSubview(approvalRow)
-
-        // Assigned to row
-        let assignedRow = makeRow(left: assignedLabel, right: assignedButton)
-        contentView.addArrangedSubview(assignedRow)
-    }
-
-
-    // MARK: - Layout constraints
-    private func setupLayout() {
-        let headerStack = UIStackView(arrangedSubviews: [cancelButton, titleLabel, doneButton])
-        headerStack.axis = .horizontal
-        headerStack.distribution = .equalCentering
-        headerStack.alignment = .center
-        headerStack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(headerStack)
-
         NSLayoutConstraint.activate([
-            headerStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            headerStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            headerStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
 
-            // scroll view
-            scrollView.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 12),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-
-            // contentView edges inside scroll
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 12),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -20),
-
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
+        scrollView.addSubview(contentView)
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
     }
 
-    // MARK: - Actions
-    @objc private func incrementPoints() { if points < 10 { points += 1 } }
-    @objc private func decrementPoints() { if points > 1 { points -= 1 } }
-    @objc private func doneTapped() {
-        // validate minimal fields
-        if let t = titleTextField.text, !t.trimmingCharacters(in: .whitespaces).isEmpty {
-            print("Task saved: \(t)")
-            dismiss(animated: true)
-        } else {
-            let alert = UIAlertController(title: "Missing Title", message: "Please enter a task title.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
+    private func setupStack() {
+        contentView.addSubview(stack)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 16
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
+        ])
+
+        // Add fields in order
+        [titleField, descriptionView, priorityRow, pointsRow, dateRow, frequencyRow, listRow, approvalRow, assignedRow]
+            .forEach { v in
+                v.alpha = 0
+                stack.addArrangedSubview(v)
+            }
+
+        UIView.animate(withDuration: 0.25) { [weak self] in
+            guard let s = self else { return }
+            s.stack.arrangedSubviews.forEach { $0.alpha = 1 }
         }
     }
-    @objc private func dismissSheet() { dismiss(animated: true) }
 
-    @objc private func pickPriority() {
-        let alert = UIAlertController(title: "Priority", message: nil, preferredStyle: .actionSheet)
-        let priorities: [String] = ["None", "Low", "Medium", "High"]
-        
-        for option in priorities {
-            alert.addAction(UIAlertAction(title: option, style: .default) { [weak self] _ in
-                // ✅ Ensure non-optional, clean string
-                let cleanTitle = option
-                self?.priorityButton.setTitle("\(cleanTitle) ▾", for: .normal)
+    private func setupHeights() {
+        titleField.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        descriptionView.heightAnchor.constraint(equalToConstant: 140).isActive = true
+        priorityRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        pointsRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        dateRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        frequencyRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        listRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        approvalRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        assignedRow.heightAnchor.constraint(equalToConstant: 52).isActive = true
+    }
+
+    // MARK: - Menus & Actions
+    private func configureMenusAndActions() {
+
+        // Priority: simple static menu (no "Add New" requested for priority)
+        let priorityMenu = UIMenu(title: "", children: [
+            UIAction(title: "None", handler: { _ in self.priorityRow.setDetail("None") }),
+            UIAction(title: "Low", handler: { _ in self.priorityRow.setDetail("Low") }),
+            UIAction(title: "Medium", handler: { _ in self.priorityRow.setDetail("Medium") }),
+            UIAction(title: "High", handler: { _ in self.priorityRow.setDetail("High") })
+        ])
+        priorityRow.setMenu(priorityMenu)
+
+        // Points are manual via PointsRow (already interactive)
+
+        // Date row: open date picker on tap
+        dateRow.onTap = { [weak self] in self?.openDatePicker() }
+
+        // Frequency (has Add New)
+        let freqMenu = mm.menu(title: "", key: .frequency, selectionHandler: { val in
+            self.frequencyRow.setDetail(val)
+        }, addNewHandler: { [weak self] in
+            self?.presentAddNewAlert(for: .frequency, title: "Add Frequency", placeholder: "e.g. Every 2 days") { newVal in
+                self?.frequencyRow.setDetail(newVal)
+                self?.updateFrequencyMenu()
+            }
+        })
+        frequencyRow.setMenu(freqMenu)
+
+        // List (has Add New)
+        let listMenu = mm.menu(title: "", key: .lists, selectionHandler: { val in
+            self.listRow.setDetail(val)
+        }, addNewHandler: { [weak self] in
+            self?.presentAddNewAlert(for: .lists, title: "Add List", placeholder: "List name") { newVal in
+                self?.listRow.setDetail(newVal)
+                self?.updateListMenu()
+            }
+        })
+        listRow.setMenu(listMenu)
+
+        // Assigned To (multi-select capable)
+        updateAssignedMenu()
+
+        // Approval toggle left as-is (ApprovalToggleRow)
+    }
+
+    // Rebuild frequency menu after adding new item
+    private func updateFrequencyMenu() {
+        let newMenu = mm.menu(title: "", key: .frequency, selectionHandler: { val in
+            self.frequencyRow.setDetail(val)
+        }, addNewHandler: { [weak self] in
+            self?.presentAddNewAlert(for: .frequency, title: "Add Frequency", placeholder: "e.g. Every 2 days") { newVal in
+                self?.frequencyRow.setDetail(newVal)
+                self?.updateFrequencyMenu()
+            }
+        })
+        frequencyRow.setMenu(newMenu)
+    }
+
+    // Rebuild list menu after adding new item
+    private func updateListMenu() {
+        let newMenu = mm.menu(title: "", key: .lists, selectionHandler: { val in
+            self.listRow.setDetail(val)
+        }, addNewHandler: { [weak self] in
+            self?.presentAddNewAlert(for: .lists, title: "Add List", placeholder: "List name") { newVal in
+                self?.listRow.setDetail(newVal)
+                self?.updateListMenu()
+            }
+        })
+        listRow.setMenu(newMenu)
+    }
+
+    // Assigned menu is special: allow multi-select. We present a menu where each person toggles selection.
+    private func updateAssignedMenu() {
+        let options = mm.values(for: .assigned)
+        var actions: [UIMenuElement] = options.map { name -> UIAction in
+            let isSelected = assignedSelections.contains(name)
+            return UIAction(title: name, state: isSelected ? .on : .off, handler: { [weak self] a in
+                guard let self = self else { return }
+                if self.assignedSelections.contains(name) {
+                    self.assignedSelections.remove(name)
+                } else {
+                    self.assignedSelections.insert(name)
+                }
+                // Show combined detail like "Bob, Aisha"
+                let text = self.assignedSelections.sorted().joined(separator: ", ")
+                self.assignedRow.setDetail(text.isEmpty ? "Select" : text)
+                self.updateAssignedMenu() // refresh menu to update checkmarks
             })
         }
 
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        let add = UIAction(title: "➕ Add New...", handler: { [weak self] _ in
+            self?.presentAddNewAlert(for: .assigned, title: "Add Person", placeholder: "Name") { newVal in
+                // auto-select newly added
+                self?.mm.add(newVal, to: .assigned)
+                self?.assignedSelections.insert(newVal)
+                self?.assignedRow.setDetail(self?.assignedSelections.sorted().joined(separator: ", ") ?? newVal)
+                self?.updateAssignedMenu()
+            }
+        })
+
+        actions.append(UIMenu(title: "", options: .displayInline, children: [add]))
+
+        let menu = UIMenu(title: "", children: actions)
+        assignedRow.setMenu(menu)
     }
 
-    @objc private func pickFrequency() {
-        let alert = UIAlertController(title: "Frequency", message: nil, preferredStyle: .actionSheet)
-        let frequencies: [String] = ["Doesn't repeat", "Daily", "Weekly", "Monthly"]
-        
-        for option in frequencies {
-            alert.addAction(UIAlertAction(title: option, style: .default) { [weak self] _ in
-                let cleanTitle = option
-                self?.frequencyButton.setTitle("\(cleanTitle) ▾", for: .normal)
-            })
+    // MARK: - Add New Alert
+    private func presentAddNewAlert(for key: MenuManager.Key, title: String, placeholder: String, completion: @escaping (String)->Void) {
+        let ac = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+        ac.addTextField { tf in
+            tf.placeholder = placeholder
+            tf.autocapitalizationType = .words
         }
-
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        ac.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        ac.addAction(UIAlertAction(title: "Add", style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            if let text = ac.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                self.mm.add(text, to: key)
+                completion(text)
+            }
+        }))
+        present(ac, animated: true)
     }
 
+    // MARK: - Date Picker sheet (safe from clipping)
+    private func openDatePicker() {
+        let pickerVC = UIViewController()
+        pickerVC.title = "Select Date & Time"
+        pickerVC.view.backgroundColor = .systemBackground
 
+        let picker = UIDatePicker()
+        picker.datePickerMode = .dateAndTime
+        picker.preferredDatePickerStyle = .wheels
+        picker.translatesAutoresizingMaskIntoConstraints = false
 
-    @objc private func openListsPage() {
-        let listsVC = ListsViewController()
-        // wrap in navigation so Lists has back / Add
-        let nav = UINavigationController(rootViewController: listsVC)
-        nav.modalPresentationStyle = .fullScreen
-        // style nav bar for dark look
-        nav.navigationBar.barTintColor = UIColor.clear
-        nav.navigationBar.tintColor = .white
+        pickerVC.view.addSubview(picker)
+        NSLayoutConstraint.activate([
+            picker.leadingAnchor.constraint(equalTo: pickerVC.view.leadingAnchor),
+            picker.trailingAnchor.constraint(equalTo: pickerVC.view.trailingAnchor),
+            picker.topAnchor.constraint(equalTo: pickerVC.view.topAnchor, constant: 16),
+            picker.heightAnchor.constraint(equalToConstant: 220)
+        ])
+
+        // Done button as right bar button to capture selection
+        let done = UIBarButtonItem(title: "Done", style: .done, target: nil, action: nil)
+        done.primaryAction = UIAction(handler: { [weak self] _ in
+            guard let self = self else { return }
+            let df = DateFormatter()
+            df.dateFormat = "MMM d, h:mm a"
+            self.selectedDate = picker.date
+            self.dateRow.setDetail(df.string(from: picker.date))
+            pickerVC.dismiss(animated: true)
+        })
+        pickerVC.navigationItem.rightBarButtonItem = done
+
+        let nav = UINavigationController(rootViewController: pickerVC)
+        nav.modalPresentationStyle = .pageSheet
         present(nav, animated: true)
     }
-}
 
-// MARK: - UITextView placeholder behaviour
-extension NewTaskViewController: UITextViewDelegate {
-    func textViewDidBeginEditing(_ textView: UITextView) {
-        if textView.textColor == UIColor.white.withAlphaComponent(0.55) {
-            textView.text = ""
-            textView.textColor = UIColor.white.withAlphaComponent(0.95)
+    // MARK: Save / Cancel
+    @objc private func cancelTapped() { dismiss(animated: true) }
+
+    @objc private func doneTapped() {
+        // validate
+        var missing: [String] = []
+        if titleField.textValue.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("Title") }
+        if pointsRow.countValue <= 0 { missing.append("Points") }
+        if frequencyRow.detailText == nil { missing.append("Frequency") }
+        if listRow.detailText == nil { missing.append("List") }
+        if assignedRow.detailText == nil { missing.append("Assigned To") }
+
+        if !missing.isEmpty {
+            let ac = UIAlertController(title: "Missing", message: "Please fill: " + missing.joined(separator: ", "), preferredStyle: .alert)
+            ac.addAction(UIAlertAction(title: "OK", style: .default))
+            present(ac, animated: true)
+            return
         }
-    }
 
-    func textViewDidEndEditing(_ textView: UITextView) {
-        if textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            textView.text = "Description"
-            textView.textColor = UIColor.white.withAlphaComponent(0.55)
-        }
-    }
-
-    func textViewDidChange(_ textView: UITextView) {
-        // Adjust content inset dynamically for Apple-like top alignment
-        textView.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 8, right: 8)
+        print("Saving task…")
+        dismiss(animated: true)
     }
 }
 
-
-// MARK: - UITextField padding helper
-extension UITextField {
-    func PaddingLeftPoints(_ amount: CGFloat) {
-        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: amount, height: self.frame.height))
-        leftView = paddingView
-        leftViewMode = .always
-    }
-}
