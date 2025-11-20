@@ -117,7 +117,7 @@ final class ChildHomeViewController: UIViewController {
         achievementCard.backgroundColor = UIColor(white: 0.96, alpha: 0.95)
         achievementCard.layer.cornerRadius = 16
         
-        guitarCloud.image = UIImage(named: "imgCloudGuitar") ?? UIImage(systemName: "guitars.fill")
+        guitarCloud.image = UIImage(named: "cloudyy_guitar") ?? UIImage(systemName: "guitars.fill")
         guitarCloud.contentMode = .scaleAspectFit
         guitarCloud.tintColor = .systemBlue
 
@@ -140,7 +140,7 @@ final class ChildHomeViewController: UIViewController {
         achievementsTitle.textColor = .white
 
         // Habit Row
-        habitIcon.image = UIImage(systemName: "bolt.fill")
+        habitIcon.image = UIImage(named: "cloudyy_market") ?? UIImage(systemName: "guitars.fill")
         habitIcon.tintColor = .systemYellow
         
         habitLabel.text = "Habits"
@@ -156,7 +156,7 @@ final class ChildHomeViewController: UIViewController {
         habitPercentLabel.textColor = .white
 
         // Extracurricular Row
-        extraIcon.image = UIImage(systemName: "music.note")
+        extraIcon.image = UIImage(named: "cloudyy_paint") ?? UIImage(systemName: "guitars.fill")
         extraIcon.tintColor = .systemPink
         
         extraLabel.text = "Extracurricular"
@@ -230,15 +230,19 @@ final class ChildHomeViewController: UIViewController {
 
             // --- Mascot & Quote ---
             // Mascot width scales with screen (66%), centered
-            mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 60),
-            mascotImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            mascotImageView.widthAnchor.constraint(equalTo: contentView.widthAnchor, multiplier: 0.66),
-            mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
+            mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65),
+                      mascotImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 40),
+                      mascotImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.6),
+                      mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
+
 
             // Quote overlaps mascot slightly
-            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70),
-            quoteBubble.leadingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: -40),
-            quoteBubble.widthAnchor.constraint(equalToConstant: 180),
+            
+            quoteBubble.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 59),
+                       quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.centerXAnchor, constant: -20),
+                       quoteBubble.widthAnchor.constraint(equalToConstant: 180),
+                       quoteBubble.heightAnchor.constraint(equalToConstant: 70),
+
             
             // Quote Text Constraints
             quoteLabel.topAnchor.constraint(equalTo: quoteBubble.topAnchor, constant: 12),
@@ -317,6 +321,19 @@ final class ChildHomeViewController: UIViewController {
         ])
     }
 
+    
+    private func startFloatingAnimation() {
+            // Simple up/down floating animation
+            let floatAnimation = CABasicAnimation(keyPath: "transform.translation.y")
+            floatAnimation.fromValue = 0
+            floatAnimation.toValue = -12 // Move up by 12 points
+            floatAnimation.duration = 2.0 // Time for one direction
+            floatAnimation.autoreverses = true // Go back down
+            floatAnimation.repeatCount = .infinity // Loop forever
+            floatAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut) // Smooth start/stop
+            
+            mascotImageView.layer.add(floatAnimation, forKey: "floating")
+        }
     // MARK: - Actions
     private func setupActions() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(mascotTapped))
