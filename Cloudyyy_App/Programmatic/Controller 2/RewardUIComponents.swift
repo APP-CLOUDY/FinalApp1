@@ -2,13 +2,6 @@
 //  RewardUIComponents.swift
 //  Cloudyyy_App
 //
-//  Created by user@5 on 17/11/25.
-//
-
-//
-//  RewardUIComponents.swift
-//  Cloudyyy_App
-//
 //  Created by user@10 on 16/11/25.
 //
 
@@ -217,3 +210,4 @@ final class SimpleSearchBar: UIView {
 
     required init?(coder: NSCoder) { fatalError() }
 }
+

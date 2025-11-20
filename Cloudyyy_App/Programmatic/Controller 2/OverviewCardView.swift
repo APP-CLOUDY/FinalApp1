@@ -11,7 +11,7 @@ import UIKit
 /// OverviewCardView
 /// Glass card with inner shadow, gradient overlay, animated arc and count-up labels.
 /// Re-uses your existing `ProgressArcView`.
-final class OverviewCaardView: UIView {
+final class OverviewCardView: UIView {
 
     // MARK: - Subviews
     private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))

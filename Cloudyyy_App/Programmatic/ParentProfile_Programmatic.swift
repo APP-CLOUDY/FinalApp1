@@ -4,273 +4,324 @@ class ParentProfileViewController: UIViewController {
 
     // MARK: - UI Components
 
-    // 1. ScrollView to handle Landscape mode and small screens
+    // 1. Fixed Blue Header Background (Sits behind ScrollView for the "Bounce" effect)
+    private let fixedBlueBackground: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBlue // Match your app's blue
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    // 2. ScrollView
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
-        sv.backgroundColor = .white
         sv.showsVerticalScrollIndicator = false
-        sv.alwaysBounceVertical = true // Allows bouncing even if content fits
+        sv.alwaysBounceVertical = true
+        sv.backgroundColor = .clear // Transparent to show backgrounds behind
         return sv
     }()
 
-    // 2. Container View for ScrollView
     private let contentView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear // Clear so we see the blue header behind/inside
+        view.backgroundColor = .clear
         return view
     }()
     
-    // The blue header
-    private let blueHeaderView: UIView = {
+    // 3. Header Content (Title & Back Button)
+    private let headerContentContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = .systemBlue
+        view.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
-    // Avatar
+    private let backButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        btn.tintColor = .white
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+    
+    private let headerTitle: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Happy Home"
+        lbl.font = .systemFont(ofSize: 22, weight: .bold)
+        lbl.textColor = .white
+        lbl.textAlignment = .center
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    // 4. The White "Sheet"
+    private let whiteSheetView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .white
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.layer.cornerRadius = 30
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        return view
+    }()
+
+    // 5. Avatar Components
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
-        iv.image = UIImage(systemName: "person.fill")
-        iv.tintColor = .lightGray
+        iv.image = UIImage(named: "avatar_placeholder") ?? UIImage(systemName: "person.circle.fill")
+        iv.tintColor = .systemGray4
         iv.contentMode = .scaleAspectFill
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.layer.cornerRadius = 60
         iv.clipsToBounds = true
-        iv.backgroundColor = .systemGray5
+        iv.backgroundColor = .systemGray6
+        // Thicker border to match Child Profile style
         iv.layer.borderColor = UIColor.white.cgColor
-        iv.layer.borderWidth = 4
+        iv.layer.borderWidth = 6
         return iv
     }()
-    
+
     private let editAvatarButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "pencil"), for: .normal)
+        let button = UIButton(type: .custom)
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)
+        button.setImage(UIImage(systemName: "pencil", withConfiguration: config), for: .normal)
         button.tintColor = .white
-        button.backgroundColor = .darkGray.withAlphaComponent(0.8)
+        button.backgroundColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 0.9)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.layer.cornerRadius = 15
+        button.layer.cornerRadius = 18 // 36/2
         button.layer.borderColor = UIColor.white.cgColor
-        button.layer.borderWidth = 2
+        button.layer.borderWidth = 3
         return button
     }()
-    
+
+    // 6. Labels
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.text = "Ridu Mom"
-        label.font = .systemFont(ofSize: 32, weight: .bold)
+        label.font = .systemFont(ofSize: 28, weight: .bold)
         label.textColor = .black
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
-    private let subtitleLabel: UILabel = {
+    private let roleLabel: UILabel = {
         let label = UILabel()
         label.text = "Mom"
-        label.font = .systemFont(ofSize: 18, weight: .regular)
-        label.textColor = .systemGray
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .gray
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    // Main Card
-    private let cardView: UIView = {
+    // 7. Menu Card
+    private let menuCardView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .white
-        
-        view.layer.cornerRadius = 20
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.layer.cornerRadius = 24
         
         view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.1
-        view.layer.shadowOffset = CGSize(width: 0, height: -5) // Shadow upwards slightly
-        view.layer.shadowRadius = 10
-        view.layer.masksToBounds = false
+        view.layer.shadowOpacity = 0.08
+        view.layer.shadowOffset = CGSize(width: 0, height: 4)
+        view.layer.shadowRadius = 12
         return view
     }()
-    
-    // Menu Stack
+
     private let menuStackView: UIStackView = {
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 30 // Slightly reduced spacing to fit better on small screens
+        stack.spacing = 0
         stack.distribution = .fill
         return stack
     }()
 
-    // MARK: - View Lifecycle
+    // MARK: - Lifecycle & Init
+
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        hidesBottomBarWhenPushed = true
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        hidesBottomBarWhenPushed = true
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBlue // Background for the "bounce" area at top
-        setupNavigationBar()
+        // IMPORTANT: Set Main View to White (Fixes bottom gap issue)
+        view.backgroundColor = .white
+        
+        // Hide default nav bar (We use custom header)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        
         setupLayout()
         addMenuItems()
+        
+        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
     }
     
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
     }
 
-    // MARK: - Setup Functions
-
-    private func setupNavigationBar() {
-        self.title = "Happy Home"
-        
-        let backButton = UIButton(type: .system)
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-        let backItem = UIBarButtonItem(customView: backButton)
-        self.navigationItem.leftBarButtonItem = backItem
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemBlue
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 24, weight: .bold)]
-        appearance.shadowColor = .clear
-        
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
-        navigationController?.navigationBar.tintColor = .white
-    }
-    
+    // MARK: - Layout Setup
     private func setupLayout() {
-        // 1. Add ScrollView hierarchy
+        // 1. Fixed Blue Background (Pinned to View)
+        view.addSubview(fixedBlueBackground)
+        
+        // 2. ScrollView
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
-        // 2. Add elements to ContentView
-        contentView.addSubview(blueHeaderView)
-        contentView.addSubview(cardView) // Add Card BEFORE avatar so avatar sits on top visually if they overlap
+        // 3. Content Hierarchy
+        contentView.addSubview(headerContentContainer)
+        headerContentContainer.addSubview(backButton)
+        headerContentContainer.addSubview(headerTitle)
+        
+        contentView.addSubview(whiteSheetView)
+        
         contentView.addSubview(avatarImageView)
         contentView.addSubview(editAvatarButton)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(subtitleLabel)
         
-        // 3. Add stack to card
-        cardView.addSubview(menuStackView)
-
-        // MARK: - Constraints
+        contentView.addSubview(nameLabel)
+        contentView.addSubview(roleLabel)
+        
+        contentView.addSubview(menuCardView)
+        menuCardView.addSubview(menuStackView)
         
         NSLayoutConstraint.activate([
-            // ScrollView Constraints (Fill Screen)
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            // --- 1. Fixed Blue Background ---
+            fixedBlueBackground.topAnchor.constraint(equalTo: view.topAnchor),
+            fixedBlueBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            fixedBlueBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            fixedBlueBackground.heightAnchor.constraint(equalToConstant: 300), // Covers top bounce
+            
+            // --- 2. ScrollView ---
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // ContentView Constraints (Must define ScrollView Content Size)
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor), // Disable horizontal scroll
+            // --- 3. ContentView ---
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            // Ensure content is at least screen height to prevent gaps
+            contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor),
             
-            // Blue Header
-            // CHANGED: Fixed height instead of % of screen. This prevents it being too small in Landscape.
-            blueHeaderView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            blueHeaderView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            blueHeaderView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            blueHeaderView.heightAnchor.constraint(equalToConstant: 220),
+            // --- 4. Header Content ---
+            headerContentContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
+            headerContentContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            headerContentContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            headerContentContainer.heightAnchor.constraint(equalToConstant: 180),
             
-            // Avatar
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            backButton.leadingAnchor.constraint(equalTo: headerContentContainer.leadingAnchor, constant: 20),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+            
+            headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            headerTitle.centerXAnchor.constraint(equalTo: headerContentContainer.centerXAnchor),
+            
+            // --- 5. White Sheet ---
+            whiteSheetView.topAnchor.constraint(equalTo: headerContentContainer.bottomAnchor, constant: -50),
+            whiteSheetView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            whiteSheetView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            whiteSheetView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor), // Extends to bottom
+            
+            // --- 6. Avatar ---
+            avatarImageView.centerYAnchor.constraint(equalTo: whiteSheetView.topAnchor),
             avatarImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            avatarImageView.centerYAnchor.constraint(equalTo: blueHeaderView.bottomAnchor),
             avatarImageView.widthAnchor.constraint(equalToConstant: 120),
             avatarImageView.heightAnchor.constraint(equalToConstant: 120),
             
-            // Edit Button
-            editAvatarButton.trailingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: -5),
-            editAvatarButton.bottomAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: -5),
-            editAvatarButton.widthAnchor.constraint(equalToConstant: 30),
-            editAvatarButton.heightAnchor.constraint(equalToConstant: 30),
+            editAvatarButton.bottomAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 0),
+            editAvatarButton.trailingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: -4),
+            editAvatarButton.widthAnchor.constraint(equalToConstant: 36),
+            editAvatarButton.heightAnchor.constraint(equalToConstant: 36),
             
-            // Labels
+            // --- 7. Labels ---
             nameLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            subtitleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
+            roleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            roleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // Card View
-            // The Card starts below the labels
-            cardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 30),
-            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            // --- 8. Menu Card ---
+            menuCardView.topAnchor.constraint(equalTo: roleLabel.bottomAnchor, constant: 30),
+            menuCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            menuCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // IMPORTANT: The Card bottom determines the total Scrollable Height.
-            // We add a 'constant' padding at the bottom so it doesn't stick to the very edge.
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50),
+            // Stack inside Card
+            menuStackView.topAnchor.constraint(equalTo: menuCardView.topAnchor, constant: 20),
+            menuStackView.leadingAnchor.constraint(equalTo: menuCardView.leadingAnchor, constant: 20),
+            menuStackView.trailingAnchor.constraint(equalTo: menuCardView.trailingAnchor, constant: -20),
+            menuStackView.bottomAnchor.constraint(equalTo: menuCardView.bottomAnchor, constant: -20),
             
-            // Menu Stack inside Card
-            menuStackView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 30),
-            menuStackView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 24),
-            menuStackView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -24),
-            menuStackView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -30)
+            // Bottom Constraint to ScrollView Content
+            menuCardView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -50)
         ])
     }
-    
+
+    // MARK: - Menu Setup
     private func addMenuItems() {
-        let familyRow = createMenuRow(title: "Family", isDestructive: false)
-        let accountRow = createMenuRow(title: "Account", isDestructive: false)
-        let policyRow = createMenuRow(title: "Privacy and Policy", isDestructive: false)
-        let logoutRow = createMenuRow(title: "Logout", isDestructive: true)
+        let items = ["Family", "Account", "Privacy and Policy"]
         
-        menuStackView.addArrangedSubview(familyRow)
-        menuStackView.addArrangedSubview(accountRow)
-        menuStackView.addArrangedSubview(policyRow)
+        for title in items {
+            let row = createMenuRow(title: title, isDestructive: false)
+            menuStackView.addArrangedSubview(row)
+        }
+        
+        // Logout Row
+        let logoutRow = createMenuRow(title: "Logout", isDestructive: true)
+        logoutRow.isUserInteractionEnabled = true
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleLogout))
+        logoutRow.addGestureRecognizer(tapGesture)
+        
         menuStackView.addArrangedSubview(logoutRow)
     }
-
-    // MARK: - Helper Function
     
     private func createMenuRow(title: String, isDestructive: Bool) -> UIView {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.heightAnchor.constraint(equalToConstant: 50).isActive = true // Give rows a fixed height for better touch targets
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.heightAnchor.constraint(equalToConstant: 56).isActive = true
         
         let label = UILabel()
         label.text = title
-        label.font = .systemFont(ofSize: 19, weight: .medium)
+        label.font = .systemFont(ofSize: 17, weight: .medium)
         label.textColor = isDestructive ? .systemRed : .black
         label.translatesAutoresizingMaskIntoConstraints = false
         
         let chevron = UIImageView()
-        let chevronConfig = UIImage.SymbolConfiguration(weight: .medium)
-        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: chevronConfig)
-        chevron.tintColor = .systemGray
+        let config = UIImage.SymbolConfiguration(weight: .semibold)
+        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: config)
+        chevron.tintColor = UIColor(white: 0.8, alpha: 1.0)
         chevron.contentMode = .scaleAspectFit
         chevron.translatesAutoresizingMaskIntoConstraints = false
         
-        view.addSubview(label)
-        view.addSubview(chevron)
+        container.addSubview(label)
+        container.addSubview(chevron)
         
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             
-            chevron.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            chevron.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            chevron.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            chevron.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             chevron.widthAnchor.constraint(equalToConstant: 14),
-            chevron.heightAnchor.constraint(equalToConstant: 14),
+            chevron.heightAnchor.constraint(equalToConstant: 14)
         ])
         
-        // Make the whole row tappable (optional visual feedback setup)
-        let tap = UITapGestureRecognizer(target: self, action: #selector(menuItemTapped))
-        view.addGestureRecognizer(tap)
-        view.isUserInteractionEnabled = true
-        
-        return view
+        return container
     }
     
     // MARK: - Actions
@@ -279,7 +330,17 @@ class ParentProfileViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
     
-    @objc private func menuItemTapped() {
-        print("Menu item tapped")
+    @objc private func handleLogout() {
+        let selectUserVC = SelectUserViewController()
+        let newNavController = UINavigationController(rootViewController: selectUserVC)
+        newNavController.isNavigationBarHidden = true
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            
+            UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
+                window.rootViewController = newNavController
+            }, completion: nil)
+        }
     }
 }

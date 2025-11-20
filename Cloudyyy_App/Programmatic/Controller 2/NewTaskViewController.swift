@@ -136,7 +136,7 @@ class NewTaskViewController: UIViewController {
         titleTextField.layer.cornerRadius = 10
         titleTextField.textColor = .white
         titleTextField.font = UIFont.systemFont(ofSize: 16)
-        titleTextField.setLeftPaddingPoints(12)
+        titleTextField.PaddingLeftPoints(12)
         titleTextField.heightAnchor.constraint(equalToConstant: 48).isActive = true
 
         // white placeholder with alpha
@@ -420,7 +420,7 @@ extension NewTaskViewController: UITextViewDelegate {
 
 // MARK: - UITextField padding helper
 extension UITextField {
-    func setLeftPaddingPoints(_ amount: CGFloat) {
+    func PaddingLeftPoints(_ amount: CGFloat) {
         let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: amount, height: self.frame.height))
         leftView = paddingView
         leftViewMode = .always

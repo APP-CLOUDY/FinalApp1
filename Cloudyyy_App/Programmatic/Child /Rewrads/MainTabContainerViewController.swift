@@ -62,7 +62,7 @@ class ChildTabBarController: UITabBarController, UITabBarControllerDelegate {
 
         // --- Tab 3: Missions ---
         // Mapped to NotificationViewController as per your request
-        let missionsVC = NotificationViewController()
+        let missionsVC = KidAgendaViewController()
         let missionsNav = UINavigationController(rootViewController: missionsVC)
         missionsVC.tabBarItem = UITabBarItem(title: "Missions",
                                              image: UIImage(systemName: "list.bullet.clipboard"),

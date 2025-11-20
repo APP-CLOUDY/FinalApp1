@@ -1,6 +1,5 @@
 import SwiftUI
 import Charts
-   // required for SwiftUI Chart; it's okay in a UIKit file as long as iOS 16+
 
 final class ParentDashboardViewController: UIViewController {
     
@@ -9,8 +8,7 @@ final class ParentDashboardViewController: UIViewController {
     private let header = HomeHeaderView(title: "Home")
     
     // Overview card
-    // Note: Keeping your 'Caard' spelling as it matches your project
-    private let overviewCard = OverviewCaardView()
+    private let overviewCard = OverviewCardView()
     private let missionsLabel = UILabel()
     private let redeemedLabel = UILabel()
     private let circleArc = HomeProgressArcView()
@@ -21,7 +19,7 @@ final class ParentDashboardViewController: UIViewController {
     
     // Segmented control and chart container
     private let segment = UISegmentedControl(items: ["Weekly", "Monthly"])
-    private var chartContainer: UIView?   // ChartContainerView when iOS16+
+    private var chartContainer: UIView?
     
     // Layout container
     private let contentScroll = UIScrollView()
@@ -31,19 +29,37 @@ final class ParentDashboardViewController: UIViewController {
     private var currentWeekly: [HomeChartItem] = []
     private var currentMonthly: [HomeChartItem] = []
     
+    // store the hosting controller so we can update its rootView later
+    @available(iOS 16.0, *)
+    private var chartHostingController: UIHostingController<DashboardChartView>?
+
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+         
         view.backgroundColor = .clear
         setupGradient()
         setupHeader()
         setupContentLayout()
         
-        // --- FIX: This stray line was removed ---
-        // OverviewCaardView()
+        // --- HEADER ACTIONS ---
         
-        // header dropdown
+        // 1. Dropdown Logic
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        
+        // 2. 🔥 Profile Navigation Logic (Added)
+        header.onProfileTapped = { [weak self] in
+            let profileVC = ParentProfileViewController()
+            // profileVC.hidesBottomBarWhenPushed = true // This is already set inside ParentProfileViewController
+            self?.navigationController?.pushViewController(profileVC, animated: true)
+        }
+        
+        // 3. Notification Logic (Optional placeholder)
+        header.onBellTapped = {
+            print("Notifications tapped")
+        }
+        
+        // --- DATA LOADING ---
         
         // listen for kid changes
         NotificationCenter.default.addObserver(self, selector: #selector(onKidChanged(_:)), name: ChildManager.kidChangedNotification, object: nil)
@@ -61,24 +77,11 @@ final class ParentDashboardViewController: UIViewController {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
-
-    // --- FIX: Added viewWillAppear to hide the default navigation bar ---
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        // Hides the bar on this screen
-        navigationController?.setNavigationBarHidden(true, animated: animated)
-        
-        // You already had this, it's correct
         contentScroll.contentInsetAdjustmentBehavior = .never
-    }
-
-    // --- FIX: Added viewWillDisappear to show the bar on other screens ---
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        
-        // Shows the bar again when you leave this screen
-        navigationController?.setNavigationBarHidden(false, animated: animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated) // Ensure nav bar is hidden on dashboard
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -87,15 +90,8 @@ final class ParentDashboardViewController: UIViewController {
         view.layoutIfNeeded()
     }
 
-    // store the hosting controller so we can update its rootView later
-    @available(iOS 16.0, *)
-    private var chartHostingController: UIHostingController<DashboardChartView>?
-
     // MARK: - Gradient
     private func setupGradient() {
-        // ... (rest of your file is unchanged) ...
-        // ...
-        // ...
         gradient.colors = [
             UIColor(red: 8/255, green: 12/255, blue: 48/255, alpha: 1).cgColor,
             UIColor(red: 10/255, green: 18/255, blue: 60/255, alpha: 1).cgColor,
@@ -120,9 +116,6 @@ final class ParentDashboardViewController: UIViewController {
     
     // MARK: - Content layout
     private func setupContentLayout() {
-        // ... (all your existing layout code is correct) ...
-        // ...
-        // ...
         contentScroll.translatesAutoresizingMaskIntoConstraints = false
         content.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(contentScroll)
@@ -133,7 +126,7 @@ final class ParentDashboardViewController: UIViewController {
             contentScroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentScroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             contentScroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-             
+            
             content.topAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.topAnchor),
             content.leadingAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: contentScroll.contentLayoutGuide.trailingAnchor),
@@ -193,17 +186,17 @@ final class ParentDashboardViewController: UIViewController {
             overviewCard.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             overviewCard.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             overviewCard.heightAnchor.constraint(equalToConstant: 140),
-             
+            
             smallStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             smallStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             smallStack.topAnchor.constraint(equalTo: overviewCard.bottomAnchor, constant: 18),
             smallStack.heightAnchor.constraint(equalToConstant: 84),
-             
+            
             segment.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             segment.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             segment.topAnchor.constraint(equalTo: smallStack.bottomAnchor, constant: 18),
             segment.heightAnchor.constraint(equalToConstant: 40),
-             
+            
             chartHolder.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             chartHolder.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             chartHolder.topAnchor.constraint(equalTo: segment.bottomAnchor, constant: 12),
@@ -212,16 +205,11 @@ final class ParentDashboardViewController: UIViewController {
         ])
         
         // embed SwiftUI chart if available
-        // embed SwiftUI chart if available
         if #available(iOS 16.0, *) {
-            // make an initial empty points array
             let placeholderPoints: [DashboardChartPoint] = []
-
-            // create hosting controller with the SwiftUI view
             let hosting = UIHostingController(rootView: DashboardChartView(points: placeholderPoints))
             hosting.view.backgroundColor = .clear
 
-            // add as child VC properly
             addChild(hosting)
             chartHolder.contentView.addSubview(hosting.view)
             hosting.view.translatesAutoresizingMaskIntoConstraints = false
@@ -232,13 +220,10 @@ final class ParentDashboardViewController: UIViewController {
                 hosting.view.bottomAnchor.constraint(equalTo: chartHolder.contentView.bottomAnchor, constant: -8)
             ])
             hosting.didMove(toParent: self)
-
-            // save references for later updates
             chartContainer = hosting.view
             chartHostingController = hosting
 
         } else {
-            // fallback for iOS < 16
             let lbl = UILabel()
             lbl.text = "Chart (iOS 16+ required)"
             lbl.textColor = .white
@@ -255,7 +240,6 @@ final class ParentDashboardViewController: UIViewController {
         rewardButton.backgroundColor = .clear
         rewardButton.addTarget(self, action: #selector(openRewardsPage), for: .touchUpInside)
         rewardButton.translatesAutoresizingMaskIntoConstraints = false
-
         allocatedCard.contentView.addSubview(rewardButton)
 
         NSLayoutConstraint.activate([
@@ -285,7 +269,6 @@ final class ParentDashboardViewController: UIViewController {
         pendingButton.backgroundColor = .clear
         pendingButton.addTarget(self, action: #selector(openApprovalPage), for: .touchUpInside)
         pendingButton.translatesAutoresizingMaskIntoConstraints = false
-
         pendingCard.contentView.addSubview(pendingButton)
 
         NSLayoutConstraint.activate([
@@ -294,61 +277,47 @@ final class ParentDashboardViewController: UIViewController {
             pendingButton.topAnchor.constraint(equalTo: pendingCard.contentView.topAnchor),
             pendingButton.bottomAnchor.constraint(equalTo: pendingCard.contentView.bottomAnchor)
         ])
-
-
     }
     
     @objc private func openProgressPage() {
         DispatchQueue.main.async {
             self.tabBarController?.selectedIndex = 1
         }
-
     }
-
     
     @objc private func openApprovalPage() {
         let vc = ApprovalViewController()
-        vc.hidesBottomBarWhenPushed = true   // REMOVE TAB BAR
+        vc.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(vc, animated: true)
     }
-
     
     @objc private func openRewardsPage() {
         DispatchQueue.main.async {
-            self.tabBarController?.selectedIndex = 3
+            self.tabBarController?.selectedIndex = 4
         }
- // REWARDS TAB
     }
 
-
     private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
-        // ... (this function is unchanged) ...
-        // ...
-        // ...
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
         blur.layer.cornerRadius = 14
         blur.layer.masksToBounds = true
         blur.translatesAutoresizingMaskIntoConstraints = false
 
-        // VALUE LABEL (big number)
         valueLabel.font = .systemFont(ofSize: 32, weight: .bold)
         valueLabel.textColor = .white
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // TITLE LABEL
         let titleLabel = UILabel()
         titleLabel.text = title
         titleLabel.font = .systemFont(ofSize: 13)
         titleLabel.textColor = UIColor.white.withAlphaComponent(0.8)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // CHEVRON RIGHT ICON
         let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
         chevron.tintColor = .white.withAlphaComponent(0.45)
         chevron.contentMode = .scaleAspectFit
         chevron.translatesAutoresizingMaskIntoConstraints = false
 
-        // TITLE + CHEVRON HSTACK
         let bottomRow = UIStackView(arrangedSubviews: [titleLabel, chevron])
         bottomRow.axis = .horizontal
         bottomRow.spacing = 4
@@ -356,7 +325,6 @@ final class ParentDashboardViewController: UIViewController {
         bottomRow.distribution = .fill
         bottomRow.translatesAutoresizingMaskIntoConstraints = false
 
-        // MAIN STACK: NUMBER + (TITLE + CHEVRON)
         let mainStack = UIStackView(arrangedSubviews: [valueLabel, bottomRow])
         mainStack.axis = .vertical
         mainStack.spacing = 6
@@ -377,13 +345,8 @@ final class ParentDashboardViewController: UIViewController {
         return blur
     }
 
-    // MARK: - Setup Overview Card (simple)
-
-
-    
     // MARK: - Show Floating Dropdown
     private func showKidsMenu() {
-        // ... (this function is unchanged) ...
         let kids = ChildManager.shared.kids
         guard !kids.isEmpty else { return }
         let menu = FloatingKidsMenu(kids: kids)
@@ -395,7 +358,6 @@ final class ParentDashboardViewController: UIViewController {
     
     // MARK: - Notification Listener
     @objc private func onKidChanged(_ n: Notification) {
-        // ... (this function is unchanged) ...
         guard let kid = n.object as? Kid else { return }
         header.childButton.setTitle("\(kid.name) ▾", for: .normal)
         loadHomeData(for: kid)
@@ -403,10 +365,8 @@ final class ParentDashboardViewController: UIViewController {
     
     // MARK: - Load home mock data
     private func loadHomeData(for kid: Kid) {
-        // ... (this function is unchanged) ...
         let data = ChildManager.shared.homeData(for: kid.id)
 
-        // overview card
         let done = data.overview.missionsDone
         let total = data.overview.missionsTotal
         let redeemed = data.overview.redeemedText
@@ -421,26 +381,21 @@ final class ParentDashboardViewController: UIViewController {
             animated: true
         )
 
-        // small stats
         pendingLabel.text = "\(data.pending.pendingCount)"
         allocatedLabel.text = "\(data.allocated.allocatedCount)"
 
-        // chart data
         currentWeekly = data.weeklyChart
         currentMonthly = ChildManager.shared.monthlyChartAggregated(for: kid.id)
 
         updateChartForSegment()
     }
 
-    
     // MARK: - Segment changed
     @objc private func segmentChanged(_ s: UISegmentedControl) {
-        // ... (this function is unchanged) ...
         updateChartForSegment()
     }
     
     private func updateChartForSegment() {
-        // ... (this function is unchanged) ...
         guard #available(iOS 16.0, *) else { return }
 
         let isWeekly = (segment.selectedSegmentIndex == 0)
@@ -450,7 +405,6 @@ final class ParentDashboardViewController: UIViewController {
             DashboardChartPoint(label: item.day, rewards: item.rewards, tasks: item.tasks)
         }
 
-        // update the hosting controller's rootView to refresh the chart
         if let hosting = chartHostingController {
             hosting.rootView = DashboardChartView(points: points)
         }

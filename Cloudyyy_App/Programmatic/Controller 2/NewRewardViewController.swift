@@ -412,7 +412,7 @@ extension NewRewardViewController: UIImagePickerControllerDelegate, UINavigation
 // MARK: - Small reusable UI components
 
 // Card base
-class CaardView: UIView {
+class RewardCardView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         common()
@@ -427,7 +427,7 @@ class CaardView: UIView {
 }
 
 // Styled text field (single line)
-class StyledTextField: CaardView {
+class StyledTextField: RewardCardView {
     private let tf = UITextField()
     init(placeholder: String) {
         super.init(frame: .zero)
@@ -450,7 +450,7 @@ class StyledTextField: CaardView {
 }
 
 // Styled text view with placeholder
-class StyledTextView: CaardView, UITextViewDelegate {
+class StyledTextView: RewardCardView, UITextViewDelegate {
     private let tv = UITextView()
     private let placeholderLabel = UILabel()
     init(placeholder: String) {
@@ -488,7 +488,7 @@ class StyledTextView: CaardView, UITextViewDelegate {
 }
 
 // Points row: label + minus + value + plus
-class PointsRow: CaardView {
+class PointsRow: RewardCardView {
     
     private let label: UILabel = {
         let l = UILabel()
@@ -610,7 +610,7 @@ class IconButton: UIButton {
 }
 
 // Select row with chevron and optional detail text
-class SelectRow: CaardView {
+class SelectRow: RewardCardView {
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
@@ -650,7 +650,7 @@ class SelectRow: CaardView {
 }
 
 // Upload box (image)
-class UploadBox: CaardView {
+class UploadBox: RewardCardView {
     private let icon = UIImageView(image: UIImage(systemName: "photo.on.rectangle.angled"))
     private let label = UILabel()
     private let imageView = UIImageView()
@@ -706,7 +706,7 @@ class UploadBox: CaardView {
 }
 
 // Simple 3D selection box (acts like upload box but navigates)
-class Select3DBox: CaardView {
+class Select3DBox: RewardCardView {
     private let icon = UIImageView(image: UIImage(systemName: "gift"))
     private let label = UILabel()
     var onTap: (() -> Void)?
