@@ -4,7 +4,7 @@ class ParentProfileViewController: UIViewController {
 
     // MARK: - UI Components
 
-    // 1. Fixed Blue Header Background (Sits behind ScrollView for the "Bounce" effect)
+    // 1. Fixed Blue Header Background (Sits behind ScrollView)
     private let fixedBlueBackground: UIView = {
         let view = UIView()
         view.backgroundColor = .systemBlue // Match your app's blue
@@ -17,8 +17,8 @@ class ParentProfileViewController: UIViewController {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.showsVerticalScrollIndicator = false
-        sv.alwaysBounceVertical = true
-        sv.backgroundColor = .clear // Transparent to show backgrounds behind
+        sv.alwaysBounceVertical = true // Enables the bounce effect
+        sv.backgroundColor = .clear
         return sv
     }()
 
@@ -76,9 +76,10 @@ class ParentProfileViewController: UIViewController {
         iv.layer.cornerRadius = 60
         iv.clipsToBounds = true
         iv.backgroundColor = .systemGray6
-        // Thicker border to match Child Profile style
         iv.layer.borderColor = UIColor.white.cgColor
         iv.layer.borderWidth = 6
+        // Important: Allow user to tap the image
+        iv.isUserInteractionEnabled = true
         return iv
     }()
 
@@ -89,7 +90,7 @@ class ParentProfileViewController: UIViewController {
         button.tintColor = .white
         button.backgroundColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 0.9)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.layer.cornerRadius = 18 // 36/2
+        button.layer.cornerRadius = 18 // Half of width (36)
         button.layer.borderColor = UIColor.white.cgColor
         button.layer.borderWidth = 3
         return button
@@ -123,6 +124,7 @@ class ParentProfileViewController: UIViewController {
         view.backgroundColor = .white
         view.layer.cornerRadius = 24
         
+        // Shadow for depth
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOpacity = 0.08
         view.layer.shadowOffset = CGSize(width: 0, height: 4)
@@ -139,8 +141,9 @@ class ParentProfileViewController: UIViewController {
         return stack
     }()
 
-    // MARK: - Lifecycle & Init
+    // MARK: - Init & Lifecycle
 
+    // Hide Tab Bar when pushed
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
         hidesBottomBarWhenPushed = true
@@ -153,16 +156,17 @@ class ParentProfileViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // IMPORTANT: Set Main View to White (Fixes bottom gap issue)
         view.backgroundColor = .white
-        
-        // Hide default nav bar (We use custom header)
-        navigationController?.setNavigationBarHidden(true, animated: false)
         
         setupLayout()
         addMenuItems()
-        
-        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+        setupActions()
+    }
+    
+    // Ensure Navigation Bar is hidden every time this view appears
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
     }
     
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -171,23 +175,20 @@ class ParentProfileViewController: UIViewController {
 
     // MARK: - Layout Setup
     private func setupLayout() {
-        // 1. Fixed Blue Background (Pinned to View)
+        // Add Fixed Background first (so it's behind everything)
         view.addSubview(fixedBlueBackground)
         
-        // 2. ScrollView
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
-        // 3. Content Hierarchy
+        // Add content elements
         contentView.addSubview(headerContentContainer)
         headerContentContainer.addSubview(backButton)
         headerContentContainer.addSubview(headerTitle)
         
         contentView.addSubview(whiteSheetView)
-        
         contentView.addSubview(avatarImageView)
         contentView.addSubview(editAvatarButton)
-        
         contentView.addSubview(nameLabel)
         contentView.addSubview(roleLabel)
         
@@ -195,28 +196,27 @@ class ParentProfileViewController: UIViewController {
         menuCardView.addSubview(menuStackView)
         
         NSLayoutConstraint.activate([
-            // --- 1. Fixed Blue Background ---
+            // 1. Fixed Blue Background (Pinned to View top, NOT scroll view)
             fixedBlueBackground.topAnchor.constraint(equalTo: view.topAnchor),
             fixedBlueBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             fixedBlueBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            fixedBlueBackground.heightAnchor.constraint(equalToConstant: 300), // Covers top bounce
+            fixedBlueBackground.heightAnchor.constraint(equalToConstant: 300),
             
-            // --- 2. ScrollView ---
+            // 2. ScrollView
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // --- 3. ContentView ---
+            // 3. ContentView (Scroll Logic)
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-            // Ensure content is at least screen height to prevent gaps
             contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor),
             
-            // --- 4. Header Content ---
+            // 4. Header
             headerContentContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
             headerContentContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             headerContentContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
@@ -230,13 +230,13 @@ class ParentProfileViewController: UIViewController {
             headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             headerTitle.centerXAnchor.constraint(equalTo: headerContentContainer.centerXAnchor),
             
-            // --- 5. White Sheet ---
+            // 5. White Sheet
             whiteSheetView.topAnchor.constraint(equalTo: headerContentContainer.bottomAnchor, constant: -50),
             whiteSheetView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             whiteSheetView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            whiteSheetView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor), // Extends to bottom
+            whiteSheetView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
-            // --- 6. Avatar ---
+            // 6. Avatar
             avatarImageView.centerYAnchor.constraint(equalTo: whiteSheetView.topAnchor),
             avatarImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             avatarImageView.widthAnchor.constraint(equalToConstant: 120),
@@ -247,7 +247,7 @@ class ParentProfileViewController: UIViewController {
             editAvatarButton.widthAnchor.constraint(equalToConstant: 36),
             editAvatarButton.heightAnchor.constraint(equalToConstant: 36),
             
-            // --- 7. Labels ---
+            // 7. Labels
             nameLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
@@ -256,19 +256,16 @@ class ParentProfileViewController: UIViewController {
             roleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             roleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // --- 8. Menu Card ---
+            // 8. Menu Card
             menuCardView.topAnchor.constraint(equalTo: roleLabel.bottomAnchor, constant: 30),
             menuCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             menuCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            menuCardView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -50),
             
-            // Stack inside Card
             menuStackView.topAnchor.constraint(equalTo: menuCardView.topAnchor, constant: 20),
             menuStackView.leadingAnchor.constraint(equalTo: menuCardView.leadingAnchor, constant: 20),
             menuStackView.trailingAnchor.constraint(equalTo: menuCardView.trailingAnchor, constant: -20),
-            menuStackView.bottomAnchor.constraint(equalTo: menuCardView.bottomAnchor, constant: -20),
-            
-            // Bottom Constraint to ScrollView Content
-            menuCardView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -50)
+            menuStackView.bottomAnchor.constraint(equalTo: menuCardView.bottomAnchor, constant: -20)
         ])
     }
 
@@ -281,7 +278,7 @@ class ParentProfileViewController: UIViewController {
             menuStackView.addArrangedSubview(row)
         }
         
-        // Logout Row
+        // Logout Button
         let logoutRow = createMenuRow(title: "Logout", isDestructive: true)
         logoutRow.isUserInteractionEnabled = true
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleLogout))
@@ -324,17 +321,42 @@ class ParentProfileViewController: UIViewController {
         return container
     }
     
-    // MARK: - Actions
+    // MARK: - Actions Setup
+    private func setupActions() {
+        // 1. Back Button
+        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+        
+        // 2. Edit Avatar (Pencil Button)
+        editAvatarButton.addTarget(self, action: #selector(editAvatarTapped), for: .touchUpInside)
+        
+        // 3. Edit Avatar (Tap on Image)
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(editAvatarTapped))
+        avatarImageView.addGestureRecognizer(tapGesture)
+    }
+    
+    // MARK: - Action Handlers
     
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
     }
     
+    @objc private func editAvatarTapped() {
+        // Navigate to your Avatar Selection Screen
+        let avatarVC = AvatarSelectViewController()
+        navigationController?.pushViewController(avatarVC, animated: true)
+    }
+    
     @objc private func handleLogout() {
+        // 1. Optional: Clear User Data
+        UserDefaults.standard.removeObject(forKey: "isLoggedIn")
+        // UserDefaults.standard.removeObject(forKey: "currentUserToken")
+        
+        // 2. Setup the Login/Select User Screen
         let selectUserVC = SelectUserViewController()
         let newNavController = UINavigationController(rootViewController: selectUserVC)
         newNavController.isNavigationBarHidden = true
         
+        // 3. Swap Root View Controller with Animation
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
             

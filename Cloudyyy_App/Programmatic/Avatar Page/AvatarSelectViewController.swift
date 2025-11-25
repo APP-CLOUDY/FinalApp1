@@ -6,17 +6,22 @@ final class AvatarSelectViewController: UIViewController {
     
     private var collectionView: UICollectionView!
     
+    // Custom Header Elements (replaces native Navigation Bar)
+    private let headerView = UIView()
+    private let titleLabel = UILabel()
+    private let backButton = UIButton(type: .system)
+    
     // MARK: - Data
     
     private let avatarNames: [String] = [
-        "parent", // Assuming you have an image asset named "parent"
-        "child",  // Assuming you have an image asset named "child"
-        "avatar-f-1", // Placeholder
-        "avatar-m-1", // Placeholder
-        "avatar-f-2", // Placeholder
-        "avatar-m-2", // Placeholder
-        "avatar-f-3", // Placeholder
-        "avatar-m-3"  // Placeholder
+        "parent",
+        "child",
+        "avatar-f-1",
+        "avatar-m-1",
+        "avatar-f-2",
+        "avatar-m-2",
+        "avatar-f-3",
+        "avatar-m-3"
     ]
 
     // MARK: - Lifecycle
@@ -24,8 +29,8 @@ final class AvatarSelectViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setupBackgroundGradient() // Setup the gradient first
-        configureNavBar()
+        setupBackgroundGradient()
+        setupHeader()            // Changed from configureNavBar
         configureCollectionView()
         setupConstraints()
     }
@@ -44,11 +49,6 @@ final class AvatarSelectViewController: UIViewController {
         
         coordinator.animate(alongsideTransition: { [weak self] _ in
             self?.collectionView.collectionViewLayout.invalidateLayout()
-            // Invalidate layout for all visible cells to re-layout glass effect
-            self?.collectionView.visibleCells.forEach { cell in
-                cell.setNeedsLayout()
-                cell.layoutIfNeeded()
-            }
         }, completion: nil)
     }
 
@@ -57,68 +57,44 @@ final class AvatarSelectViewController: UIViewController {
     private func setupBackgroundGradient() {
         let gradientLayer = CAGradientLayer()
         
-        // Colors from your Image 1: #0C0C0C (start) to #203B6F (end)
+        // Colors: #0C0C0C (start) to #203B6F (end)
         gradientLayer.colors = [
-            UIColor(red: 0.047, green: 0.047, blue: 0.047, alpha: 1.0).cgColor, // #0C0C0C
-            UIColor(red: 0.125, green: 0.231, blue: 0.435, alpha: 1.0).cgColor  // #203B6F
+            UIColor(red: 0.047, green: 0.047, blue: 0.047, alpha: 1.0).cgColor,
+            UIColor(red: 0.125, green: 0.231, blue: 0.435, alpha: 1.0).cgColor
         ]
         
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0) // Top
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)   // Bottom
         gradientLayer.frame = view.bounds
         
-        view.layer.insertSublayer(gradientLayer, at: 0) // Add to the very back
+        view.layer.insertSublayer(gradientLayer, at: 0)
     }
 
-    private func configureNavBar() {
-            title = "Avatars"
-            
-            // Configure appearance for transparent background and white text
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-            appearance.shadowColor = .clear // Remove the shadow line
-            
-            navigationController?.navigationBar.standardAppearance = appearance
-            navigationController?.navigationBar.scrollEdgeAppearance = appearance
-            navigationController?.navigationBar.tintColor = .white // Set tint for all items
-            
-            // --- ⭐️ HERE IS THE FIX ⭐️ ---
-            
-            // 1. Define a local UIButton, not a class property
-            let backButton: UIButton = {
-                let b = UIButton(type: .system)
-                b.translatesAutoresizingMaskIntoConstraints = false
-                if #available(iOS 13.0, *) {
-                    // Use a modern SF Symbol icon
-                    let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-                    b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-                } else {
-                    // Fallback for older iOS versions
-                    b.setTitle("< Back", for: .normal)
-                    b.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
-                }
-                b.tintColor = .white
-                // Set explicit size for a good tap target
-                b.heightAnchor.constraint(equalToConstant: 44).isActive = true
-                b.widthAnchor.constraint(equalToConstant: 44).isActive = true
-                return b
-            }()
-            
-            // 1b. (You forgot this!) Add the action to the button
-            backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-
-            // 1c. Wrap the UIButton in a UIBarButtonItem
-            let backBarButtonItem = UIBarButtonItem(customView: backButton)
-
-            // 2. Create a negative spacer to pull it to the left
-            let negativeSpacer = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
-            negativeSpacer.width = -8 // Adjust this value (-8, -12, etc.) to get perfect alignment
-
-            // 3. Set both items. The spacer comes first.
-            //    (Use the new 'backBarButtonItem', not 'backButton')
-            navigationItem.leftBarButtonItems = [negativeSpacer, backBarButtonItem]
-        }
+    private func setupHeader() {
+        // 1. Configure Header Container
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        headerView.backgroundColor = .clear
+        view.addSubview(headerView)
+        
+        // 2. Configure Back Button
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        backButton.tintColor = .white
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        
+        // Increase touch area
+        backButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        headerView.addSubview(backButton)
+        
+        // 3. Configure Title Label
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = "Avatars"
+        titleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textColor = .white
+        titleLabel.textAlignment = .center
+        headerView.addSubview(titleLabel)
+    }
 
     private func configureCollectionView() {
         let layout = UICollectionViewFlowLayout()
@@ -126,31 +102,51 @@ final class AvatarSelectViewController: UIViewController {
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.backgroundColor = .clear // Crucial: let the gradient show through
+        collectionView.backgroundColor = .clear
         
         collectionView.dataSource = self
         collectionView.delegate = self
         
+        // Assuming AvatarCell is defined elsewhere
         collectionView.register(AvatarCell.self, forCellWithReuseIdentifier: AvatarCell.reuseID)
         
         view.addSubview(collectionView)
     }
 
     private func setupConstraints() {
-        // Pin collection view to the safe area
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            // --- Header Constraints ---
+            // Pin header to the Safe Area Top
+            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerView.heightAnchor.constraint(equalToConstant: 44), // Standard Nav Bar height
+            
+            // Back Button (Leading)
+            backButton.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 8), // constant 8 + inset 10 = visually 18
+            backButton.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            
+            // Title (Centered)
+            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            
+            // --- Collection View Constraints ---
+            // Pin top to bottom of Header
+            collectionView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
     // MARK: - Actions
     
     @objc private func backTapped() {
-        // Dismiss the view controller if it was presented modally
-        dismiss(animated: true, completion: nil)
+        if let nav = navigationController, nav.viewControllers.count > 1 {
+            nav.popViewController(animated: true)
+        } else {
+            dismiss(animated: true, completion: nil)
+        }
     }
 }
 
@@ -181,30 +177,29 @@ extension AvatarSelectViewController: UICollectionViewDelegateFlowLayout {
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         
-        let padding: CGFloat = 20 // Padding from screen edges
-        let spacing: CGFloat = 16 // Spacing between items
+        let padding: CGFloat = 20
+        let spacing: CGFloat = 16
+        let safeWidth = collectionView.safeAreaLayoutGuide.layoutFrame.width
         
-        let safeAreaWidth = collectionView.safeAreaLayoutGuide.layoutFrame.width
+        // Smart Column Calculation:
+        // Use 2 columns for Portrait (regular width)
+        // Use 4 columns for Landscape (wide width) to prevent "giant" cells
+        let columns: CGFloat = safeWidth > 600 ? 4 : 2
         
-        // We want 2 columns, so calculate the item width
-        let availableWidth = safeAreaWidth - (padding * 2) - spacing
-        let itemWidth = availableWidth / 2
+        let totalSpacing = (padding * 2) + (spacing * (columns - 1))
+        let itemWidth = (safeWidth - totalSpacing) / columns
         
-        // Return a square size for the cells
         return CGSize(width: itemWidth, height: itemWidth)
     }
     
-    // Set the padding for the entire section
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
         return UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
     }
     
-    // Spacing between rows
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
         return 16
     }
     
-    // Spacing between items in the same row
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
         return 16
     }
