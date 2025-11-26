@@ -27,7 +27,7 @@ final class HomeHeaderView: UIView {
 
     private let bellButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "bell.fill"), for: .normal)
+        b.setImage(UIImage(systemName: "bell"), for: .normal)
         b.tintColor = .white
         b.translatesAutoresizingMaskIntoConstraints = false
         return b

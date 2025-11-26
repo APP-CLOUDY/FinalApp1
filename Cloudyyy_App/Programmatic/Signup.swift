@@ -81,6 +81,11 @@ final class Signup: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
+    // MARK: - First time user flag
+    private func markUserAsLoggedIn() {
+        UserDefaults.standard.set(true, forKey: "isFirstTimeUser")
+    }
+
     // MARK: - Setup Header
     private func setupHeader() {
         headerView.screenTitleLabel.text = "Sign up"
@@ -228,7 +233,7 @@ final class Signup: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 
-    // MARK: - Sign Up (final corrected: generate local UUID for profile ID)
+    // MARK: - Sign Up
     @objc private func didTapSignUp() {
         view.endEditing(true)
 
@@ -243,7 +248,6 @@ final class Signup: UIViewController {
 
         let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex) ?? "Mom"
 
-        // Convert DateTextField's picker date -> "YYYY-MM-DD"
         let dobISO: String? = {
             let date = dobField.selectedDate
             let fmt = DateFormatter()
@@ -254,21 +258,18 @@ final class Signup: UIViewController {
 
         setLoading(true)
 
-        // Force concurrency Task (safe and avoids name collisions)
         _Concurrency.Task {
             do {
-                // 1) Sign up with Supabase Auth (Supabase handles password hashing & storage).
-                // We do not depend on obtaining user.id from the SDK response here.
+                // 1) Sign up with Supabase Auth
                 _ = try await SupabaseManager.shared.client.auth.signUp(
                     email: email,
                     password: pass
                 )
 
-                // 2) Generate local UUID for the users table primary key.
-                //    (Optional: later you can link auth <-> profile using email or add a server trigger.)
+                // 2) local UUID for profile table
                 let generatedId = UUID().uuidString
 
-                // 3) Insert profile into public.users
+                // 3) Insert into public.users
                 let profile = ProfileInsert(
                     id: generatedId,
                     first_name: name,
@@ -277,29 +278,39 @@ final class Signup: UIViewController {
                     date_of_birth: dobISO
                 )
 
-                // execute() will throw on failure for many SDK versions; rely on try/await
                 _ = try await SupabaseManager.shared.client
                     .from("users")
                     .insert([profile])
                     .execute()
 
-                // 4) Success — update UI on main actor
+                // 4) UI updates on main thread
                 await MainActor.run {
                     self.setLoading(false)
-                    let alert = UIAlertController(title: "Success", message: "Account created. Check your email if confirmation is required.", preferredStyle: .alert)
+
+                    // 🔥 Mark this as first-time user
+                    self.markUserAsLoggedIn()
+
+                    let alert = UIAlertController(
+                        title: "Success",
+                        message: "Account created!",
+                        preferredStyle: .alert
+                    )
+
                     alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
                         let vc = FamilyName()
                         self.navigationController?.pushViewController(vc, animated: true)
                     })
+
                     self.present(alert, animated: true)
                 }
+
             } catch {
                 await MainActor.run {
                     self.setLoading(false)
                     self.showAlert(title: "Sign up failed", message: error.localizedDescription)
                 }
             }
-        } // _Concurrency.Task
+        }
     }
 
     // MARK: - Helpers
@@ -357,3 +368,4 @@ private extension UIView {
         return nil
     }
 }
+

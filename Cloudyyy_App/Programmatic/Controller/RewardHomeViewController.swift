@@ -25,8 +25,13 @@ final class RewardHomeViewController: UIViewController {
     private let totalLabel = UILabel()
     private let totalTitle = UILabel()
 
-    // Category List Container
+    // Category list
     private let categoryStack = UIStackView()
+
+    // Empty state container
+    private let emptyStateContainer = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+    private let emptyStateLabel = UILabel()
+    private let emptyStateButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -44,10 +49,19 @@ final class RewardHomeViewController: UIViewController {
         setupHeader()
         setupStatsCards()
         setupCategorySection()
+        setupEmptyState()
         setupListeners()
 
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewRewardPage() }
+
+        // ⬇️ Listen for reward additions
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(onRewardAdded(_:)),
+            name: ChildManager.rewardAddedNotification,
+            object: nil
+        )
 
         // initial load
         if let kid = ChildManager.shared.selectedKid {
@@ -63,9 +77,8 @@ final class RewardHomeViewController: UIViewController {
     // MARK: - Gradient
     private func setupGradient() {
         gradient.colors = [
-            UIColor(red: 8/255, green: 12/255, blue: 48/255, alpha: 1).cgColor,
-            UIColor(red: 10/255, green: 18/255, blue: 60/255, alpha: 1).cgColor,
-            UIColor(red: 17/255, green: 41/255, blue: 87/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+                        UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint = CGPoint(x: 0.5, y: 1)
@@ -84,13 +97,12 @@ final class RewardHomeViewController: UIViewController {
             header.heightAnchor.constraint(equalToConstant: 110)
         ])
 
-        header.onChildTapped = { [weak self] in
-            self?.showKidsMenu()
-        }
+        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
     }
 
     // MARK: - Stats Cards
     private func setupStatsCards() {
+
         [smallLeft, smallRight, largeCard].forEach {
             $0.layer.cornerRadius = 16
             $0.layer.masksToBounds = true
@@ -98,7 +110,6 @@ final class RewardHomeViewController: UIViewController {
             view.addSubview($0)
         }
 
-        // ACTIVE rewards
         activeLabel.font = .systemFont(ofSize: 28, weight: .bold)
         activeLabel.textColor = .white
         activeLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -108,7 +119,6 @@ final class RewardHomeViewController: UIViewController {
         activeTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         activeTitle.translatesAutoresizingMaskIntoConstraints = false
 
-        // STARS THIS WEEK
         weekLabel.font = .systemFont(ofSize: 28, weight: .bold)
         weekLabel.textColor = .white
         weekLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -118,7 +128,6 @@ final class RewardHomeViewController: UIViewController {
         weekTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         weekTitle.translatesAutoresizingMaskIntoConstraints = false
 
-        // TOTAL stars
         totalLabel.font = .systemFont(ofSize: 32, weight: .bold)
         totalLabel.textColor = .white
         totalLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -128,7 +137,7 @@ final class RewardHomeViewController: UIViewController {
         totalTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         totalTitle.translatesAutoresizingMaskIntoConstraints = false
 
-        // Build stacks
+        // Stacks
         let leftStack = UIStackView(arrangedSubviews: [activeLabel, activeTitle])
         leftStack.axis = .vertical
         leftStack.alignment = .center
@@ -168,13 +177,13 @@ final class RewardHomeViewController: UIViewController {
             largeCard.heightAnchor.constraint(equalToConstant: 78),
 
             leftStack.centerXAnchor.constraint(equalTo: smallLeft.contentView.centerXAnchor),
-                leftStack.centerYAnchor.constraint(equalTo: smallLeft.contentView.centerYAnchor),
+            leftStack.centerYAnchor.constraint(equalTo: smallLeft.contentView.centerYAnchor),
 
-                rightStack.centerXAnchor.constraint(equalTo: smallRight.contentView.centerXAnchor),
-                rightStack.centerYAnchor.constraint(equalTo: smallRight.contentView.centerYAnchor),
+            rightStack.centerXAnchor.constraint(equalTo: smallRight.contentView.centerXAnchor),
+            rightStack.centerYAnchor.constraint(equalTo: smallRight.contentView.centerYAnchor),
 
-                centerStack.centerXAnchor.constraint(equalTo: largeCard.contentView.centerXAnchor),
-                centerStack.centerYAnchor.constraint(equalTo: largeCard.contentView.centerYAnchor)
+            centerStack.centerXAnchor.constraint(equalTo: largeCard.contentView.centerXAnchor),
+            centerStack.centerYAnchor.constraint(equalTo: largeCard.contentView.centerYAnchor)
         ])
     }
 
@@ -192,22 +201,78 @@ final class RewardHomeViewController: UIViewController {
         ])
     }
 
-    // MARK: - Reload from ChildManager (REAL DATA)
+    // MARK: - Empty State
+    private func setupEmptyState() {
+
+        emptyStateContainer.layer.cornerRadius = 10
+        emptyStateContainer.clipsToBounds = true
+        emptyStateContainer.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateContainer.isHidden = true
+        view.addSubview(emptyStateContainer)
+
+        emptyStateLabel.text = "No Rewards Assigned"
+        emptyStateLabel.textAlignment = .center
+        emptyStateLabel.textColor = .white
+        emptyStateLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+        emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        emptyStateButton.setTitle("Add New Reward", for: .normal)
+        emptyStateButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        emptyStateButton.backgroundColor = UIColor.systemBlue
+        emptyStateButton.tintColor = .white
+        emptyStateButton.layer.cornerRadius = 14
+        emptyStateButton.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateButton.addTarget(self, action: #selector(openNewRewardPage), for: .touchUpInside)
+
+        emptyStateContainer.contentView.addSubview(emptyStateLabel)
+        emptyStateContainer.contentView.addSubview(emptyStateButton)
+
+        NSLayoutConstraint.activate([
+            emptyStateContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
+            emptyStateContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),
+            emptyStateContainer.topAnchor.constraint(equalTo: categoryStack.bottomAnchor, constant: 26),
+
+            emptyStateLabel.topAnchor.constraint(equalTo: emptyStateContainer.topAnchor, constant: 26),
+            emptyStateLabel.leadingAnchor.constraint(equalTo: emptyStateContainer.leadingAnchor),
+            emptyStateLabel.trailingAnchor.constraint(equalTo: emptyStateContainer.trailingAnchor),
+
+            emptyStateButton.topAnchor.constraint(equalTo: emptyStateLabel.bottomAnchor, constant: 22),
+            emptyStateButton.leadingAnchor.constraint(equalTo: emptyStateContainer.leadingAnchor, constant: 24),
+            emptyStateButton.trailingAnchor.constraint(equalTo: emptyStateContainer.trailingAnchor, constant: -24),
+            emptyStateButton.bottomAnchor.constraint(equalTo: emptyStateContainer.bottomAnchor, constant: -26)
+        ])
+    }
+
+    // MARK: - Reload for Kid (Runtime + First Time Logic)
     private func reloadForKid(_ kid: Kid) {
 
-        let summary = ChildManager.shared.rewardsSummary(for: kid.id)
-        activeLabel.text = "\(summary.activeRewards)"
-        weekLabel.text   = "\(summary.starsThisWeek)"
-        totalLabel.text  = "\(summary.totalStars)"
+        let rewards = ChildManager.shared.allRewards(for: kid.id)
+            let summary = ChildManager.shared.rewardsSummary(for: kid.id)
 
-        // categories
-        categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            // Update stats
+            activeLabel.text = "\(rewards.filter { $0.isActive }.count)"
+            weekLabel.text   = "\(summary.starsThisWeek)"
+            totalLabel.text  = "\(summary.totalStars)"
 
-        let categories = ChildManager.shared.rewardCategories(for: kid.id)
-        for item in categories {
-            let row = makeCategoryRow(item: item)
-            categoryStack.addArrangedSubview(row)
-        }
+            // Clear category list
+            categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+            // Categories (these always exist)
+            let categories = ChildManager.shared.rewardCategories(for: kid.id)
+
+            for category in categories {
+                categoryStack.addArrangedSubview(makeCategoryRow(item: category))
+            }
+
+            // Empty state should show only when kid has NO rewards
+            emptyStateContainer.isHidden = !rewards.isEmpty
+    }
+
+
+    private func makeCategoryRowPlaceholder(item: RewardCategoryItem) -> UIControl {
+        let row = makeCategoryRow(item: item)
+        row.alpha = 1.0
+        return row
     }
 
     // MARK: - Build Category Row
@@ -222,33 +287,28 @@ final class RewardHomeViewController: UIViewController {
         glass.translatesAutoresizingMaskIntoConstraints = false
         glass.layer.cornerRadius = 14
         glass.clipsToBounds = true
-        glass.isUserInteractionEnabled = false 
+        glass.isUserInteractionEnabled = false
         row.addSubview(glass)
 
         let iconView = UIImageView(image: UIImage(systemName: item.icon))
         iconView.tintColor = .white
-        iconView.translatesAutoresizingMaskIntoConstraints = false
 
         let title = UILabel()
         title.text = item.title
         title.font = .systemFont(ofSize: 16, weight: .semibold)
         title.textColor = .white
-        title.translatesAutoresizingMaskIntoConstraints = false
 
         let subtitle = UILabel()
         subtitle.text = item.subtitle
         subtitle.font = .systemFont(ofSize: 12)
         subtitle.textColor = UIColor.white.withAlphaComponent(0.7)
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
 
         let textStack = UIStackView(arrangedSubviews: [title, subtitle])
         textStack.axis = .vertical
         textStack.spacing = 2
-        textStack.translatesAutoresizingMaskIntoConstraints = false
 
         let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
-        chevron.tintColor = UIColor.white.withAlphaComponent(0.7)
-        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevron.tintColor = .white.withAlphaComponent(0.7)
 
         let hStack = UIStackView(arrangedSubviews: [iconView, textStack, chevron])
         hStack.axis = .horizontal
@@ -274,7 +334,7 @@ final class RewardHomeViewController: UIViewController {
             chevron.widthAnchor.constraint(equalToConstant: 12)
         ])
 
-        // navigation based on title
+        // tap navigation
         row.addAction(UIAction { [weak self] _ in
             self?.openCategoryPage(title: item.title)
         }, for: .touchUpInside)
@@ -321,9 +381,15 @@ final class RewardHomeViewController: UIViewController {
         )
     }
 
+    // MARK: - Notifications
     @objc private func onKidChanged(_ n: Notification) {
         guard let kid = n.object as? Kid else { return }
         header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        reloadForKid(kid)
+    }
+
+    @objc private func onRewardAdded(_ n: Notification) {
+        guard let kid = ChildManager.shared.selectedKid else { return }
         reloadForKid(kid)
     }
 }

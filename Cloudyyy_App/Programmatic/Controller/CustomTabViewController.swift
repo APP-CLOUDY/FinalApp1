@@ -1,4 +1,3 @@
-
 import UIKit
 
 class CustomTabBarController: UITabBarController, UITabBarControllerDelegate {
@@ -6,40 +5,16 @@ class CustomTabBarController: UITabBarController, UITabBarControllerDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         delegate = self
-        setupTabBarAppearance() // <-- This function is now updated
+        setupTabBarAppearance()
         setupViewControllers()
     }
 
-    // --- FIX: Replaced with modern UITabBarAppearance for solid background ---
     private func setupTabBarAppearance() {
-        
-        // This is the new, modern way (iOS 15+)
-        let appearance = UITabBarAppearance()
-        
-        // 1. Configure it to be opaque (not transparent)
-        appearance.configureWithOpaqueBackground()
-        
-        // 2. Set your solid background color
-        appearance.backgroundColor = UIColor.systemGray6
-        
-        // 3. Set the icon colors for selected state
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.systemBlue
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemBlue]
-        
-        // 4. Set the icon colors for normal (unselected) state
-        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.gray
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray]
-
-        // 5. Apply this appearance to both standard and scrolled states
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
-
-        // These legacy properties can still be set as a fallback
-        // but 'appearance' is now the primary source of truth.
         tabBar.tintColor = UIColor.systemBlue
         tabBar.unselectedItemTintColor = UIColor.gray
+        tabBar.backgroundColor = UIColor.systemGray6
     }
-    
+
     private func setupViewControllers() {
 
         let homeVC = ParentDashboardViewController()
@@ -67,16 +42,11 @@ class CustomTabBarController: UITabBarController, UITabBarControllerDelegate {
         rewardVC.tabBarItem = UITabBarItem(title: "Reward",
                                            image: UIImage(systemName: "star.fill"),
                                            tag: 4)
-        
-        // Make sure the tags here match your other VCs
-        // Your code `self.tabBarController?.selectedIndex = 3`
-        // was trying to open the *Schedule* tab (index 3), not the Reward tab (index 4).
-        // I've kept your setup, but double-check those numbers.
-        
+
         viewControllers = [
             UINavigationController(rootViewController: homeVC),
             UINavigationController(rootViewController: progressVC),
-            addDummyVC,  // ⭐ Middle “+” tab
+            addDummyVC,
             UINavigationController(rootViewController: scheduleVC),
             UINavigationController(rootViewController: rewardVC),
         ]
@@ -89,8 +59,10 @@ class CustomTabBarController: UITabBarController, UITabBarControllerDelegate {
         if viewController.tabBarItem.tag == 2 {
             // ⭐ Middle tab tapped
             let newTaskVC = NewTaskViewController()
-            newTaskVC.modalPresentationStyle = .pageSheet
-            present(newTaskVC, animated: true)
+            let nav = UINavigationController(rootViewController: newTaskVC)
+            nav.modalPresentationStyle = .pageSheet
+            present(nav, animated: true)
+
 
             return false // prevent switching to placeholder tab
         }
@@ -98,3 +70,4 @@ class CustomTabBarController: UITabBarController, UITabBarControllerDelegate {
         return true
     }
 }
+

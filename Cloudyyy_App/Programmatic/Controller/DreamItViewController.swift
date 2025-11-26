@@ -60,9 +60,8 @@ final class DreamItViewController: UIViewController {
     // MARK: - UI Setup
     private func setupGradient() {
         gradient.colors = [
-            UIColor(red: 8/255, green: 12/255, blue: 48/255, alpha: 1).cgColor,
-            UIColor(red: 10/255, green: 18/255, blue: 60/255, alpha: 1).cgColor,
-            UIColor(red: 17/255, green: 41/255, blue: 87/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+                        UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint   = CGPoint(x: 0.5, y: 1)
