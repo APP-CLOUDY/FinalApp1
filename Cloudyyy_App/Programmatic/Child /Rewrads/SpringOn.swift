@@ -1,108 +1,82 @@
-//
-//  SpringOn.swift
-//  Cloudyyy_App
-//
-//  Created by user@5 on 18/11/25.
-//
-
 import UIKit
 
 final class SpringOnChildViewController: UIViewController {
-    
-    // MARK: - UI Components
-    
-    private let gradientLayer = CAGradientLayer()
-    
-    // --- SCROLL VIEW SUPPORT ---
-    // Essential for Landscape mode support
+
+    // MARK: - UI + Layout state
+
+    // 1. Added ScrollView and ContentView
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     
-    // Top bar container (Kept pinned to top, outside scrollview for sticky effect, or inside if you want it to scroll)
-    // I will put it outside so it stays visible while scrolling content.
-    private let topBarContainer = UIView()
+    private let gradientLayer = CAGradientLayer()
+
+    // Top bar
     private let backButton = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let coinBadge = PaddingLabel(top: 4, left: 10, bottom: 4, right: 10)
     private let profileButton = UIButton(type: .system)
-    
+
     // Main puzzle card
     private let puzzleCard = UIView()
     private let puzzleImageView = UIImageView()
-    private let overlayContainer = UIView() // Holds the grid
-    // We use a stack view for the grid rows to ensure auto-resizing on rotation
-    private let gridVerticalStack = UIStackView()
-    
+    private let overlayContainer = UIView()
+
     // Page Control
     private let picturePageControl: UIPageControl = {
         let pc = UIPageControl()
         pc.translatesAutoresizingMaskIntoConstraints = false
-        pc.numberOfPages = 4
+        pc.numberOfPages = 4 // You can change this
         pc.currentPage = 0
         pc.currentPageIndicatorTintColor = .white
         pc.pageIndicatorTintColor = UIColor.white.withAlphaComponent(0.25)
         return pc
     }()
-    
+
     // Progress
     private let progressTitleLabel = UILabel()
     private let progressBar = UIProgressView(progressViewStyle: .default)
     private let partsLabel = UILabel()
     private let percentLabel = UILabel()
-    
+
     // Store
     private let storeTitleLabel = UILabel()
     private let storeGrid = UIStackView()
-    
+
     // Internal model
-    // Note: We need to track the actual blur views to fade them out
-    private var pieceViews: [UIView] = []
+    private var pieceOverlays: [UIView] = []
     private var unlockedPieces: [Bool] = Array(repeating: false, count: 16)
     private var gridBuilt = false
-    
+
+
     // MARK: - Lifecycle
-    
-    init() {
-        super.init(nibName: nil, bundle: nil)
-        hidesBottomBarWhenPushed = true
-    }
-    
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        hidesBottomBarWhenPushed = true
-    }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupGradient()
+        
+        // 2. Setup scroll view first
         setupScrollView()
+        
+        // These functions will now add subviews to the `contentView`
         setupTopBar()
         setupPuzzleCard()
         setupProgress()
         setupStore()
         
-        // Layout
-        layoutTopBar()
-        layoutContent()
+        // This function will now add constraints to the `contentView`
+        layoutEverything()
         
-        // Logic
         updateProgressUI()
     }
-    
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
-        
-        // We build the grid here to ensure the stack view is ready,
-        // but since we use AutoLayout/Stacks now, we only need to add them once.
-        if !gridBuilt {
-            setupGridSystem()
-            gridBuilt = true
-        }
+        buildGridIfNeeded()
     }
-    
-    // MARK: - Setup Basic UI
-    
+
+    // MARK: - Setup
+
     private func setupGradient() {
         gradientLayer.colors = [
             UIColor(red: 10/255, green: 16/255, blue: 32/255, alpha: 1).cgColor,
@@ -113,330 +87,298 @@ final class SpringOnChildViewController: UIViewController {
         view.layer.insertSublayer(gradientLayer, at: 0)
     }
     
+    // 2. Added new function to setup scroll view
     private func setupScrollView() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        // Hide scroll indicators for cleaner look if desired
-        scrollView.showsVerticalScrollIndicator = false
-        
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        
+        // Pin ScrollView to the main view's safe area
         NSLayoutConstraint.activate([
-            // ScrollView takes up space BELOW the top bar area (layoutTopBar will handle top anchor)
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor), // Go to edge, not safe area, looks better
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             
-            // ContentView matches ScrollView
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            // Pin ContentView to the ScrollView's content area
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             
-            // Important: Width must match scrollview to prevent horizontal scrolling
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+            // Pin ContentView's width to the ScrollView's frame width
+            // This is the key to only allow vertical scrolling
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
     }
-    
+
     private func setupTopBar() {
-        topBarContainer.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(topBarContainer)
-        
         backButton.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         coinBadge.translatesAutoresizingMaskIntoConstraints = false
         profileButton.translatesAutoresizingMaskIntoConstraints = false
-        
+
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.tintColor = .white
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        
+
         titleLabel.text = "Spring On"
         titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
         titleLabel.textColor = .white
-        
+
         coinBadge.text = "★ 207"
         coinBadge.font = .systemFont(ofSize: 14, weight: .semibold)
         coinBadge.textColor = .black
         coinBadge.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
         coinBadge.layer.cornerRadius = 14
         coinBadge.layer.masksToBounds = true
-        
+
         profileButton.setImage(UIImage(systemName: "person.circle.fill"), for: .normal)
         profileButton.tintColor = .white
         profileButton.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
-        
-        topBarContainer.addSubview(backButton)
-        topBarContainer.addSubview(titleLabel)
-        topBarContainer.addSubview(coinBadge)
-        topBarContainer.addSubview(profileButton)
+
+        // 3. Add to `contentView` instead of `view`
+        contentView.addSubview(backButton)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(coinBadge)
+        contentView.addSubview(profileButton)
     }
-    
-    private func layoutTopBar() {
-        let safe = view.safeAreaLayoutGuide
-        
-        NSLayoutConstraint.activate([
-            // Container logic
-            topBarContainer.topAnchor.constraint(equalTo: safe.topAnchor),
-            topBarContainer.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
-            topBarContainer.trailingAnchor.constraint(equalTo: safe.trailingAnchor),
-            topBarContainer.heightAnchor.constraint(equalToConstant: 60), // Fixed height for header
-            
-            // Connect ScrollView to bottom of Header
-            scrollView.topAnchor.constraint(equalTo: topBarContainer.bottomAnchor),
-            
-            // Inside Container
-            backButton.leadingAnchor.constraint(equalTo: topBarContainer.leadingAnchor, constant: 16),
-            backButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
-            
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
-            titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            
-            profileButton.trailingAnchor.constraint(equalTo: topBarContainer.trailingAnchor, constant: -16),
-            profileButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 32),
-            profileButton.heightAnchor.constraint(equalToConstant: 32),
-            
-            coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -10),
-            coinBadge.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor)
-        ])
-    }
-    
+
     private func setupPuzzleCard() {
         puzzleCard.translatesAutoresizingMaskIntoConstraints = false
         puzzleImageView.translatesAutoresizingMaskIntoConstraints = false
         overlayContainer.translatesAutoresizingMaskIntoConstraints = false
-        gridVerticalStack.translatesAutoresizingMaskIntoConstraints = false
-        
+
         puzzleCard.backgroundColor = UIColor(white: 1.0, alpha: 0.06)
         puzzleCard.layer.cornerRadius = 20
         puzzleCard.layer.masksToBounds = true
-        
+
+        // Main reward image
         puzzleImageView.contentMode = .scaleAspectFill
-        puzzleImageView.image = UIImage(named: "spring_trip") ?? makePlaceholderBike()
+        puzzleImageView.image = UIImage(named: "springon") ?? makePlaceholderBike()
         puzzleImageView.clipsToBounds = true
-        
+
         overlayContainer.backgroundColor = .clear
-        
+
+        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(puzzleCard)
         puzzleCard.addSubview(puzzleImageView)
         puzzleCard.addSubview(overlayContainer)
-        overlayContainer.addSubview(gridVerticalStack)
+
+        // Add the page control
+        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(picturePageControl)
-        
-        // Grid Stack config
-        gridVerticalStack.axis = .vertical
-        gridVerticalStack.distribution = .fillEqually
-        gridVerticalStack.alignment = .fill
-        gridVerticalStack.spacing = 0
     }
-    
+
     private func setupProgress() {
         progressTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         progressBar.translatesAutoresizingMaskIntoConstraints = false
         partsLabel.translatesAutoresizingMaskIntoConstraints = false
         percentLabel.translatesAutoresizingMaskIntoConstraints = false
-        
+
         progressTitleLabel.text = "Trip"
         progressTitleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         progressTitleLabel.textColor = .white
         progressTitleLabel.textAlignment = .center
-        
+
         progressBar.trackTintColor = UIColor(white: 1.0, alpha: 0.25)
         progressBar.progressTintColor = UIColor.systemBlue
         progressBar.layer.cornerRadius = 2
         progressBar.clipsToBounds = true
-        
+
         partsLabel.font = .systemFont(ofSize: 14, weight: .regular)
         partsLabel.textColor = .white
-        
+
         percentLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         percentLabel.textColor = .white
         percentLabel.textAlignment = .right
-        
+
+        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(progressTitleLabel)
         contentView.addSubview(progressBar)
         contentView.addSubview(partsLabel)
         contentView.addSubview(percentLabel)
     }
-    
+
     private func setupStore() {
         storeTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         storeGrid.translatesAutoresizingMaskIntoConstraints = false
-        
+
         storeTitleLabel.text = "Store"
         storeTitleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         storeTitleLabel.textColor = .white
-        
+
         storeGrid.axis = .vertical
         storeGrid.alignment = .fill
         storeGrid.distribution = .fillEqually
         storeGrid.spacing = 12
-        
+
+        // 2×2 grid of buttons: 1x, 4x, 8x, 16x
         let counts = [1, 4, 8, 16]
         let labels = ["1x", "4x", "8x", "16x"]
-        
+
         for row in 0..<2 {
             let hStack = UIStackView()
             hStack.axis = .horizontal
             hStack.alignment = .fill
             hStack.distribution = .fillEqually
             hStack.spacing = 12
-            
+
             for col in 0..<2 {
                 let index = row * 2 + col
+                // Use the cost from the old logic (pieces * 10)
                 let button = makeStoreButton(title: labels[index], cost: counts[index] * 10, pieces: counts[index])
                 hStack.addArrangedSubview(button)
             }
             storeGrid.addArrangedSubview(hStack)
         }
-        
+
+        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(storeTitleLabel)
         contentView.addSubview(storeGrid)
     }
-    
-    private func layoutContent() {
-        // Padding for the content
-        let p: CGFloat = 20
+
+
+    private func layoutEverything() {
+        // 4. No longer need `safe` guide, as `contentView` is our new reference
         
         NSLayoutConstraint.activate([
-            // Puzzle Card
-            puzzleCard.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            puzzleCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: p),
-            puzzleCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -p),
-            // Allow card to grow in landscape if desired, but fixed height is okay too.
-            // Let's keep fixed height for consistency, but you might consider aspect ratio constraint instead.
-            puzzleCard.heightAnchor.constraint(equalToConstant: 200),
-            
+            // Top bar (all constraints relative to `contentView`)
+            backButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            backButton.widthAnchor.constraint(equalToConstant: 32),
+            backButton.heightAnchor.constraint(equalToConstant: 32),
+
+            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
+            titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+
+            profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            profileButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            profileButton.widthAnchor.constraint(equalToConstant: 32),
+            profileButton.heightAnchor.constraint(equalToConstant: 32),
+
+            coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -10),
+            coinBadge.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+
+            // Puzzle card (all constraints relative to `contentView`)
+            puzzleCard.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 20),
+            puzzleCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            puzzleCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            // Reverted to fixed height
+            puzzleCard.heightAnchor.constraint(equalToConstant: 190),
+
             puzzleImageView.topAnchor.constraint(equalTo: puzzleCard.topAnchor),
             puzzleImageView.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
             puzzleImageView.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
+            // Reverted: Pin to bottom of card
             puzzleImageView.bottomAnchor.constraint(equalTo: puzzleCard.bottomAnchor),
+
+            // --- DYNAMIC PUZZLE FIX REMOVED ---
+            // 1. Removed square aspect ratio constraint
+            // puzzleImageView.heightAnchor.constraint(equalTo: puzzleImageView.widthAnchor, multiplier: 1.0),
             
-            overlayContainer.topAnchor.constraint(equalTo: puzzleCard.topAnchor),
-            overlayContainer.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
-            overlayContainer.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
-            overlayContainer.bottomAnchor.constraint(equalTo: puzzleCard.bottomAnchor),
-            
-            // Grid Stack fills overlay
-            gridVerticalStack.topAnchor.constraint(equalTo: overlayContainer.topAnchor),
-            gridVerticalStack.leadingAnchor.constraint(equalTo: overlayContainer.leadingAnchor),
-            gridVerticalStack.trailingAnchor.constraint(equalTo: overlayContainer.trailingAnchor),
-            gridVerticalStack.bottomAnchor.constraint(equalTo: overlayContainer.bottomAnchor),
-            
+            // 2. Removed dynamic bottom constraint
+            // puzzleCard.bottomAnchor.constraint(equalTo: puzzleImageView.bottomAnchor),
+
+            // 3. Pin the overlay to the puzzleImageView
+            overlayContainer.topAnchor.constraint(equalTo: puzzleImageView.topAnchor),
+            overlayContainer.leadingAnchor.constraint(equalTo: puzzleImageView.leadingAnchor),
+            overlayContainer.trailingAnchor.constraint(equalTo: puzzleImageView.trailingAnchor),
+            overlayContainer.bottomAnchor.constraint(equalTo: puzzleImageView.bottomAnchor),
+            // --- END DYNAMIC PUZZLE FIX REMOVED ---
+
             // Page Control
             picturePageControl.topAnchor.constraint(equalTo: puzzleCard.bottomAnchor, constant: 6),
-            picturePageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            
+            picturePageControl.centerXAnchor.constraint(equalTo: puzzleCard.centerXAnchor),
+
             // Progress
             progressTitleLabel.topAnchor.constraint(equalTo: picturePageControl.bottomAnchor, constant: 12),
-            progressTitleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            
-            progressBar.topAnchor.constraint(equalTo: progressTitleLabel.bottomAnchor, constant: 8),
-            progressBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: p),
-            progressBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -p),
-            progressBar.heightAnchor.constraint(equalToConstant: 6),
-            
-            partsLabel.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 8),
-            partsLabel.leadingAnchor.constraint(equalTo: progressBar.leadingAnchor),
-            
+            progressTitleLabel.centerXAnchor.constraint(equalTo: puzzleCard.centerXAnchor),
+
+            progressBar.topAnchor.constraint(equalTo: progressTitleLabel.bottomAnchor, constant: 6),
+            progressBar.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
+            progressBar.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
+            progressBar.heightAnchor.constraint(equalToConstant: 4),
+
+            partsLabel.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 6),
+            partsLabel.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
+
             percentLabel.centerYAnchor.constraint(equalTo: partsLabel.centerYAnchor),
-            percentLabel.trailingAnchor.constraint(equalTo: progressBar.trailingAnchor),
-            
+            percentLabel.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
+
             // Store
-            storeTitleLabel.topAnchor.constraint(equalTo: partsLabel.bottomAnchor, constant: 30),
-            storeTitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: p),
+            storeTitleLabel.topAnchor.constraint(equalTo: partsLabel.bottomAnchor, constant: 24),
+            storeTitleLabel.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
+
+            storeGrid.topAnchor.constraint(equalTo: storeTitleLabel.bottomAnchor, constant: 12),
+            storeGrid.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
+            storeGrid.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
             
-            storeGrid.topAnchor.constraint(equalTo: storeTitleLabel.bottomAnchor, constant: 15),
-            storeGrid.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: p),
-            storeGrid.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -p),
-            
-            // IMPORTANT: Bottom constraint for ScrollView content size
-            storeGrid.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
+            // 5. This is the *most important* new constraint.
+            // It pins the bottom of the last element (the store grid)
+            // to the bottom of the `contentView`. This defines the
+            // scrollable height.
+            storeGrid.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40) // 40pts of padding
         ])
     }
+
+    // MARK: - Grid / Puzzle pieces
     
-    // MARK: - Responsive Grid Construction
-    
-    private func setupGridSystem() {
-        // Clear existing if any
-        gridVerticalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        pieceViews.removeAll()
+    private func buildGridIfNeeded() {
+        guard !gridBuilt, overlayContainer.bounds.width > 0 else { return }
+        gridBuilt = true
         
         let rows = 4
         let cols = 4
+        let w = overlayContainer.bounds.width / CGFloat(cols)
+        let h = overlayContainer.bounds.height / CGFloat(rows)
         
-        for _ in 0..<rows {
-            let hStack = UIStackView()
-            hStack.axis = .horizontal
-            hStack.distribution = .fillEqually
-            hStack.alignment = .fill
-            hStack.spacing = 0
-            
-            for _ in 0..<cols {
-                let cell = createPuzzlePieceView()
-                pieceViews.append(cell)
-                hStack.addArrangedSubview(cell)
+        for row in 0..<rows {
+            for col in 0..<cols {
+                let index = row * cols + col
+                
+                let frame = CGRect(
+                    x: CGFloat(col) * w,
+                    y: CGFloat(row) * h,
+                    width: w,
+                    height: h
+                )
+                
+                // Glassy blur tile
+                let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+                blur.frame = frame.insetBy(dx: 1, dy: 1)
+                blur.layer.cornerRadius = 6
+                blur.clipsToBounds = true
+                
+                // Slight dark overlay for more contrast
+                let dim = UIView(frame: blur.bounds)
+                dim.backgroundColor = UIColor(white: 0.0, alpha: 0.45)
+                dim.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                blur.contentView.addSubview(dim)
+                
+                // Puzzle icon
+                let icon = UIImageView(image: UIImage(systemName: "puzzlepiece.fill"))
+                icon.tintColor = UIColor(white: 1.0, alpha: 0.9)
+                icon.translatesAutoresizingMaskIntoConstraints = false
+                blur.contentView.addSubview(icon)
+                NSLayoutConstraint.activate([
+                    icon.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+                    icon.centerYAnchor.constraint(equalTo: blur.contentView.centerYAnchor),
+                    icon.widthAnchor.constraint(equalToConstant: 22),
+                    icon.heightAnchor.constraint(equalToConstant: 22)
+                ])
+                
+                overlayContainer.addSubview(blur)
+                pieceOverlays.append(blur)
             }
-            
-            gridVerticalStack.addArrangedSubview(hStack)
         }
     }
     
-    private func createPuzzlePieceView() -> UIView {
-        // Container for the piece
-        let container = UIView()
-        container.backgroundColor = .clear
-        
-        // Glassy blur tile
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        blur.layer.cornerRadius = 6
-        blur.clipsToBounds = true
-        
-        container.addSubview(blur)
-        
-        // Layout the blur with a tiny inset (margin) so we see lines between pieces
-        NSLayoutConstraint.activate([
-            blur.topAnchor.constraint(equalTo: container.topAnchor, constant: 1),
-            blur.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 1),
-            blur.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -1),
-            blur.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -1)
-        ])
-        
-        // Dim overlay
-        let dim = UIView()
-        dim.translatesAutoresizingMaskIntoConstraints = false
-        dim.backgroundColor = UIColor(white: 0.0, alpha: 0.45)
-        blur.contentView.addSubview(dim)
-        
-        // Icon
-        let icon = UIImageView(image: UIImage(systemName: "puzzlepiece.fill"))
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        icon.tintColor = UIColor(white: 1.0, alpha: 0.9)
-        blur.contentView.addSubview(icon)
-        
-        NSLayoutConstraint.activate([
-            dim.topAnchor.constraint(equalTo: blur.contentView.topAnchor),
-            dim.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor),
-            dim.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor),
-            dim.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor),
-            
-            icon.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
-            icon.centerYAnchor.constraint(equalTo: blur.contentView.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 22),
-            icon.heightAnchor.constraint(equalToConstant: 22)
-        ])
-        
-        // Return the PARENT container (which holds the blur)
-        // Wait, for animation purposes we want to fade the whole container
-        return container
-    }
-    
-    // MARK: - Logic
     
     private func unlockPieces(count: Int) {
         let lockedIndices = unlockedPieces.enumerated()
@@ -446,26 +388,33 @@ final class SpringOnChildViewController: UIViewController {
         guard !lockedIndices.isEmpty else { return }
         
         let toUnlockCount = min(count, lockedIndices.count)
+        
+        // Randomly choose tiles to unlock
         var indices = lockedIndices.shuffled()
         let chosen = Array(indices.prefix(toUnlockCount))
         
         for idx in chosen {
             unlockedPieces[idx] = true
-            guard idx < pieceViews.count else { continue }
+            guard idx < pieceOverlays.count else { continue }
+            let tile = pieceOverlays[idx]
             
-            let tileContainer = pieceViews[idx]
-            
-            // Animate
-            UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseOut], animations: {
-                tileContainer.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-                tileContainer.alpha = 0
+            // Animate fade-out of blur tile
+            UIView.animate(withDuration: 0.35,
+                           delay: 0,
+                           options: [.curveEaseOut],
+                           animations: {
+                // Modified: Shrink down slightly instead of scaling up.
+                // This ensures we never obscure neighbors, and 'fade away' cleanly.
+                tile.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+                tile.alpha = 0
             }, completion: { _ in
-                tileContainer.isHidden = true
+                tile.isHidden = true
             })
         }
         
         updateProgressUI()
     }
+
     
     private func updateProgressUI() {
         let total = unlockedPieces.count
@@ -478,18 +427,20 @@ final class SpringOnChildViewController: UIViewController {
         let percent = Int(round(fraction * 100))
         percentLabel.text = "\(percent)%"
     }
-    
+
     // MARK: - Actions
-    
+
     @objc private func backTapped() {
+        // This will work as long as this VC was pushed onto a navigation stack
         navigationController?.popViewController(animated: true)
     }
-    
+
     @objc private func storeButtonTapped(_ sender: UIButton) {
         let pieces = sender.tag
         unlockPieces(count: pieces)
+        print("Buying \(pieces) piece(s)")
     }
-    
+
     // MARK: - Helpers
     
     private func makePlaceholderBike() -> UIImage {
@@ -503,14 +454,19 @@ final class SpringOnChildViewController: UIViewController {
             ]
             let s = "Bike"
             let size = s.size(withAttributes: attrs)
-            s.draw(at: CGPoint(x: (600-size.width)/2, y: (360-size.height)/2), withAttributes: attrs)
+            s.draw(
+                at: CGPoint(x: (600-size.width)/2, y: (360-size.height)/2),
+                withAttributes: attrs
+            )
         }
     }
+    
     
     private func makeStoreButton(title: String, cost: Int, pieces: Int) -> UIButton {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         
+        // Use a UIVisualEffectView for the glass effect
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
         blur.isUserInteractionEnabled = false
         blur.layer.cornerRadius = 18
@@ -519,6 +475,7 @@ final class SpringOnChildViewController: UIViewController {
         
         b.addSubview(blur)
         
+        // Top-left label
         let quantityLabel = UILabel()
         quantityLabel.translatesAutoresizingMaskIntoConstraints = false
         quantityLabel.text = title
@@ -526,12 +483,14 @@ final class SpringOnChildViewController: UIViewController {
         quantityLabel.textColor = .white.withAlphaComponent(0.9)
         blur.contentView.addSubview(quantityLabel)
         
-        let iconView = UIImageView(image: UIImage(systemName: "puzzlepiece.fill"))
+        // Center icon
+        let iconView = UIImageView(image: UIImage(systemName: "puzzlepiece"))
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.tintColor = .white
         iconView.contentMode = .scaleAspectFit
         blur.contentView.addSubview(iconView)
         
+        // Bottom-right cost chip
         let costTag = PaddingLabel(top: 4, left: 8, bottom: 4, right: 8)
         costTag.translatesAutoresizingMaskIntoConstraints = false
         costTag.text = "★ \(cost)"
@@ -543,29 +502,37 @@ final class SpringOnChildViewController: UIViewController {
         blur.contentView.addSubview(costTag)
         
         NSLayoutConstraint.activate([
+            // Make button square
             b.heightAnchor.constraint(equalTo: b.widthAnchor),
             
+            // Blur view fills button
             blur.topAnchor.constraint(equalTo: b.topAnchor),
             blur.leadingAnchor.constraint(equalTo: b.leadingAnchor),
             blur.trailingAnchor.constraint(equalTo: b.trailingAnchor),
             blur.bottomAnchor.constraint(equalTo: b.bottomAnchor),
             
+            // quantityLabel (Top-left)
             quantityLabel.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 14),
             quantityLabel.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor, constant: 14),
             
+            // iconView (Center)
             iconView.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: blur.contentView.centerYAnchor),
-            iconView.widthAnchor.constraint(equalTo: blur.contentView.widthAnchor, multiplier: 0.35),
+            iconView.widthAnchor.constraint(equalTo: blur.contentView.widthAnchor, multiplier: 0.35), // Scaled size
             iconView.heightAnchor.constraint(equalTo: iconView.widthAnchor),
             
+            // costTag (Bottom-right)
             costTag.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor, constant: -12),
             costTag.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor, constant: -12)
         ])
         
-        b.tag = pieces
+        b.tag = pieces // This is how many pieces to unlock
         b.addTarget(self, action: #selector(storeButtonTapped(_:)), for: .touchUpInside)
         return b
     }
+    
+    
+    // MARK: - PaddingLabel helper
     
     class PaddingLabel: UILabel {
         private let inset: UIEdgeInsets

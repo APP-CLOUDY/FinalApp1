@@ -24,24 +24,49 @@ final class RewardsViewController: UIViewController {
         return lb
     }()
 
-    private let coinBadge: UILabel = {
-        let lb = PaddingLabel(top: 4, left: 12, bottom: 4, right: 12) // Use PaddingLabel if available
+    // NEW: Coin Badge Container
+    private let coinBadgeView: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        // Mustard yellow color from screenshot (#FDBA46)
+        v.backgroundColor = UIColor(red: 253/255, green: 186/255, blue: 70/255, alpha: 1.0)
+        // Adjusted corner radius for height of 25 (12.5)
+        v.layer.cornerRadius = 12.5
+        return v
+    }()
+    
+    private let starIcon: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        // Scaled down icon to fit 25pt height nicely
+        let config = UIImage.SymbolConfiguration(pointSize: 10, weight: .black)
+        iv.image = UIImage(systemName: "star.fill", withConfiguration: config)
+        // Dark brown/grey color for icon (#3E3425)
+        iv.tintColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
+        iv.contentMode = .scaleAspectFit
+        return iv
+    }()
+
+    private let coinLabel: UILabel = {
+        let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
-        lb.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
-        lb.text = "★ 207"
-        lb.font = .systemFont(ofSize: 14, weight: .heavy)
-        lb.textColor = .black
-        lb.layer.cornerRadius = 14
-        lb.layer.masksToBounds = true
+        lb.text = "207"
+        // Smaller font for 25pt height
+        lb.font = .systemFont(ofSize: 13, weight: .bold)
+        // Dark brown/grey color for text (#3E3425)
+        lb.textColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
         return lb
     }()
 
     private let profileButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .regular)
-        b.setImage(UIImage(systemName: "person.circle.fill", withConfiguration: config), for: .normal)
+        // Using point size 22 to fit inside 25x25 frame without clipping
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .light)
+        b.setImage(UIImage(systemName: "person.circle", withConfiguration: config), for: .normal)
         b.tintColor = .white
+        // Ensure image fits within the constraints
+        b.imageView?.contentMode = .scaleAspectFit
         return b
     }()
     
@@ -63,7 +88,6 @@ final class RewardsViewController: UIViewController {
     private let streakCard: StreakCardView = {
         let v = StreakCardView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        // Shadow for depth
         v.layer.shadowColor = UIColor.black.cgColor
         v.layer.shadowOpacity = 0.2
         v.layer.shadowOffset = CGSize(width: 0, height: 4)
@@ -97,42 +121,45 @@ final class RewardsViewController: UIViewController {
 
     // --- Segment Control Elements ---
     private let segmentContainer: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.layer.cornerRadius = 24 // More rounded
-        v.backgroundColor = UIColor(white: 1.0, alpha: 0.10) // Darker background
-        v.clipsToBounds = true
-        return v
-    }()
+            let v = UIView()
+            v.translatesAutoresizingMaskIntoConstraints = false
+            v.layer.cornerRadius = 24
+            v.backgroundColor = UIColor(red: 37/255, green: 42/255, blue: 64/255, alpha: 1.0)
+            v.clipsToBounds = true
+            return v
+        }()
 
-    // The Blue "Bubble" Indicator
-    private let segmentIndicator: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0) // System Blue/Vivid Blue
-        v.layer.cornerRadius = 20
-        return v
-    }()
+        private let segmentIndicator: UIView = {
+            let v = UIView()
+            v.translatesAutoresizingMaskIntoConstraints = false
+            v.backgroundColor = .white
+            v.layer.cornerRadius = 20
+            v.layer.shadowColor = UIColor.black.cgColor
+            v.layer.shadowOffset = CGSize(width: 0, height: 2)
+            v.layer.shadowRadius = 4
+            v.layer.shadowOpacity = 0.2
+            v.layer.masksToBounds = false
+            return v
+        }()
 
-    private let leftSegment: UIButton = {
-        let b = UIButton(type: .system)
-        b.setTitle("Dream It", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
-        b.setTitleColor(.white, for: .normal)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
+        private let leftSegment: UIButton = {
+            let b = UIButton(type: .system)
+            b.setTitle("Dream It", for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+            b.setTitleColor(.black, for: .normal)
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }()
 
-    private let rightSegment: UIButton = {
-        let b = UIButton(type: .system)
-        b.setTitle("Spring On", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
-        b.setTitleColor(.lightGray, for: .normal)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
-
-    // Constraint to animate the indicator
+        private let rightSegment: UIButton = {
+            let b = UIButton(type: .system)
+            b.setTitle("Spring On", for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+            b.setTitleColor(.white, for: .normal)
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }()
+    
     private var indicatorLeadingConstraint: NSLayoutConstraint?
 
     // --- Carousel ---
@@ -153,12 +180,8 @@ final class RewardsViewController: UIViewController {
         lb.text = "Build a cycle"
         lb.font = .systemFont(ofSize: 18, weight: .bold)
         lb.textColor = .white
-        lb.textAlignment = .center
-        // Add shadow to text for better visibility over images
-        lb.layer.shadowColor = UIColor.black.cgColor
-        lb.layer.shadowRadius = 2
-        lb.layer.shadowOpacity = 0.5
-        lb.layer.shadowOffset = CGSize(width: 0, height: 1)
+        lb.textAlignment = .left // Align left since it's outside
+        // Removed shadows as it is now on dark background, not image
         return lb
     }()
 
@@ -172,20 +195,21 @@ final class RewardsViewController: UIViewController {
         return pc
     }()
     
-    // Padding for bottom scrolling
     private let bottomPaddingView = UIView()
 
     // --- Data ---
     private let carouselImages: [UIImage?] = [
-        UIImage(systemName: "bicycle"), UIImage(systemName: "gift.fill"),
-        UIImage(systemName: "gamecontroller.fill"), UIImage(systemName: "headphones")
+        UIImage(named:"Cycle"),      // Index 0: Dream It
+        UIImage(named: "springon"),  // Index 1: Spring On (Beach Image)
+        UIImage(systemName: "gift.fill"),
+        UIImage(systemName: "headphones")
     ]
 
     private let quickItems: [(title: String, image: UIImage?)] = [
-        ("Screen time", UIImage(systemName: "tv.fill")),
-        ("Cartoon", UIImage(systemName: "play.rectangle.fill")),
-        ("Treats", UIImage(systemName: "birthday.cake.fill")),
-        ("Family", UIImage(systemName: "figure.2.and.child.holdinghands"))
+        ("Screen Time", UIImage( named: "ScreenTime")),
+        ("Cartoon", UIImage(named: "cartoon 1")),
+        ("Treats", UIImage(named: "ScreenTime")),
+        ("Family", UIImage(named: "ScreenTime"))
     ]
 
     // MARK: - Lifecycle
@@ -199,7 +223,9 @@ final class RewardsViewController: UIViewController {
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
         
+        // Load initial image
         carouselCard.image = carouselImages.first ?? UIImage()
+        
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCardTap))
         carouselCard.addGestureRecognizer(tapGesture)
         
@@ -209,14 +235,16 @@ final class RewardsViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        segmentIndicator.layer.cornerRadius = 14
         gradientLayer.frame = view.bounds
     }
 
     // MARK: - Setup
     private func setupGradient() {
         gradientLayer.colors = [
-            UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 1).cgColor,
-            UIColor(red: 30/255, green: 45/255, blue: 85/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
+
         ]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
@@ -226,7 +254,12 @@ final class RewardsViewController: UIViewController {
     private func setupViews() {
         view.addSubview(topBarContainer)
         topBarContainer.addSubview(titleLabel)
-        topBarContainer.addSubview(coinBadge)
+        
+        // Add new badge view and subviews
+        topBarContainer.addSubview(coinBadgeView)
+        coinBadgeView.addSubview(starIcon)
+        coinBadgeView.addSubview(coinLabel)
+        
         topBarContainer.addSubview(profileButton)
         
         view.addSubview(scrollView)
@@ -237,16 +270,21 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(quickCollectionView)
         
         contentView.addSubview(segmentContainer)
-        segmentContainer.addSubview(segmentIndicator) // Add indicator behind buttons
+        segmentContainer.addSubview(segmentIndicator)
         segmentContainer.addSubview(leftSegment)
         segmentContainer.addSubview(rightSegment)
         
         contentView.addSubview(carouselCard)
-        carouselCard.addSubview(carouselTitle)
+        
+        // MOVED: Title and PageControl are now directly on contentView, outside the card
+        contentView.addSubview(carouselTitle)
         contentView.addSubview(pageControl)
         
         bottomPaddingView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(bottomPaddingView)
+        
+        
+        quickCollectionView.delegate = self
     }
 
     private func setupConstraints() {
@@ -262,13 +300,29 @@ final class RewardsViewController: UIViewController {
             titleLabel.leadingAnchor.constraint(equalTo: topBarContainer.leadingAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
 
+            // Profile Button (Rightmost)
+            // Explicitly 25x25 size
             profileButton.trailingAnchor.constraint(equalTo: topBarContainer.trailingAnchor),
             profileButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 40),
-            profileButton.heightAnchor.constraint(equalToConstant: 40),
-
-            coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
-            coinBadge.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
+            profileButton.widthAnchor.constraint(equalToConstant: 25),
+            profileButton.heightAnchor.constraint(equalToConstant: 25),
+ 
+            // Coin Badge (Left of Profile)
+            // Height 25 to match profile button
+            coinBadgeView.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
+            coinBadgeView.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
+            coinBadgeView.heightAnchor.constraint(equalToConstant: 25),
+            coinBadgeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
+            
+            // Contents inside Badge
+            starIcon.leadingAnchor.constraint(equalTo: coinBadgeView.leadingAnchor, constant: 10),
+            starIcon.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
+            starIcon.widthAnchor.constraint(equalToConstant: 12),
+            starIcon.heightAnchor.constraint(equalToConstant: 12),
+            
+            coinLabel.leadingAnchor.constraint(equalTo: starIcon.trailingAnchor, constant: 4),
+            coinLabel.trailingAnchor.constraint(equalTo: coinBadgeView.trailingAnchor, constant: -10),
+            coinLabel.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
             
             // --- Scroll View ---
             scrollView.topAnchor.constraint(equalTo: topBarContainer.bottomAnchor, constant: 10),
@@ -282,11 +336,11 @@ final class RewardsViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             
-            // --- Streak Card (HERO SIZE) ---
+            // --- Streak Card ---
             streakCard.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
             streakCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             streakCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            streakCard.heightAnchor.constraint(equalToConstant: 160), // INCREASED HEIGHT
+            streakCard.heightAnchor.constraint(equalToConstant: 143),
 
             // --- Quick Rewards ---
             quickLabel.topAnchor.constraint(equalTo: streakCard.bottomAnchor, constant: 24),
@@ -301,12 +355,14 @@ final class RewardsViewController: UIViewController {
             segmentContainer.topAnchor.constraint(equalTo: quickCollectionView.bottomAnchor, constant: 16),
             segmentContainer.leadingAnchor.constraint(equalTo: streakCard.leadingAnchor),
             segmentContainer.trailingAnchor.constraint(equalTo: streakCard.trailingAnchor),
-            segmentContainer.heightAnchor.constraint(equalToConstant: 48),
+            segmentContainer.heightAnchor.constraint(equalToConstant: 36),
 
             // Indicator Logic
             segmentIndicator.topAnchor.constraint(equalTo: segmentContainer.topAnchor, constant: 4),
             segmentIndicator.bottomAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: -4),
+            
             segmentIndicator.widthAnchor.constraint(equalTo: segmentContainer.widthAnchor, multiplier: 0.5, constant: -4),
+            
             
             leftSegment.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor),
             leftSegment.topAnchor.constraint(equalTo: segmentContainer.topAnchor),
@@ -319,65 +375,85 @@ final class RewardsViewController: UIViewController {
             rightSegment.widthAnchor.constraint(equalTo: segmentContainer.widthAnchor, multiplier: 0.5),
 
             // --- Carousel ---
+            // --- Carousel ---
             carouselCard.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 24),
             carouselCard.leadingAnchor.constraint(equalTo: streakCard.leadingAnchor),
             carouselCard.trailingAnchor.constraint(equalTo: streakCard.trailingAnchor),
             carouselCard.heightAnchor.constraint(equalToConstant: 180),
 
-            carouselTitle.centerXAnchor.constraint(equalTo: carouselCard.centerXAnchor),
-            carouselTitle.bottomAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: -16),
+            // TITLE CENTERED
+            carouselTitle.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 16),
+            carouselTitle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            pageControl.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 12),
+            // PAGE CONTROL CENTERED BELOW TITLE
+            pageControl.topAnchor.constraint(equalTo: carouselTitle.bottomAnchor, constant: 5),
             pageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            
+
+            // Bottom padding
             bottomPaddingView.topAnchor.constraint(equalTo: pageControl.bottomAnchor, constant: 20),
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bottomPaddingView.heightAnchor.constraint(equalToConstant: 50)
+
         ])
         
-        // Create variable constraint for animation
         indicatorLeadingConstraint = segmentIndicator.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 4)
         indicatorLeadingConstraint?.isActive = true
     }
 
     // MARK: - Actions
     @objc private func selectLeft() {
+        // 1. Force state update
         isSpringOnActive = false
         animateSegmentChange()
         
-        leftSegment.setTitleColor(.white, for: .normal)
+        // 2. Button Styling
+        leftSegment.setTitleColor(.black, for: .normal)
         leftSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
         
-        rightSegment.setTitleColor(.lightGray, for: .normal)
+        rightSegment.setTitleColor(.white, for: .normal)
         rightSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        
+        // 3. Update Content -> "Dream It"
+        let image = carouselImages.first ?? UIImage(systemName: "bicycle")
+        updateCarouselContent(title: "Build a cycle", image: image)
     }
 
     @objc private func selectRight() {
+        // 1. Force state update
         isSpringOnActive = true
         animateSegmentChange()
         
-        rightSegment.setTitleColor(.white, for: .normal)
+        // 2. Button Styling
+        rightSegment.setTitleColor(.black, for: .normal)
         rightSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
         
-        leftSegment.setTitleColor(.lightGray, for: .normal)
+        leftSegment.setTitleColor(.white, for: .normal)
         leftSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        
+        // 3. Update Content -> "Spring On"
+        var image: UIImage?
+        if carouselImages.count > 1 {
+            image = carouselImages[1]
+        } else {
+            image = UIImage(systemName: "sun.max.fill")
+        }
+        
+        updateCarouselContent(title: "Spring Rewards", image: image)
+    }
+    
+    // MARK: - Content Update Helper
+    private func updateCarouselContent(title: String, image: UIImage?) {
+        print("Updating content to: \(title)")
+        self.carouselTitle.text = title
+        UIView.transition(with: carouselCard, duration: 0.3, options: .transitionCrossDissolve, animations: {
+            self.carouselCard.image = image
+        }, completion: nil)
     }
     
     private func animateSegmentChange() {
-        // Update constraint
         if isSpringOnActive {
-            // Move to right (Total width - indicator width - padding)
-            // easier math: Since widths are 50%, right position is just leading anchor at 50% width roughly
-            // But we have constraints. Remove leading, add trailing? Or simply use constant.
-            // The width is known (container width / 2).
-            
-            // Best way with constraints defined above:
-            segmentContainer.layoutIfNeeded() // Force current
-            
-            // Remove left constraint
+            segmentContainer.layoutIfNeeded()
             indicatorLeadingConstraint?.isActive = false
-            // Re-create for right side or just update constant if width is fixed.
-            // Since width is dynamic, let's clear and anchor to trailing.
             indicatorLeadingConstraint = segmentIndicator.trailingAnchor.constraint(equalTo: segmentContainer.trailingAnchor, constant: -4)
             indicatorLeadingConstraint?.isActive = true
         } else {
@@ -403,8 +479,26 @@ final class RewardsViewController: UIViewController {
     }
 }
 
-// Extension remains same
+// MARK: - Collection View Extension
 extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            
+            // 1. Get the data for the tapped item
+            let selectedItem = quickItems[indexPath.item]
+            
+            // 2. Create the popup
+            let popupVC = QuickRewardPopupViewController()
+            popupVC.rewardName = selectedItem.title
+            popupVC.cost = 100 // Or fetch dynamic cost if you have it
+            
+            // 3. Set presentation style to 'overFullScreen' to keep the background visible
+            popupVC.modalPresentationStyle = .overFullScreen
+            popupVC.modalTransitionStyle = .crossDissolve
+            
+            // 4. Present it
+            present(popupVC, animated: true, completion: nil)
+        }
     static let circleSize: CGFloat = 80
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {

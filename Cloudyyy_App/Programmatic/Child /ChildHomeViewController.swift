@@ -89,7 +89,7 @@ final class ChildHomeViewController: UIViewController {
         subGreetingLabel.textColor = UIColor(white: 0.9, alpha: 1)
 
         // Header Buttons
-        bellButton.setImage(UIImage(systemName: "bell.badge"), for: .normal)
+        bellButton.setImage(UIImage(systemName: "bell"), for: .normal)
         bellButton.tintColor = .white
         
         profileButton.setImage(UIImage(systemName: "person.circle"), for: .normal)

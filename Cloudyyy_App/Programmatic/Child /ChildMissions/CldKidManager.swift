@@ -175,6 +175,33 @@ final class KidCoordinator {
     func quickRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
     func dreamItRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
     func springOnRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
-    func approvals(for childIdentifier: String) -> [ApprovalRequestItem] { fatalError() }
+    // In KidCoordinator.swift
+
+    func approvals(for childIdentifier: String) -> [ApprovalRequestItem] {
+        // Returning mock data matching your screenshot
+        return [
+            ApprovalRequestItem(
+                title: "Extra Screen time 30 min",
+                subtitle: "Requested today",
+                requestedDate: "2025-11-26",
+                stars: 100,
+                type: "Pending"
+            ),
+            ApprovalRequestItem(
+                title: "Chocolate Cookie",
+                subtitle: "Requested yesterday",
+                requestedDate: "2025-11-25",
+                stars: 100,
+                type: "Pending"
+            ),
+            ApprovalRequestItem(
+                title: "Buy a new Game",
+                subtitle: "Requested last week",
+                requestedDate: "2025-11-20",
+                stars: 500,
+                type: "Declined"
+            )
+        ]
+    }
 
 }

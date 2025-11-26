@@ -12,7 +12,7 @@ final class KidAgendaViewController: UIViewController {
 
     // MARK: - UI
     private let backgroundGradientLayer = CAGradientLayer()
-
+ 
     // ------ NEW SIMPLE HEADER ------
     private let titleHeaderLabel: UILabel = {
         let title = UILabel()
@@ -22,6 +22,22 @@ final class KidAgendaViewController: UIViewController {
         title.translatesAutoresizingMaskIntoConstraints = false
         return title
     }()
+    // In KidAgendaViewController.swift
+
+        // ... existing properties ...
+
+    // In KidAgendaViewController.swift
+
+        // REPLACE the old approvalsButton with this:
+        private let approvalsIconButton: UIButton = {
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.tintColor = .white
+            // SF Symbol for "Approvals" / "Official Requests"
+            let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+            button.setImage(UIImage(systemName: "checkmark.seal", withConfiguration: config), for: .normal)
+            return button
+        }()
     
     private let notificationButton: UIButton = {
         let button = UIButton(type: .system)
@@ -136,61 +152,78 @@ final class KidAgendaViewController: UIViewController {
         view.layer.insertSublayer(backgroundGradientLayer, at: 0)
     }
 
-    // MARK: - Header (simple clean version)
     private func configureHeaderSection() {
+            view.addSubview(titleHeaderLabel)
+            view.addSubview(notificationButton)
+            notificationButton.addSubview(notificationIndicatorDot)
+            view.addSubview(profileAvatarButton)
+            
+            // Add the new Icon Button
+            view.addSubview(approvalsIconButton)
+            approvalsIconButton.addTarget(self, action: #selector(didTapApprovals), for: .touchUpInside)
 
-        view.addSubview(titleHeaderLabel)
-        view.addSubview(notificationButton)
-        notificationButton.addSubview(notificationIndicatorDot)
-        view.addSubview(profileAvatarButton)
+            NSLayoutConstraint.activate([
+                // 1. Title (Top Left)
+                titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
+                titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
-        NSLayoutConstraint.activate([
-            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -20),
-            titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
+                // 2. Profile Icon (Far Right)
+                profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+                profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+                profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
+                profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
 
-            profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-            profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
-            profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
+                // 3. Notification Bell (Left of Profile)
+                notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+                notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
+                notificationButton.widthAnchor.constraint(equalToConstant: 28),
+                notificationButton.heightAnchor.constraint(equalToConstant: 28),
 
-            notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-            notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -22),
-            notificationButton.widthAnchor.constraint(equalToConstant: 28),
-            notificationButton.heightAnchor.constraint(equalToConstant: 28),
-
-            notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
-            notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
-            notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
-            notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8)
-        ])
-    }
-
+                // Notification Dot logic...
+                notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
+                notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
+                notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
+                notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
+                
+                // 4. NEW: Approvals Icon (Left of Notification Bell)
+                approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+                approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
+                approvalsIconButton.widthAnchor.constraint(equalToConstant: 30),
+                approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
+            ])
+        }
     // MARK: - Dates Strip UI
-    private func configureDatesStripSection() {
-        datesScrollView.showsHorizontalScrollIndicator = false
-        datesScrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(datesScrollView)
+    // In KidAgendaViewController.swift
 
-        datesHorizontalStack.axis = .horizontal
-        datesHorizontalStack.spacing = 12
-        datesHorizontalStack.alignment = .center
-        datesHorizontalStack.translatesAutoresizingMaskIntoConstraints = false
-        datesScrollView.addSubview(datesHorizontalStack)
+        private func configureDatesStripSection() {
+            datesScrollView.showsHorizontalScrollIndicator = false
+            datesScrollView.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(datesScrollView)
 
-        NSLayoutConstraint.activate([
-            datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 16),
-            datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            datesScrollView.heightAnchor.constraint(equalToConstant: 84),
+            datesHorizontalStack.axis = .horizontal
+            datesHorizontalStack.spacing = 12
+            datesHorizontalStack.alignment = .center
+            datesHorizontalStack.translatesAutoresizingMaskIntoConstraints = false
+            datesScrollView.addSubview(datesHorizontalStack)
 
-            datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor, constant: 12),
-            datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor, constant: -12),
-            datesHorizontalStack.topAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.topAnchor),
-            datesHorizontalStack.bottomAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.bottomAnchor),
-            datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
-        ])
-    }
+            NSLayoutConstraint.activate([
+                // --- CHANGE THIS LINE ---
+                // OLD: datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 16),
+                datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 20),
+                            
+                            datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                
+                datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                datesScrollView.heightAnchor.constraint(equalToConstant: 84),
 
+                datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor, constant: 12),
+                datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor, constant: -12),
+                datesHorizontalStack.topAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.topAnchor),
+                datesHorizontalStack.bottomAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.bottomAnchor),
+                datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
+            ])
+        }
     private func configureFilterControl() {
         statusFilterControl.addTarget(self, action: #selector(filterSegmentChanged), for: .valueChanged)
 
@@ -425,6 +458,11 @@ final class KidAgendaViewController: UIViewController {
         guard let updatedChild = note.object as? KidProfile else { return }
         refreshForChild(updatedChild)
     }
+    @objc private func didTapApprovals() {
+            let approvalsVC = ApprovalsViewController()
+            approvalsVC.modalPresentationStyle = .fullScreen // Makes it look like a push
+            present(approvalsVC, animated: true)
+        }
 
     private func refreshForChild(_ child: KidProfile) {
         select(date: Date(), animated: true)

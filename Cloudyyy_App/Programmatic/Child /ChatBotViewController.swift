@@ -12,22 +12,27 @@ final class ChatBotViewController: UIViewController,
     private let bgView = UIView()
     private let avatarImageView = UIImageView()
     private let tableView = UITableView(frame: .zero, style: .plain)
+    
+    // Input Components
+    // inputBar is now just a transparent container holding the two separate elements in place
     private let inputBar = UIView()
     private let textField = UITextField()
     private let sendButton = UIButton(type: .system)
+
+    // MARK: - Layers & Visuals
+    private let bgGradientLayer = CAGradientLayer()
+    private let buttonGradientLayer = CAGradientLayer()
 
     // MARK: - Constraints
     private var inputBarBottomConstraint: NSLayoutConstraint!
     private var avatarWidthConstraint: NSLayoutConstraint!
     private var avatarHeightConstraint: NSLayoutConstraint!
 
-    private let gradientLayer = CAGradientLayer()
     private var messages: [ChatMessage] = []
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Hide Nav Bar so it looks like a full screen chat
         navigationController?.setNavigationBarHidden(true, animated: false)
         
         setupViews()
@@ -36,14 +41,27 @@ final class ChatBotViewController: UIViewController,
         setupKeyboardObservers()
         setupInitialMessages()
         
-        // Set initial avatar size based on current orientation
         let isLandscape = view.bounds.width > view.bounds.height
         updateAvatarSize(isLandscape: isLandscape)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        gradientLayer.frame = bgView.bounds
+        
+        // 1. Update Background Gradient
+        bgGradientLayer.frame = bgView.bounds
+        
+        // 2. Update Button Gradient
+        buttonGradientLayer.frame = sendButton.bounds
+        buttonGradientLayer.cornerRadius = sendButton.layer.cornerRadius
+        
+        // 3. Update Shadow Path
+        sendButton.layer.shadowPath = UIBezierPath(roundedRect: sendButton.bounds, cornerRadius: sendButton.layer.cornerRadius).cgPath
+        
+        // 4. CRITICAL FIX: Ensure icon is on top of the gradient layer
+        if let imageView = sendButton.imageView {
+            sendButton.bringSubviewToFront(imageView)
+        }
     }
 
     deinit {
@@ -63,7 +81,6 @@ final class ChatBotViewController: UIViewController,
     }
     
     private func updateAvatarSize(isLandscape: Bool) {
-        // Shrink avatar in landscape to save vertical space
         let size: CGFloat = isLandscape ? 80 : 150
         avatarWidthConstraint?.constant = size
         avatarHeightConstraint?.constant = size
@@ -76,18 +93,17 @@ final class ChatBotViewController: UIViewController,
         // 1. Background Gradient
         bgView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bgView)
-        gradientLayer.colors = [
+        bgGradientLayer.colors = [
             UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 1).cgColor,
             UIColor(red: 30/255, green: 45/255, blue: 85/255, alpha: 1).cgColor
         ]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        bgView.layer.insertSublayer(gradientLayer, at: 0)
+        bgGradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        bgGradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        bgView.layer.insertSublayer(bgGradientLayer, at: 0)
 
         // 2. Avatar
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         avatarImageView.contentMode = .scaleAspectFit
-        // Ensure you have "cloudyy_logo" in Assets, otherwise use system fallback
         avatarImageView.image = UIImage(named: "cloudyy_logo") ?? UIImage(systemName: "cloud.fill")
         avatarImageView.tintColor = .white
         view.addSubview(avatarImageView)
@@ -98,57 +114,74 @@ final class ChatBotViewController: UIViewController,
         tableView.separatorStyle = .none
         view.addSubview(tableView)
 
-        // 4. Input Bar
+        // 4. Input Bar Container (Transparent holder)
         inputBar.translatesAutoresizingMaskIntoConstraints = false
         inputBar.backgroundColor = .clear
-        
-        // Glass Effect
-        let blurEffect = UIBlurEffect(style: .systemThinMaterialDark)
-        let blurView = UIVisualEffectView(effect: blurEffect)
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        blurView.layer.cornerRadius = 24
-        blurView.clipsToBounds = true
-        inputBar.addSubview(blurView)
-        
         view.addSubview(inputBar)
 
-        // Text Field
+        // 4a. Text Field (The Capsule)
         textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.backgroundColor = UIColor(white: 1.0, alpha: 0.1)
-        textField.layer.cornerRadius = 20
-        textField.placeholder = "Ask me !"
+        // Dark semi-transparent background for the field itself
+        textField.backgroundColor = UIColor(red: 20/255, green: 20/255, blue: 30/255, alpha: 0.5)
+        // Full rounded corners (half of height 44)
+        textField.layer.cornerRadius = 22
+        textField.clipsToBounds = true
         
-        // Placeholder color
-        let placeholderAttributes: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.lightGray]
-        textField.attributedPlaceholder = NSAttributedString(string: "Ask me!", attributes: placeholderAttributes)
+        // Subtle border for definition
+        textField.layer.borderColor = UIColor(white: 1.0, alpha: 0.1).cgColor
+        textField.layer.borderWidth = 1.0
+        
+        // Typography
+        let placeholderText = "Ask me anything..."
+        let placeholderColor = UIColor.lightGray.withAlphaComponent(0.7)
+        textField.attributedPlaceholder = NSAttributedString(string: placeholderText, attributes: [.foregroundColor: placeholderColor])
         
         textField.returnKeyType = .send
         textField.delegate = self
         textField.textColor = .white
         
-        // Padding for text field
-        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 0))
+        // Padding inside the text field
+        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: 20, height: 0))
         textField.leftView = paddingView
         textField.leftViewMode = .always
+        let rightPaddingView = UIView(frame: CGRect(x: 0, y: 0, width: 20, height: 0))
+        textField.rightView = rightPaddingView
+        textField.rightViewMode = .always
         
         inputBar.addSubview(textField)
 
-        // Send Button
+        // 4b. Send Button (The Adjacent Circle)
         sendButton.translatesAutoresizingMaskIntoConstraints = false
-        sendButton.layer.cornerRadius = 22 // Half of width (44)
-        sendButton.backgroundColor = UIColor(red: 117/255, green: 72/255, blue: 232/255, alpha: 1)
-        sendButton.tintColor = .white
-        sendButton.setImage(UIImage(systemName: "paperplane.fill"), for: .normal)
-        sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
-        inputBar.addSubview(sendButton)
+        // Full rounded corners (half of height 44)
+        sendButton.layer.cornerRadius = 22
         
-        // Constraints for Blur (Glass Background)
-        NSLayoutConstraint.activate([
-            blurView.topAnchor.constraint(equalTo: inputBar.topAnchor),
-            blurView.bottomAnchor.constraint(equalTo: inputBar.bottomAnchor),
-            blurView.leadingAnchor.constraint(equalTo: inputBar.leadingAnchor),
-            blurView.trailingAnchor.constraint(equalTo: inputBar.trailingAnchor)
-        ])
+        // Gradient
+        buttonGradientLayer.colors = [
+            UIColor(red: 117/255, green: 72/255, blue: 232/255, alpha: 1).cgColor,
+            UIColor(red: 90/255, green: 50/255, blue: 200/255, alpha: 1).cgColor
+        ]
+        buttonGradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        buttonGradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        sendButton.layer.insertSublayer(buttonGradientLayer, at: 0)
+        
+        // Shadow / Glow
+        sendButton.layer.shadowColor = UIColor(red: 117/255, green: 72/255, blue: 232/255, alpha: 1).cgColor
+        sendButton.layer.shadowOffset = CGSize(width: 0, height: 4)
+        sendButton.layer.shadowOpacity = 0.4
+        sendButton.layer.shadowRadius = 6
+        
+        // Icon Setup
+        let iconConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold, scale: .medium)
+        // Using a slightly different paperplane icon that looks better in a circle
+        let iconImage = UIImage(systemName: "paperplane.fill", withConfiguration: iconConfig)
+        sendButton.setImage(iconImage, for: .normal)
+        sendButton.tintColor = .white
+        // Slightly offset the icon to visually center it in the circle
+        sendButton.imageEdgeInsets = UIEdgeInsets(top: 2, left: 2, bottom: 0, right: 0)
+        
+        sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
+        
+        inputBar.addSubview(sendButton)
     }
 
     private func setupConstraints() {
@@ -171,18 +204,17 @@ final class ChatBotViewController: UIViewController,
             avatarHeightConstraint
         ])
 
-        // Input Bar Position
-        // Pin to Safe Area Bottom. This ensures it sits ON TOP of the Tab Bar.
+        // Input Bar Position (The container holding both parts)
         inputBarBottomConstraint = inputBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
         inputBarBottomConstraint.isActive = true
 
         NSLayoutConstraint.activate([
             inputBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             inputBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            inputBar.heightAnchor.constraint(equalToConstant: 60) // Reduced height for cleaner look
+            inputBar.heightAnchor.constraint(equalToConstant: 44) // Height matches the elements inside
         ])
 
-        // Table View (Fills space between Avatar and Input Bar)
+        // Table View
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
@@ -190,19 +222,20 @@ final class ChatBotViewController: UIViewController,
             tableView.bottomAnchor.constraint(equalTo: inputBar.topAnchor, constant: -12)
         ])
 
-        // Input Bar Contents
+        // Input Bar Contents Constraints
         NSLayoutConstraint.activate([
-            // Send Button
-            sendButton.trailingAnchor.constraint(equalTo: inputBar.trailingAnchor, constant: -8),
+            // Send Button (Right Side)
+            sendButton.trailingAnchor.constraint(equalTo: inputBar.trailingAnchor),
             sendButton.centerYAnchor.constraint(equalTo: inputBar.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 44),
             sendButton.heightAnchor.constraint(equalToConstant: 44),
 
-            // Text Field
-            textField.leadingAnchor.constraint(equalTo: inputBar.leadingAnchor, constant: 8),
+            // Text Field (Left Side, stretching to meet the button with a gap)
+            textField.leadingAnchor.constraint(equalTo: inputBar.leadingAnchor),
             textField.centerYAnchor.constraint(equalTo: inputBar.centerYAnchor),
             textField.heightAnchor.constraint(equalToConstant: 44),
-            textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -8)
+            // 12 point gap between field and button
+            textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -12)
         ])
     }
 
@@ -221,8 +254,8 @@ final class ChatBotViewController: UIViewController,
 
     private func setupInitialMessages() {
         messages = [
-            ChatMessage(text: "Hi, Lets Complete all Mission", type: .incoming),
-            ChatMessage(text: "I got you some missions for you today.\nWant to see them ??", type: .choice, choices: ["Yes, show me!", "Maybe later"])
+            ChatMessage(text: "Hi, Let's complete all missions!", type: .incoming),
+            ChatMessage(text: "I got some missions for you today.\nWant to see them?", type: .choice, choices: ["Yes, show me!", "Maybe later"])
         ]
         tableView.reloadData()
         scrollToBottom(animated: false)
@@ -235,7 +268,7 @@ final class ChatBotViewController: UIViewController,
         let msg = ChatMessage(text: t, type: .outgoing)
         messages.append(msg)
         textField.text = ""
-        textField.resignFirstResponder() // Optional: Hide keyboard on send
+        textField.resignFirstResponder()
         
         tableView.reloadData()
         scrollToBottom(animated: true)
@@ -248,7 +281,7 @@ final class ChatBotViewController: UIViewController,
         }
     }
     
-    // MARK: - UITextFieldDelegate (Handle "Return" key)
+    // MARK: - UITextFieldDelegate
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         sendTapped()
         return true
@@ -267,13 +300,10 @@ final class ChatBotViewController: UIViewController,
         let screenH = UIScreen.main.bounds.height
         let kbHeight = frameEnd.origin.y >= screenH ? 0 : frameEnd.height
 
-        // Calculate constraints
         if kbHeight > 0 {
-            // Keyboard Visible: Move up by Keyboard Height minus Safe Area Bottom (because constraint is pinned to safe area)
             let safeAreaBottom = view.safeAreaInsets.bottom
             inputBarBottomConstraint.constant = -(kbHeight - safeAreaBottom + 10)
         } else {
-            // Keyboard Hidden: Reset to default
             inputBarBottomConstraint.constant = -10
         }
 
@@ -299,11 +329,9 @@ final class ChatBotViewController: UIViewController,
         let detailVC = TaskDetailViewController(task: task)
         detailVC.delegate = self
         
-        // IMPORTANT: This requires ChildTabBarController to wrap this VC in a UINavigationController
         if let nav = navigationController {
             nav.pushViewController(detailVC, animated: true)
         } else {
-            // Fallback if not in Nav Controller
             present(detailVC, animated: true)
         }
     }
@@ -366,7 +394,6 @@ extension ChatBotViewController {
                 let bubbleMsg = ChatMessage(text: nil, type: .taskBubbles, choices: nil, tasks: tasks)
                 self.messages.append(bubbleMsg)
                 
-                // Proper insertion animation
                 let newIndexPath = IndexPath(row: self.messages.count - 1, section: 0)
                 self.tableView.insertRows(at: [newIndexPath], with: .fade)
                 self.scrollToBottom(animated: true)
@@ -378,21 +405,17 @@ extension ChatBotViewController {
 // MARK: - TaskDetailViewControllerDelegate
 extension ChatBotViewController {
     func taskDetailViewController(_ controller: TaskDetailViewController, didCompleteTask task: Task) {
-        // Loop through messages to find the Bubble Message
         for (index, msg) in messages.enumerated() {
             if msg.type == .taskBubbles, var tasks = msg.tasks {
                 
                 if let idx = tasks.firstIndex(where: { $0.title == task.title }) {
-                    // Remove the completed task
                     tasks.remove(at: idx)
                     messages[index].tasks = tasks
 
                     if tasks.isEmpty {
-                        // If all tasks done, remove the message row completely
                         messages.remove(at: index)
                         tableView.deleteRows(at: [IndexPath(row: index, section: 0)], with: .fade)
                         
-                        // Add success message
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             self.messages.append(ChatMessage(text: "Great job! All tasks completed.", type: .incoming))
                             self.tableView.reloadData()
@@ -401,7 +424,6 @@ extension ChatBotViewController {
                         return
                     }
 
-                    // Reload the bubble row to update circles
                     tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
                     break
                 }
