@@ -96,6 +96,7 @@ final class LaunchAnimationViewController: UIViewController {
                 self.firstCloudView.alpha = 0
                 self.secondCloudView.alpha = 1
             },
+            
             completion: { _ in
                 // 2. After 'holdDuration', fade from 2 -> 3
                 UIView.animate(

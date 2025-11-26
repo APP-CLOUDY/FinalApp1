@@ -15,7 +15,6 @@ final class Homejoin: UIViewController {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.layer.cornerRadius = 28
-        // clip to keep rounded corners clean
         v.layer.masksToBounds = true
         if #available(iOS 11.0, *) {
             v.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
@@ -69,16 +68,13 @@ final class Homejoin: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         if #available(iOS 13.0, *) {
-            // Use a modern SF Symbol icon
             let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
             b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
         } else {
-            // Fallback for older iOS versions
             b.setTitle("< Back", for: .normal)
             b.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
         }
         b.tintColor = .white
-        // Set explicit size for a good tap target
         b.heightAnchor.constraint(equalToConstant: 44).isActive = true
         b.widthAnchor.constraint(equalToConstant: 44).isActive = true
         return b
@@ -96,6 +92,19 @@ final class Homejoin: UIViewController {
         b.heightAnchor.constraint(equalToConstant: 56).isActive = true
         return b
     }()
+    
+    // --- NEW LABEL ADDED HERE ---
+    private let instructionLabel: UILabel = {
+            let l = UILabel()
+            l.translatesAutoresizingMaskIntoConstraints = false
+            // Short, clear, and grammatically correct
+            l.text = "Find the code in Parent Dashboard > Profile > Family Members after adding a child."
+            l.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+            l.textColor = UIColor(white: 1.0, alpha: 0.6)
+            l.textAlignment = .center
+            l.numberOfLines = 0
+            return l
+        }()
     
     // MARK: - Rotation/Centering Fix
     private let topSpacer: UIView = {
@@ -121,12 +130,14 @@ final class Homejoin: UIViewController {
 
     private lazy var bottomStack: UIStackView = {
         let sv = UIStackView(arrangedSubviews: [
-            topSpacer, // Use the property
+            topSpacer,
             welcomeTitleLabel,
             welcomeSubtitleLabel,
             spacer(height: 18),
             joinWithCodeButton,
-            bottomSpacer // Use the property
+            spacer(height: 16), // Added specific spacing below button
+            instructionLabel,   // Added the instruction text
+            bottomSpacer
         ])
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.axis = .vertical
@@ -145,7 +156,6 @@ final class Homejoin: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // match the top blue so tiny seams don't show the default white background
         view.backgroundColor = UIColor(red: 21/255, green: 130/255, blue: 255/255, alpha: 1)
 
         setupLayout()
@@ -158,40 +168,27 @@ final class Homejoin: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        // update gradient frames to current bounds
         topContainerGradient?.frame = topContainer.bounds
         
-        // MARK: - Layout Fix
-        // Update frame AND corner radius on the gradient layer itself
         if let bottomGradient = bottomCardGradient {
             bottomGradient.frame = bottomCard.bounds
             bottomGradient.cornerRadius = bottomCard.layer.cornerRadius
         }
-        
-        // The bringSubviewToFront call was removed as it's not
-        // necessary and pointed to the wrong view (button is in the scrollview).
     }
 
     // MARK: - Actions
 
     @objc private func backButtonTapped() {
-        print("Back button tapped")
-         //Add dismissal logic here, for example:
-         if let nav = navigationController {
-             nav.popViewController(animated: true)
-         } else {
-             dismiss(animated: true)
-         }
+        if let nav = navigationController {
+            nav.popViewController(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
     }
 
     @objc private func joinWithCodeTapped() {
         print("Join With Code tapped")
-        
-        // 1. Create an instance of the view controller you want to show
         let joinVC = JoinWithCode()
-        
-        // 2. Push it onto the navigation controller's stack
-        // (This assumes the current view controller is already inside a UINavigationController)
         navigationController?.pushViewController(joinVC, animated: true)
     }
 
@@ -210,41 +207,31 @@ final class Homejoin: UIViewController {
 
         topContainer.addSubview(appTitleLabel)
         topContainer.addSubview(subtitleLabel)
-        topContainer.addSubview(backButton) // Add back button to top container
+        topContainer.addSubview(backButton)
         
-        // MARK: - Landscape Robustness Fix
-        // Add scrollView to card, stack to scrollView
         bottomCard.addSubview(bottomScrollView)
         bottomScrollView.addSubview(bottomStack)
 
-        // bottom card height - using half screen like your original design
         let bottomCardHeightConstraint = bottomCard.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.5)
         bottomCardHeightConstraint.isActive = true
 
-        // MARK: - ScrollView Content Centering
-        let stackHeightConstraint = bottomStack.heightAnchor.constraint(equalTo: bottomScrollView.frameLayoutGuide.heightAnchor, constant: -40) // -40 for padding
+        let stackHeightConstraint = bottomStack.heightAnchor.constraint(equalTo: bottomScrollView.frameLayoutGuide.heightAnchor, constant: -40)
         stackHeightConstraint.priority = .defaultLow
 
         NSLayoutConstraint.activate([
-            // pin topContainer to top (no white gap)
             topContainer.topAnchor.constraint(equalTo: view.topAnchor),
             topContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             topContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            // bottom card pinned to bottom
             bottomCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomCard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomCard.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // tie topContainer bottom to bottomCard top but overlap 1pt to avoid seam
             bottomCard.topAnchor.constraint(equalTo: topContainer.bottomAnchor, constant: -1),
 
-            // Back button
             backButton.leadingAnchor.constraint(equalTo: topContainer.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            // --- FIX: Constrain to the TOP of the safe area, not the title's center ---
             backButton.topAnchor.constraint(equalTo: topContainer.safeAreaLayoutGuide.topAnchor, constant: 16),
 
-            // title + subtitle in top container
             appTitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
             appTitleLabel.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor, constant: -10),
 
@@ -253,42 +240,27 @@ final class Homejoin: UIViewController {
             subtitleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: topContainer.leadingAnchor, constant: 28),
             subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: topContainer.trailingAnchor, constant: -28),
 
-            // MARK: - Landscape Robustness Fix
-            // Pin the scrollView to the edges of the bottomCard
             bottomScrollView.topAnchor.constraint(equalTo: bottomCard.topAnchor),
             bottomScrollView.leadingAnchor.constraint(equalTo: bottomCard.leadingAnchor),
             bottomScrollView.trailingAnchor.constraint(equalTo: bottomCard.trailingAnchor),
             bottomScrollView.bottomAnchor.constraint(equalTo: bottomCard.bottomAnchor),
             
-            // Pin the bottomStack to the scrollView's content area
             bottomStack.topAnchor.constraint(equalTo: bottomScrollView.contentLayoutGuide.topAnchor, constant: 20),
             bottomStack.bottomAnchor.constraint(equalTo: bottomScrollView.contentLayoutGuide.bottomAnchor, constant: -20),
             bottomStack.leadingAnchor.constraint(equalTo: bottomScrollView.contentLayoutGuide.leadingAnchor, constant: 28),
             bottomStack.trailingAnchor.constraint(equalTo: bottomScrollView.contentLayoutGuide.trailingAnchor, constant: -28),
             
-            // Pin the stack's width to the scrollView's frame (to enable vertical scroll)
-            bottomStack.widthAnchor.constraint(equalTo: bottomScrollView.frameLayoutGuide.widthAnchor, constant: -56), // 28pt padding on each side
+            bottomStack.widthAnchor.constraint(equalTo: bottomScrollView.frameLayoutGuide.widthAnchor, constant: -56),
             
-            // Activate the low-priority height constraint for centering
             stackHeightConstraint,
         ])
 
-        // MARK: - Rotation/Centering Fix
-        // Force spacers to be equal height
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor).isActive = true
-        
-        // MARK: - AutoLayout Conflict Fixes
-        // Removed conflicting constraints that were fighting the stack view
-        // 1. welcomeTitleLabel.centerXAnchor...
-        // 2. welcomeSubtitleLabel.centerXAnchor...
-        // 3. joinWithCodeButton.leadingAnchor...
-        // 4. joinWithCodeButton.trailingAnchor...
     }
 
     // MARK: - Gradients
 
     private func applyGradients() {
-        // Top blue gradient
         let topGradient = CAGradientLayer()
         topGradient.colors = [
             UIColor(red: 21/255, green: 130/255, blue: 255/255, alpha: 1).cgColor,
@@ -299,9 +271,8 @@ final class Homejoin: UIViewController {
         topContainer.layer.sublayers?.removeAll(where: { $0 is CAGradientLayer })
         topContainer.layer.insertSublayer(topGradient, at: 0)
         topContainerGradient = topGradient
-        topGradient.frame = topContainer.bounds // Set initial frame
+        topGradient.frame = topContainer.bounds
 
-        // Bottom gradient — dark to blueish (improved contrast)
         let bottomGradient = CAGradientLayer()
         bottomGradient.colors = [
             UIColor(red: 6/255, green: 6/255, blue: 6/255, alpha: 1).cgColor,
@@ -313,8 +284,7 @@ final class Homejoin: UIViewController {
         bottomCard.layer.insertSublayer(bottomGradient, at: 0)
         bottomCardGradient = bottomGradient
 
-        // Make the gradient respect corner radius
         bottomGradient.cornerRadius = bottomCard.layer.cornerRadius
-        bottomGradient.frame = bottomCard.bounds // Set initial frame
+        bottomGradient.frame = bottomCard.bounds
     }
 }

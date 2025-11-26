@@ -1,6 +1,6 @@
 import UIKit
 
-final class SelectUserViewController: UIViewController {
+final class AddFamilyMembersViewController: UIViewController {
 
     // MARK: - UI Elements
 
@@ -8,6 +8,16 @@ final class SelectUserViewController: UIViewController {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
+    }()
+
+    // NEW: Back Button
+    private let backButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        btn.tintColor = .white
+        return btn
     }()
 
     private let appTitleLabel: UILabel = {
@@ -24,7 +34,7 @@ final class SelectUserViewController: UIViewController {
     private let subtitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Organize tasks, Motivate Kids , Track Progress"
+        l.text = "Expand your family circle"
         l.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         l.textColor = UIColor(white: 1.0, alpha: 0.95)
         l.textAlignment = .center
@@ -52,10 +62,10 @@ final class SelectUserViewController: UIViewController {
         return sv
     }()
 
-    private let joinLabel: UILabel = {
+    private let sectionTitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Join as"
+        l.text = "Add Family Members"
         l.textColor = UIColor(red: 92/255, green: 160/255, blue: 1, alpha: 1)
         l.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         l.textAlignment = .center
@@ -91,7 +101,7 @@ final class SelectUserViewController: UIViewController {
     private lazy var bottomStack: UIStackView = {
         let sv = UIStackView(arrangedSubviews: [
             topSpacer,
-            joinLabel,
+            sectionTitleLabel,
             spacer(height: 30),
             buttonStackView,
             bottomSpacer
@@ -108,7 +118,6 @@ final class SelectUserViewController: UIViewController {
     private var cardGradient: CAGradientLayer?
     private var viewGradient: CAGradientLayer?
 
-    // --- UPDATED: Matching Homelogin Color ---
     private let topBlue = UIColor(red: 21/255, green: 130/255, blue: 255/255, alpha: 1)
 
     // MARK: - Lifecycle
@@ -118,6 +127,9 @@ final class SelectUserViewController: UIViewController {
         setupHierarchy()
         setupConstraints()
         configureCardShadow()
+        
+        // Add target for back button
+        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
     }
 
     override func viewDidLayoutSubviews() {
@@ -139,6 +151,7 @@ final class SelectUserViewController: UIViewController {
     private func setupHierarchy() {
         view.addSubview(topContainer)
         view.addSubview(bottomCard)
+        view.addSubview(backButton) // Add back button to main view
 
         topContainer.addSubview(appTitleLabel)
         topContainer.addSubview(subtitleLabel)
@@ -164,6 +177,12 @@ final class SelectUserViewController: UIViewController {
             topContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             topContainer.topAnchor.constraint(equalTo: view.topAnchor),
             topContainer.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.5),
+            
+            // Back Button Constraints
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            backButton.widthAnchor.constraint(equalToConstant: 44),
+            backButton.heightAnchor.constraint(equalToConstant: 44),
             
             // Bottom Card: 50% height + overlap
             bottomCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -232,7 +251,6 @@ final class SelectUserViewController: UIViewController {
         topContainer.layoutIfNeeded()
         bottomCard.layoutIfNeeded()
 
-        // --- UPDATED: Top Gradient matching Homelogin ---
         let topG = CAGradientLayer()
         topG.colors = [
             UIColor(red: 21/255, green: 130/255, blue: 255/255, alpha: 1).cgColor,
@@ -353,23 +371,36 @@ final class SelectUserViewController: UIViewController {
 
     // MARK: - Actions
 
+    @objc private func handleBack() {
+        navigationController?.popViewController(animated: true)
+    }
+
     @objc private func circleTapped(_ sender: UITapGestureRecognizer) {
         guard let id = sender.view?.accessibilityIdentifier else { return }
         if id == "parent" {
-            parentSelected()
+            handleAddParent()
         } else if id == "child" {
-            childSelected()
+            handleAddChild()
         }
     }
 
-    private func parentSelected() {
-        let vc = Homelogin()
+    private func handleAddParent() {
+        print("Add Parent selected")
+        // Logic to add a parent or navigate to the relevant controller
+        // Example: navigationController?.pushViewController(AddParentViewController(), animated: true)
+        
+        let vc = LoginAddParent()
+        
+        // 2. Push onto the navigation stack
         navigationController?.pushViewController(vc, animated: true)
     }
 
-    private func childSelected() {
-         let vc = Homejoin()
-         navigationController?.pushViewController(vc, animated: true)
-        print("Child selected")
+    private func handleAddChild() {
+        print("Add Child selected")
+        // 1. Create an instance of the view controller
+            let vc = LoginAddChild()
+            
+            // 2. Push onto the navigation stack
+            navigationController?.pushViewController(vc, animated: true)
     }
 }
