@@ -67,6 +67,7 @@ class ProfileViewController: UIViewController {
 
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
+        // Ensure you have an image named "ridu_mom_avatar" or it falls back to person.fill
         iv.image = UIImage(named: "ridu_mom_avatar") ?? UIImage(systemName: "person.fill")
         iv.tintColor = .lightGray
         iv.contentMode = .scaleAspectFill
@@ -288,6 +289,11 @@ class ProfileViewController: UIViewController {
                 row.isUserInteractionEnabled = true
                 let tap = UITapGestureRecognizer(target: self, action: #selector(handleFamilyMembers))
                 row.addGestureRecognizer(tap)
+            } else if title == "Account" {
+                // MARK: Account Logic Added Here
+                row.isUserInteractionEnabled = true
+                let tap = UITapGestureRecognizer(target: self, action: #selector(handleAccount))
+                row.addGestureRecognizer(tap)
             }
         }
         
@@ -339,39 +345,56 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func editAvatarTapped() {
-        // Placeholder for AvatarSelectViewController
-        // let avatarVC = AvatarSelectViewController()
-        // navigationController?.pushViewController(avatarVC, animated: true)
         print("Edit Avatar Tapped")
     }
     
-    // --- UPDATED ACTION ---
+    @objc private func handleAccount() {
+        let accountVC = ChildAccountViewController()
+        navigationController?.pushViewController(accountVC, animated: true)
+    }
+    
     @objc private func handleFamilyMembers() {
         let childMembersVC = ChildMembersView()
         navigationController?.pushViewController(childMembersVC, animated: true)
     }
     
     @objc private func handleLogout() {
-        // Placeholder for Logout logic
         print("Logout Tapped")
     }
 }
 
-// MARK: - Dummy Destination Controller
-// Ensure this class exists in your project, or use this placeholder
-//class ProfileChildMembers: UIViewController {
+// MARK: - Destination Controllers (Dummy Implementations)
+// These ensure the code compiles and runs. Replace with your actual files if they exist.
+
+//class ChildAccountViewController: UIViewController {
+//    override func viewDidLoad() {
+//        super.viewDidLoad()
+//        view.backgroundColor = .systemBackground
+//        title = "Account"
+//        
+//        let label = UILabel()
+//        label.text = "Child Account Details"
+//        label.font = .boldSystemFont(ofSize: 20)
+//        label.translatesAutoresizingMaskIntoConstraints = false
+//        view.addSubview(label)
+//        NSLayoutConstraint.activate([
+//            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+//            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+//        ])
+//    }
+//}
+//
+//class ChildMembersView: UIViewController {
 //    override func viewDidLoad() {
 //        super.viewDidLoad()
 //        view.backgroundColor = .systemBackground
 //        title = "Family Members"
 //        
-//        // Just for demo visualization
 //        let label = UILabel()
-//        label.text = "Child Members List Goes Here"
-//        label.textAlignment = .center
+//        label.text = "Family Members List"
+//        label.font = .boldSystemFont(ofSize: 20)
 //        label.translatesAutoresizingMaskIntoConstraints = false
 //        view.addSubview(label)
-//        
 //        NSLayoutConstraint.activate([
 //            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 //            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
