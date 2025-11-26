@@ -359,7 +359,22 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func handleLogout() {
-        print("Logout Tapped")
+        // 1. Clear User Data
+        UserDefaults.standard.removeObject(forKey: "isLoggedIn")
+        
+        // 2. Setup the Login/Select User Screen
+        let selectUserVC = SelectUserViewController()
+        let newNavController = UINavigationController(rootViewController: selectUserVC)
+        newNavController.isNavigationBarHidden = true
+        
+        // 3. Swap Root View Controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            
+            UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
+                window.rootViewController = newNavController
+            }, completion: nil)
+        }
     }
 }
 

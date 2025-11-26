@@ -1,8 +1,5 @@
 // KidAgendaViewController.swift
 // Cloudyyy_App
-//
-// Created by you on 2025-11-16.
-//
 
 import UIKit
 
@@ -13,7 +10,7 @@ final class KidAgendaViewController: UIViewController {
     // MARK: - UI
     private let backgroundGradientLayer = CAGradientLayer()
  
-    // ------ NEW SIMPLE HEADER ------
+    // ------ HEADER ------
     private let titleHeaderLabel: UILabel = {
         let title = UILabel()
         title.text = "Schedules"
@@ -22,28 +19,23 @@ final class KidAgendaViewController: UIViewController {
         title.translatesAutoresizingMaskIntoConstraints = false
         return title
     }()
-    // In KidAgendaViewController.swift
 
-        // ... existing properties ...
-
-    // In KidAgendaViewController.swift
-
-        // REPLACE the old approvalsButton with this:
-        private let approvalsIconButton: UIButton = {
-            let button = UIButton(type: .system)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            button.tintColor = .white
-            // SF Symbol for "Approvals" / "Official Requests"
-            let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-            button.setImage(UIImage(systemName: "checkmark.seal", withConfiguration: config), for: .normal)
-            return button
-        }()
+    private let approvalsIconButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.tintColor = .white
+        // SF Symbol for "Approvals" / "Official Requests"
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        button.setImage(UIImage(systemName: "checkmark.seal", withConfiguration: config), for: .normal)
+        return button
+    }()
     
     private let notificationButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
-        button.setImage(UIImage(systemName: "bell"), for: .normal)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        button.setImage(UIImage(systemName: "bell", withConfiguration: config), for: .normal)
         return button
     }()
     
@@ -60,11 +52,11 @@ final class KidAgendaViewController: UIViewController {
         let avatarButton = UIButton(type: .system)
         avatarButton.translatesAutoresizingMaskIntoConstraints = false
         avatarButton.tintColor = .white
-        avatarButton.setImage(UIImage(systemName: "person.circle"), for: .normal)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        avatarButton.setImage(UIImage(systemName: "person.circle", withConfiguration: config), for: .normal)
         return avatarButton
     }()
-    // ---------------------------------
-
+    
     // Dates strip UI
     private let datesScrollView = UIScrollView()
     private let datesHorizontalStack = UIStackView()
@@ -130,6 +122,12 @@ final class KidAgendaViewController: UIViewController {
             refreshForChild(initialChild)
         }
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Ensure nav bar is hidden on this main screen
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -152,78 +150,76 @@ final class KidAgendaViewController: UIViewController {
         view.layer.insertSublayer(backgroundGradientLayer, at: 0)
     }
 
+    // MARK: - Header Configuration
     private func configureHeaderSection() {
-            view.addSubview(titleHeaderLabel)
-            view.addSubview(notificationButton)
-            notificationButton.addSubview(notificationIndicatorDot)
-            view.addSubview(profileAvatarButton)
-            
-            // Add the new Icon Button
-            view.addSubview(approvalsIconButton)
-            approvalsIconButton.addTarget(self, action: #selector(didTapApprovals), for: .touchUpInside)
+        view.addSubview(titleHeaderLabel)
+        view.addSubview(notificationButton)
+        notificationButton.addSubview(notificationIndicatorDot)
+        view.addSubview(profileAvatarButton)
+        view.addSubview(approvalsIconButton)
+        
+        // --- Add Targets for Buttons ---
+        approvalsIconButton.addTarget(self, action: #selector(didTapApprovals), for: .touchUpInside)
+        notificationButton.addTarget(self, action: #selector(didTapNotification), for: .touchUpInside)
+        profileAvatarButton.addTarget(self, action: #selector(didTapProfile), for: .touchUpInside)
 
-            NSLayoutConstraint.activate([
-                // 1. Title (Top Left)
-                titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
-                titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+        NSLayoutConstraint.activate([
+            // 1. Title (Top Left)
+            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
+            titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
-                // 2. Profile Icon (Far Right)
-                profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-                profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-                profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
-                profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
+            // 2. Profile Icon (Far Right)
+            profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+            profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
+            profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
 
-                // 3. Notification Bell (Left of Profile)
-                notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-                notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
-                notificationButton.widthAnchor.constraint(equalToConstant: 28),
-                notificationButton.heightAnchor.constraint(equalToConstant: 28),
+            // 3. Notification Bell (Left of Profile)
+            notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+            notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
+            notificationButton.widthAnchor.constraint(equalToConstant: 28),
+            notificationButton.heightAnchor.constraint(equalToConstant: 28),
 
-                // Notification Dot logic...
-                notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
-                notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
-                notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
-                notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
-                
-                // 4. NEW: Approvals Icon (Left of Notification Bell)
-                approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-                approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
-                approvalsIconButton.widthAnchor.constraint(equalToConstant: 30),
-                approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
-            ])
-        }
+            // Notification Dot logic
+            notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
+            notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
+            notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
+            notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
+          
+            // 4. Approvals Icon (Left of Notification Bell)
+            approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
+            approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
+            approvalsIconButton.widthAnchor.constraint(equalToConstant: 30),
+            approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+    }
+    
     // MARK: - Dates Strip UI
-    // In KidAgendaViewController.swift
+    private func configureDatesStripSection() {
+        datesScrollView.showsHorizontalScrollIndicator = false
+        datesScrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(datesScrollView)
 
-        private func configureDatesStripSection() {
-            datesScrollView.showsHorizontalScrollIndicator = false
-            datesScrollView.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(datesScrollView)
+        datesHorizontalStack.axis = .horizontal
+        datesHorizontalStack.spacing = 12
+        datesHorizontalStack.alignment = .center
+        datesHorizontalStack.translatesAutoresizingMaskIntoConstraints = false
+        datesScrollView.addSubview(datesHorizontalStack)
 
-            datesHorizontalStack.axis = .horizontal
-            datesHorizontalStack.spacing = 12
-            datesHorizontalStack.alignment = .center
-            datesHorizontalStack.translatesAutoresizingMaskIntoConstraints = false
-            datesScrollView.addSubview(datesHorizontalStack)
+        NSLayoutConstraint.activate([
+            datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 20),
+            datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            datesScrollView.heightAnchor.constraint(equalToConstant: 84),
 
-            NSLayoutConstraint.activate([
-                // --- CHANGE THIS LINE ---
-                // OLD: datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 16),
-                datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 20),
-                            
-                            datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                
-                datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                datesScrollView.heightAnchor.constraint(equalToConstant: 84),
-
-                datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor, constant: 12),
-                datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor, constant: -12),
-                datesHorizontalStack.topAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.topAnchor),
-                datesHorizontalStack.bottomAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.bottomAnchor),
-                datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
-            ])
-        }
+            datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor, constant: 12),
+            datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor, constant: -12),
+            datesHorizontalStack.topAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.topAnchor),
+            datesHorizontalStack.bottomAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.bottomAnchor),
+            datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
+        ])
+    }
+    
     private func configureFilterControl() {
         statusFilterControl.addTarget(self, action: #selector(filterSegmentChanged), for: .valueChanged)
 
@@ -335,8 +331,7 @@ final class KidAgendaViewController: UIViewController {
         dateLabel.numberOfLines = 0
         dateLabel.textAlignment = .center
         dateLabel.translatesAutoresizingMaskIntoConstraints = false
-        // NOTE: The attributed string here is oversimplified compared to the previous version,
-        // but keeping it simple to avoid further issues.
+        
         dateLabel.attributedText = NSAttributedString(
             string: "\(monthNameFormatter.string(from: date))\n\(dayNumberFormatter.string(from: date))\n\(date.shortWeekdaySymbol())",
             attributes: [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)]
@@ -363,9 +358,7 @@ final class KidAgendaViewController: UIViewController {
         guard let dateIndex = indexOfDate(date) else { return }
 
         for (buttonIndex, dateButton) in dateSelectionButtons.enumerated() {
-            // Compare index (buttonIndex - 1) against selected index
             let isCurrentlySelected = buttonIndex - 1 == dateIndex
-            // Skip spacers (buttonIndex=0 or buttonIndex=dateSelectionButtons.count-1)
             if buttonIndex > 0 && buttonIndex < dateSelectionButtons.count - 1 {
                 dateButton.backgroundColor = isCurrentlySelected
                     ? UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1)
@@ -373,8 +366,8 @@ final class KidAgendaViewController: UIViewController {
             }
         }
 
-        let arrayButtonIndex = dateIndex + 1 // Button index in array including leading spacer
-        if arrayButtonIndex < dateSelectionButtons.count - 1 { // Check bounds to exclude trailing spacer
+        let arrayButtonIndex = dateIndex + 1
+        if arrayButtonIndex < dateSelectionButtons.count - 1 {
             center(dateButton: dateSelectionButtons[arrayButtonIndex], animated: animated)
         }
 
@@ -431,7 +424,6 @@ final class KidAgendaViewController: UIViewController {
         noTasksLabel.isHidden = true
 
         for agendaEntry in agendaItemsForActiveDate {
-            // FIXED: Class name changed from ScheduleTaskCard to KidAgendaItemPanel
             let agendaCard = KidAgendaItemPanel(entry: agendaEntry)
             agendaCard.heightAnchor.constraint(equalToConstant: 84).isActive = true
             agendaVerticalStack.addArrangedSubview(agendaCard)
@@ -448,6 +440,27 @@ final class KidAgendaViewController: UIViewController {
         guard dateIndex < currentMonthDates.count else { return }
         select(date: currentMonthDates[dateIndex], animated: true)
     }
+    
+    // --- Navigation Actions ---
+    @objc private func didTapApprovals() {
+        let approvalsVC = ApprovalsViewController()
+        approvalsVC.modalPresentationStyle = .fullScreen
+        present(approvalsVC, animated: true)
+    }
+    
+    @objc private func didTapNotification() {
+        let vc = NotificationViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    @objc private func didTapProfile() {
+        let vc = ProfileViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        navigationController?.pushViewController(vc, animated: true)
+    }
 
     // MARK: - Kid changes
     private func configureChildChangeListener() {
@@ -458,11 +471,6 @@ final class KidAgendaViewController: UIViewController {
         guard let updatedChild = note.object as? KidProfile else { return }
         refreshForChild(updatedChild)
     }
-    @objc private func didTapApprovals() {
-            let approvalsVC = ApprovalsViewController()
-            approvalsVC.modalPresentationStyle = .fullScreen // Makes it look like a push
-            present(approvalsVC, animated: true)
-        }
 
     private func refreshForChild(_ child: KidProfile) {
         select(date: Date(), animated: true)
@@ -474,7 +482,6 @@ final class KidAgendaViewController: UIViewController {
 }
 
 // MARK: - Date Helper
-
 private extension Date {
     func shortWeekdaySymbol() -> String {
         let df = DateFormatter()

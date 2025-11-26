@@ -55,7 +55,8 @@ final class ChildHomeViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Ensure nav bar is hidden on Home, but allows it to reappear on Profile
+        // Ensure nav bar is hidden on Home.
+        // When we come back from Notification/Profile, the tab bar will automatically reappear.
         navigationController?.setNavigationBarHidden(true, animated: animated)
         startFloatingAnimation()
     }
@@ -140,7 +141,7 @@ final class ChildHomeViewController: UIViewController {
         achievementsTitle.textColor = .white
 
         // Habit Row
-        habitIcon.image = UIImage(named: "cloudyy_market") ?? UIImage(systemName: "guitars.fill")
+        habitIcon.image = UIImage(named: "cloudyy_market") ?? UIImage(systemName: "star.fill")
         habitIcon.tintColor = .systemYellow
         
         habitLabel.text = "Habits"
@@ -156,7 +157,7 @@ final class ChildHomeViewController: UIViewController {
         habitPercentLabel.textColor = .white
 
         // Extracurricular Row
-        extraIcon.image = UIImage(named: "cloudyy_paint") ?? UIImage(systemName: "guitars.fill")
+        extraIcon.image = UIImage(named: "cloudyy_paint") ?? UIImage(systemName: "paintbrush.fill")
         extraIcon.tintColor = .systemPink
         
         extraLabel.text = "Extracurricular"
@@ -214,11 +215,13 @@ final class ChildHomeViewController: UIViewController {
             subGreetingLabel.topAnchor.constraint(equalTo: greetingLabel.bottomAnchor, constant: 6),
             subGreetingLabel.leadingAnchor.constraint(equalTo: greetingLabel.leadingAnchor),
 
+            // Profile Button (Right)
             profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             profileButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
             profileButton.widthAnchor.constraint(equalToConstant: 30),
             profileButton.heightAnchor.constraint(equalToConstant: 30),
 
+            // Bell Button (Left of Profile)
             bellButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
             bellButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
             bellButton.widthAnchor.constraint(equalToConstant: 30),
@@ -326,19 +329,63 @@ final class ChildHomeViewController: UIViewController {
         let tap = UITapGestureRecognizer(target: self, action: #selector(mascotTapped))
         mascotImageView.addGestureRecognizer(tap)
         
-        // Profile Tap - ADDED HERE
+        // Profile Tap
         profileButton.addTarget(self, action: #selector(profileButtonTapped), for: .touchUpInside)
+        
+        // Notification (Bell) Tap
+        bellButton.addTarget(self, action: #selector(bellButtonTapped), for: .touchUpInside)
     }
 
     @objc private func mascotTapped() {
         self.tabBarController?.selectedIndex = 3
     }
     
-    // Navigation Action - ADDED HERE
     @objc private func profileButtonTapped() {
+        print("Navigating to Profile")
         let profileVC = ProfileViewController()
-        // Show the navigation bar for the profile screen, it will be hidden again when coming back to Home via viewWillAppear
+        
+        // Hide tab bar for Profile screen
+        profileVC.hidesBottomBarWhenPushed = true
+        
         navigationController?.setNavigationBarHidden(false, animated: true)
         navigationController?.pushViewController(profileVC, animated: true)
     }
+    
+    @objc private func bellButtonTapped() {
+        print("Navigating to Notifications")
+        let notificationVC = NotificationViewController()
+        
+        // Hide tab bar for Notification screen
+        notificationVC.hidesBottomBarWhenPushed = true
+        
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        navigationController?.pushViewController(notificationVC, animated: true)
+    }
 }
+
+// ---------------------------------------------------------
+// DUMMY CLASSES BELOW (Remove if you have your own files)
+// ---------------------------------------------------------
+
+//class ProfileViewController: UIViewController {
+//    override func viewDidLoad() {
+//        super.viewDidLoad()
+//        view.backgroundColor = .white
+//        title = "Profile"
+//    }
+//}
+//
+//class NotificationViewController: UIViewController {
+//    override func viewDidLoad() {
+//        super.viewDidLoad()
+//        view.backgroundColor = .white
+//        title = "Notifications"
+//        
+//        let label = UILabel()
+//        label.text = "No new notifications"
+//        label.textColor = .black
+//        label.center = view.center
+//        label.sizeToFit()
+//        view.addSubview(label)
+//    }
+//}

@@ -28,9 +28,7 @@ final class RewardsViewController: UIViewController {
     private let coinBadgeView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        // Mustard yellow color from screenshot (#FDBA46)
         v.backgroundColor = UIColor(red: 253/255, green: 186/255, blue: 70/255, alpha: 1.0)
-        // Adjusted corner radius for height of 25 (12.5)
         v.layer.cornerRadius = 12.5
         return v
     }()
@@ -38,10 +36,8 @@ final class RewardsViewController: UIViewController {
     private let starIcon: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
-        // Scaled down icon to fit 25pt height nicely
         let config = UIImage.SymbolConfiguration(pointSize: 10, weight: .black)
         iv.image = UIImage(systemName: "star.fill", withConfiguration: config)
-        // Dark brown/grey color for icon (#3E3425)
         iv.tintColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
         iv.contentMode = .scaleAspectFit
         return iv
@@ -51,21 +47,28 @@ final class RewardsViewController: UIViewController {
         let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
         lb.text = "207"
-        // Smaller font for 25pt height
         lb.font = .systemFont(ofSize: 13, weight: .bold)
-        // Dark brown/grey color for text (#3E3425)
         lb.textColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
         return lb
+    }()
+
+    // --- NEW: Notification Button ---
+    private let bellButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .light)
+        b.setImage(UIImage(systemName: "bell", withConfiguration: config), for: .normal)
+        b.tintColor = .white
+        b.imageView?.contentMode = .scaleAspectFit
+        return b
     }()
 
     private let profileButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        // Using point size 22 to fit inside 25x25 frame without clipping
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .light)
         b.setImage(UIImage(systemName: "person.circle", withConfiguration: config), for: .normal)
         b.tintColor = .white
-        // Ensure image fits within the constraints
         b.imageView?.contentMode = .scaleAspectFit
         return b
     }()
@@ -181,7 +184,6 @@ final class RewardsViewController: UIViewController {
         lb.font = .systemFont(ofSize: 18, weight: .bold)
         lb.textColor = .white
         lb.textAlignment = .left // Align left since it's outside
-        // Removed shadows as it is now on dark background, not image
         return lb
     }()
 
@@ -215,14 +217,11 @@ final class RewardsViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationController?.setNavigationBarHidden(true, animated: false)
         setupGradient()
         setupViews()
         setupConstraints()
-        
-        leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
-        rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
-        
+        setupActions()
+       
         // Load initial image
         carouselCard.image = carouselImages.first ?? UIImage()
         
@@ -231,6 +230,12 @@ final class RewardsViewController: UIViewController {
         
         // Initial State
         selectLeft()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Ensure nav bar is hidden on this screen, but allows it to show when we push other screens
+        navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
     override func viewDidLayoutSubviews() {
@@ -260,6 +265,8 @@ final class RewardsViewController: UIViewController {
         coinBadgeView.addSubview(starIcon)
         coinBadgeView.addSubview(coinLabel)
         
+        // Add Buttons
+        topBarContainer.addSubview(bellButton) // Added Bell
         topBarContainer.addSubview(profileButton)
         
         view.addSubview(scrollView)
@@ -276,13 +283,11 @@ final class RewardsViewController: UIViewController {
         
         contentView.addSubview(carouselCard)
         
-        // MOVED: Title and PageControl are now directly on contentView, outside the card
         contentView.addSubview(carouselTitle)
         contentView.addSubview(pageControl)
         
         bottomPaddingView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(bottomPaddingView)
-        
         
         quickCollectionView.delegate = self
     }
@@ -300,16 +305,20 @@ final class RewardsViewController: UIViewController {
             titleLabel.leadingAnchor.constraint(equalTo: topBarContainer.leadingAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
 
-            // Profile Button (Rightmost)
-            // Explicitly 25x25 size
+            // 1. Profile Button (Rightmost)
             profileButton.trailingAnchor.constraint(equalTo: topBarContainer.trailingAnchor),
             profileButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             profileButton.widthAnchor.constraint(equalToConstant: 25),
             profileButton.heightAnchor.constraint(equalToConstant: 25),
+
+            // 2. Bell Button (Left of Profile)
+            bellButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
+            bellButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
+            bellButton.widthAnchor.constraint(equalToConstant: 25),
+            bellButton.heightAnchor.constraint(equalToConstant: 25),
  
-            // Coin Badge (Left of Profile)
-            // Height 25 to match profile button
-            coinBadgeView.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
+            // 3. Coin Badge (Left of Bell)
+            coinBadgeView.trailingAnchor.constraint(equalTo: bellButton.leadingAnchor, constant: -12),
             coinBadgeView.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             coinBadgeView.heightAnchor.constraint(equalToConstant: 25),
             coinBadgeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
@@ -375,7 +384,6 @@ final class RewardsViewController: UIViewController {
             rightSegment.widthAnchor.constraint(equalTo: segmentContainer.widthAnchor, multiplier: 0.5),
 
             // --- Carousel ---
-            // --- Carousel ---
             carouselCard.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 24),
             carouselCard.leadingAnchor.constraint(equalTo: streakCard.leadingAnchor),
             carouselCard.trailingAnchor.constraint(equalTo: streakCard.trailingAnchor),
@@ -398,6 +406,17 @@ final class RewardsViewController: UIViewController {
         
         indicatorLeadingConstraint = segmentIndicator.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 4)
         indicatorLeadingConstraint?.isActive = true
+    }
+    
+    // MARK: - Setup Actions
+    private func setupActions() {
+        // Segments
+        leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
+        rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
+        
+        // Navigation Buttons
+        bellButton.addTarget(self, action: #selector(bellTapped), for: .touchUpInside)
+        profileButton.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
     }
 
     // MARK: - Actions
@@ -441,9 +460,25 @@ final class RewardsViewController: UIViewController {
         updateCarouselContent(title: "Spring Rewards", image: image)
     }
     
+    // MARK: - Navigation Actions
+    @objc private func bellTapped() {
+        print("Navigating to Notifications")
+        let vc = NotificationViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    @objc private func profileTapped() {
+        print("Navigating to Profile")
+        let vc = ProfileViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
     // MARK: - Content Update Helper
     private func updateCarouselContent(title: String, image: UIImage?) {
-        print("Updating content to: \(title)")
         self.carouselTitle.text = title
         UIView.transition(with: carouselCard, duration: 0.3, options: .transitionCrossDissolve, animations: {
             self.carouselCard.image = image
@@ -471,9 +506,13 @@ final class RewardsViewController: UIViewController {
     @objc private func handleCardTap() {
         if isSpringOnActive {
             let vc = SpringOnChildViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.setNavigationBarHidden(false, animated: true) // Assuming these screens have nav bars
             navigationController?.pushViewController(vc, animated: true)
         } else {
             let vc = ChildDreamItViewController()
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.setNavigationBarHidden(false, animated: true)
             navigationController?.pushViewController(vc, animated: true)
         }
     }
