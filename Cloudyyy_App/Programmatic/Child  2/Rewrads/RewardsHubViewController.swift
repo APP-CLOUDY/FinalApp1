@@ -210,8 +210,8 @@ final class RewardsViewController: UIViewController {
     private let quickItems: [(title: String, image: UIImage?)] = [
         ("Screen Time", UIImage( named: "ScreenTime")),
         ("Cartoon", UIImage(named: "cartoon 1")),
-        ("Treats", UIImage(named: "ScreenTime")),
-        ("Family", UIImage(named: "ScreenTime"))
+        ("Treats", UIImage(named: "treat")),
+        ("Family", UIImage(named: "f-1"))
     ]
 
     // MARK: - Lifecycle

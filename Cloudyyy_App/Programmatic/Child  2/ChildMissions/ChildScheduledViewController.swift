@@ -1,5 +1,9 @@
-// KidAgendaViewController.swift
-// Cloudyyy_App
+//
+//  KidAgendaViewController.swift
+//  Cloudyyy_App
+//
+//  Created by you on 2025-11-16.
+//
 
 import UIKit
 
@@ -7,10 +11,12 @@ import UIKit
 
 final class KidAgendaViewController: UIViewController {
 
-    // MARK: - UI
+    // MARK: - UI Properties
+
     private let backgroundGradientLayer = CAGradientLayer()
- 
-    // ------ HEADER ------
+
+    // --- Header UI ---
+    
     private let titleHeaderLabel: UILabel = {
         let title = UILabel()
         title.text = "Schedules"
@@ -34,8 +40,7 @@ final class KidAgendaViewController: UIViewController {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-        button.setImage(UIImage(systemName: "bell", withConfiguration: config), for: .normal)
+        button.setImage(UIImage(systemName: "bell"), for: .normal)
         return button
     }()
     
@@ -52,18 +57,19 @@ final class KidAgendaViewController: UIViewController {
         let avatarButton = UIButton(type: .system)
         avatarButton.translatesAutoresizingMaskIntoConstraints = false
         avatarButton.tintColor = .white
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-        avatarButton.setImage(UIImage(systemName: "person.circle", withConfiguration: config), for: .normal)
+        avatarButton.setImage(UIImage(systemName: "person.circle"), for: .normal)
         return avatarButton
     }()
+
+    // --- Dates Strip UI ---
     
-    // Dates strip UI
     private let datesScrollView = UIScrollView()
     private let datesHorizontalStack = UIStackView()
     private var dateSelectionButtons: [UIButton] = []
     private var currentMonthDates: [Date] = []
 
-    // Filters
+    // --- Filters ---
+    
     private let statusFilterControl: UISegmentedControl = {
         let control = UISegmentedControl(items: ["All", "In progress", "Completed"])
         control.selectedSegmentIndex = 0
@@ -71,11 +77,11 @@ final class KidAgendaViewController: UIViewController {
         return control
     }()
 
-    // Tasks list
+    // --- Tasks List ---
+    
     private let agendaScrollView = UIScrollView()
     private let agendaVerticalStack = UIStackView()
 
-    // Empty message
     private let noTasksLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks for this date"
@@ -86,23 +92,26 @@ final class KidAgendaViewController: UIViewController {
         return label
     }()
 
-    // Data
+    // MARK: - Data
+    
     private var activeDate: Date = Date()
     private var activeChild: KidProfile? { KidCoordinator.shared.focusedChild }
     private var agendaItemsForActiveDate: [AgendaEntry] = []
 
-    // Helpers
+    // MARK: - Helpers
+    
     private let gregorianCalendar = Calendar.current
     private let shortDateFormatter = DateFormatter()
     private let dayNumberFormatter = DateFormatter()
     private let monthNameFormatter = DateFormatter()
 
     // MARK: - Lifecycle
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // formatters
+        // Formatters
         shortDateFormatter.dateFormat = "yyyy-MM-dd"
         dayNumberFormatter.dateFormat = "d"
         monthNameFormatter.dateFormat = "MMM"
@@ -122,24 +131,23 @@ final class KidAgendaViewController: UIViewController {
             refreshForChild(initialChild)
         }
     }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        // Ensure nav bar is hidden on this main screen
-        navigationController?.setNavigationBarHidden(true, animated: animated)
-    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer.frame = view.bounds
 
-        // recenter selected date
+        // Recenter selected date
         if let index = indexOfDate(activeDate), index + 1 < dateSelectionButtons.count {
             center(dateButton: dateSelectionButtons[index + 1], animated: false)
         }
     }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     // MARK: - Gradient
+    
     private func configureGradientBackground() {
         backgroundGradientLayer.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -151,6 +159,7 @@ final class KidAgendaViewController: UIViewController {
     }
 
     // MARK: - Header Configuration
+    
     private func configureHeaderSection() {
         view.addSubview(titleHeaderLabel)
         view.addSubview(notificationButton)
@@ -158,9 +167,9 @@ final class KidAgendaViewController: UIViewController {
         view.addSubview(profileAvatarButton)
         view.addSubview(approvalsIconButton)
         
-        // --- Add Targets for Buttons ---
+        // --- BUTTON ACTIONS ---
         approvalsIconButton.addTarget(self, action: #selector(didTapApprovals), for: .touchUpInside)
-        notificationButton.addTarget(self, action: #selector(didTapNotification), for: .touchUpInside)
+        notificationButton.addTarget(self, action: #selector(didTapNotifications), for: .touchUpInside)
         profileAvatarButton.addTarget(self, action: #selector(didTapProfile), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
@@ -180,12 +189,12 @@ final class KidAgendaViewController: UIViewController {
             notificationButton.widthAnchor.constraint(equalToConstant: 28),
             notificationButton.heightAnchor.constraint(equalToConstant: 28),
 
-            // Notification Dot logic
-            notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
-            notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
-            notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
-            notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
-          
+//            // Notification Dot logic
+//            notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
+//            notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
+//            notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
+//            notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
+            
             // 4. Approvals Icon (Left of Notification Bell)
             approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
@@ -193,8 +202,9 @@ final class KidAgendaViewController: UIViewController {
             approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
         ])
     }
-    
+
     // MARK: - Dates Strip UI
+
     private func configureDatesStripSection() {
         datesScrollView.showsHorizontalScrollIndicator = false
         datesScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -207,7 +217,9 @@ final class KidAgendaViewController: UIViewController {
         datesScrollView.addSubview(datesHorizontalStack)
 
         NSLayoutConstraint.activate([
+            // Spacing
             datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 20),
+                        
             datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             datesScrollView.heightAnchor.constraint(equalToConstant: 84),
@@ -219,10 +231,11 @@ final class KidAgendaViewController: UIViewController {
             datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
         ])
     }
-    
+
+    // MARK: - Filters UI
+
     private func configureFilterControl() {
         statusFilterControl.addTarget(self, action: #selector(filterSegmentChanged), for: .valueChanged)
-
         view.addSubview(statusFilterControl)
 
         NSLayoutConstraint.activate([
@@ -249,7 +262,8 @@ final class KidAgendaViewController: UIViewController {
         statusFilterControl.clipsToBounds = true
     }
 
-    // MARK: - Tasks UI
+    // MARK: - Tasks List UI
+    
     private func configureAgendaList() {
         agendaScrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(agendaScrollView)
@@ -279,7 +293,8 @@ final class KidAgendaViewController: UIViewController {
         ])
     }
 
-    // MARK: - Date generation
+    // MARK: - Date Generation & Selection
+
     private func populateCurrentMonthDates() {
         currentMonthDates.removeAll()
 
@@ -358,17 +373,22 @@ final class KidAgendaViewController: UIViewController {
         guard let dateIndex = indexOfDate(date) else { return }
 
         for (buttonIndex, dateButton) in dateSelectionButtons.enumerated() {
+            // Compare index (buttonIndex - 1) against selected index (accounting for leading spacer)
             let isCurrentlySelected = buttonIndex - 1 == dateIndex
-            if buttonIndex > 0 && buttonIndex < dateSelectionButtons.count - 1 {
+            
+            if buttonIndex >= 0 && buttonIndex < dateSelectionButtons.count {
                 dateButton.backgroundColor = isCurrentlySelected
                     ? UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1)
                     : UIColor.white.withAlphaComponent(0.05)
             }
         }
 
+        // Calculate index for scroll centering (including leading spacer)
         let arrayButtonIndex = dateIndex + 1
-        if arrayButtonIndex < dateSelectionButtons.count - 1 {
-            center(dateButton: dateSelectionButtons[arrayButtonIndex], animated: animated)
+        if arrayButtonIndex < dateSelectionButtons.count + 2 {
+             if dateIndex < dateSelectionButtons.count {
+                 center(dateButton: dateSelectionButtons[dateIndex], animated: animated)
+             }
         }
 
         reloadAgendaFor(date: date)
@@ -385,7 +405,8 @@ final class KidAgendaViewController: UIViewController {
         datesScrollView.setContentOffset(CGPoint(x: newOffsetX, y: 0), animated: animated)
     }
 
-    // MARK: - Filters + Tasks
+    // MARK: - Logic & Actions
+
     @objc private func filterSegmentChanged() {
         reloadAgendaFor(date: activeDate)
     }
@@ -434,35 +455,34 @@ final class KidAgendaViewController: UIViewController {
         agendaVerticalStack.addArrangedSubview(bottomSpacer)
     }
 
-    // MARK: - Actions
     @objc private func dateButtonTapped(_ sender: UIButton) {
         let dateIndex = sender.tag
         guard dateIndex < currentMonthDates.count else { return }
         select(date: currentMonthDates[dateIndex], animated: true)
     }
     
-    // --- Navigation Actions ---
+    // --- NAVIGATION ACTIONS ---
+    
     @objc private func didTapApprovals() {
         let approvalsVC = ApprovalsViewController()
         approvalsVC.modalPresentationStyle = .fullScreen
         present(approvalsVC, animated: true)
     }
     
-    @objc private func didTapNotification() {
-        let vc = NotificationViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(vc, animated: true)
+    @objc private func didTapNotifications() {
+        let notifVC = NotificationViewController()
+        notifVC.modalPresentationStyle = .fullScreen
+        present(notifVC, animated: true)
     }
     
     @objc private func didTapProfile() {
-        let vc = ProfileViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(vc, animated: true)
+        let vc = ParentProfileViewController()
+        vc.modalPresentationStyle = .fullScreen // Add this line before presenting
+        self.present(vc, animated: true)
     }
 
-    // MARK: - Kid changes
+    // MARK: - Notification Listeners
+    
     private func configureChildChangeListener() {
         NotificationCenter.default.addObserver(self, selector: #selector(childDidChange(_:)), name: KidCoordinator.childDidChangeNotification, object: nil)
     }
@@ -475,13 +495,10 @@ final class KidAgendaViewController: UIViewController {
     private func refreshForChild(_ child: KidProfile) {
         select(date: Date(), animated: true)
     }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
 }
 
-// MARK: - Date Helper
+// MARK: - Date Extension
+
 private extension Date {
     func shortWeekdaySymbol() -> String {
         let df = DateFormatter()

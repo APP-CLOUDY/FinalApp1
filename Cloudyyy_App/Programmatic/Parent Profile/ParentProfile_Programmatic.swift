@@ -376,7 +376,15 @@ class ParentProfileViewController: UIViewController {
     // MARK: - Action Handlers
     
     @objc private func backButtonTapped() {
-        navigationController?.popViewController(animated: true)
+        // 1. Check if we are part of a navigation controller and if there is a previous controller to pop to
+        if let navigationController = navigationController,
+           navigationController.viewControllers.count > 1 {
+            navigationController.popViewController(animated: true)
+        }
+        // 2. Otherwise, present modally (or root of nav controller), so we dismiss
+        else {
+            dismiss(animated: true, completion: nil)
+        }
     }
     
     @objc private func familyTapped() {
