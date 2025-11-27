@@ -9,18 +9,24 @@ class ListsViewController: UIViewController, UITableViewDelegate, UITableViewDat
 
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var lists = ["Habits", "Routines", "Studies", "Exercise", "Extracurricular"]
+    
+    // 1. Add Gradient Layer Property
+    private let gradient = CAGradientLayer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
         title = "Lists"
+        
+        // 2. Setup Gradient (Replaces solid background color)
+        setupGradient()
+        
         navigationController?.navigationBar.prefersLargeTitles = false
         navigationController?.navigationBar.titleTextAttributes = [
             .foregroundColor: UIColor.white,
             .font: UIFont.boldSystemFont(ofSize: 18)
         ]
-        navigationController?.navigationBar.tintColor = .systemBlue
-        view.backgroundColor = UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1)
+        navigationController?.navigationBar.tintColor = .white // Changed to white to match theme
 
         // Navigation buttons
         navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -37,6 +43,23 @@ class ListsViewController: UIViewController, UITableViewDelegate, UITableViewDat
         )
 
         setupTable()
+    }
+    
+    // 3. Important: Update Gradient Frame on Layout
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        gradient.frame = view.bounds
+    }
+
+    // 4. The Gradient Function
+    private func setupGradient() {
+        gradient.colors = [
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
+        ]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(gradient, at: 0)
     }
 
     private func setupTable() {
@@ -83,9 +106,15 @@ class ListsViewController: UIViewController, UITableViewDelegate, UITableViewDat
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
         cell.textLabel?.text = lists[indexPath.row]
         cell.textLabel?.textColor = .white
+        
+        // Semi-transparent cell background to let gradient show through
         cell.backgroundColor = UIColor(white: 1, alpha: 0.07)
-        cell.layer.cornerRadius = 10
-        cell.layer.masksToBounds = true
+        
+        // Selection style
+        let selectedBackground = UIView()
+        selectedBackground.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+        cell.selectedBackgroundView = selectedBackground
+        
         return cell
     }
 

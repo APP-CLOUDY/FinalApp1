@@ -329,18 +329,18 @@ final class ChildManager {
         switch kidId {
         case "kid_bob":
             return [
-                ScheduleTask(title: "Do the Homework", time: "06:00 AM", category: "Habits", status: "Not Done", date: dateString(day: 8)),
-                ScheduleTask(title: "Math Practice", time: "07:30 AM", category: "Study", status: "In progress", date: dateString(day: 9)),
+                ScheduleTask(title: "Do the Homework", time: "06:00 AM", category: "Habits", status: "Not Done", date: dateString(day: 27)),
+                ScheduleTask(title: "Math Practice", time: "07:30 AM", category: "Study", status: "In progress", date: dateString(day: 27)),
                 ScheduleTask(title: "Brush Teeth", time: "09:00 AM", category: "Habits", status: "Completed", date: dateString(day: 9)),
-                ScheduleTask(title: "Piano Practice", time: "03:00 PM", category: "Hobby", status: "Not Done", date: dateString(day: 12)),
+                ScheduleTask(title: "Piano Practice", time: "03:00 PM", category: "Hobby", status: "Not Done", date: dateString(day: 2)),
                 ScheduleTask(title: "Reading", time: "08:30 PM", category: "Habits", status: "In progress", date: dateString(day: 16)),
-                ScheduleTask(title: "Draw - Art", time: "05:00 PM", category: "Hobby", status: "Completed", date: dateString(day: 16)),
-                ScheduleTask(title: "Help with Chores", time: "04:00 PM", category: "Chores", status: "Not Done", date: dateString(day: 20))
+                ScheduleTask(title: "Draw - Art", time: "05:00 PM", category: "Hobby", status: "Completed", date: dateString(day: 27)),
+                ScheduleTask(title: "Help with Chores", time: "04:00 PM", category: "Chores", status: "Not Done", date: dateString(day: 27))
             ]
         case "kid_jonesh":
             return [
                 ScheduleTask(title: "Brush Teeth", time: "07:00 AM", category: "Habits", status: "Completed", date: dateString(day: 10)),
-                ScheduleTask(title: "Practice Piano", time: "05:00 PM", category: "Hobby", status: "In progress", date: dateString(day: 16)),
+                ScheduleTask(title: "Practice Piano", time: "05:00 PM", category: "Hobby", status: "In progress", date: dateString(day: 27)),
                 ScheduleTask(title: "Homework Math", time: "06:30 PM", category: "Study", status: "Not Done", date: dateString(day: 16))
             ]
         default:
@@ -508,4 +508,3 @@ final class ChildManager {
         }
     }
 }
-

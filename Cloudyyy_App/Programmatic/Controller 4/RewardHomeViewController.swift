@@ -54,6 +54,7 @@ final class RewardHomeViewController: UIViewController {
             reloadForKid(kid)
         }
     }
+    
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -63,9 +64,8 @@ final class RewardHomeViewController: UIViewController {
     // MARK: - Gradient
     private func setupGradient() {
         gradient.colors = [
-            UIColor(red: 8/255, green: 12/255, blue: 48/255, alpha: 1).cgColor,
-            UIColor(red: 10/255, green: 18/255, blue: 60/255, alpha: 1).cgColor,
-            UIColor(red: 17/255, green: 41/255, blue: 87/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint = CGPoint(x: 0.5, y: 1)
@@ -81,12 +81,16 @@ final class RewardHomeViewController: UIViewController {
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 110)
+            header.heightAnchor.constraint(equalToConstant: 98)
         ])
 
         header.onChildTapped = { [weak self] in
             self?.showKidsMenu()
         }
+        header.onProfileTapped = { [weak self] in
+                    let vc = ParentProfileViewController()
+                    self?.navigationController?.pushViewController(vc, animated: true)
+                }
     }
 
     // MARK: - Stats Cards

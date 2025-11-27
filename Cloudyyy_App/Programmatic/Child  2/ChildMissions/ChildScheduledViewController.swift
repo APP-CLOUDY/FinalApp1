@@ -165,7 +165,7 @@ final class KidAgendaViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             // 1. Title (Top Left)
-            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
+            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 23),
             titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
             // 2. Profile Icon (Far Right)
