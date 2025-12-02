@@ -3,7 +3,7 @@ import Charts
 
 // MARK: - 1. The Data Model
 @available(iOS 16.0, *)
-struct DashboardChartPoints: Identifiable, Equatable {
+struct DashboardChartPoint: Identifiable, Equatable {
     let id = UUID()
     let label: String
     let rewards: Int
@@ -12,7 +12,7 @@ struct DashboardChartPoints: Identifiable, Equatable {
 
 // MARK: - 2. The Chart View
 @available(iOS 16.0, *)
-struct DashboardChartView: View {
+struct DashboardChartViews: View {
     let points: [DashboardChartPoint]
     
     // --- Colors matching the Screenshot ---
@@ -103,7 +103,7 @@ struct DashboardChartView: View {
 }
 
 // MARK: - 3. Helper for Custom Rounded Corners
-struct Corner: Shape {
+struct Corners: Shape {
     var corner: UIRectCorner
     var radii: CGFloat
     

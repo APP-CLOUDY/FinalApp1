@@ -2,7 +2,7 @@
 //  RewardCell.swift
 //  Cloudyyy_App
 //
-//  Created by Gemini
+//  
 //
 
 import UIKit

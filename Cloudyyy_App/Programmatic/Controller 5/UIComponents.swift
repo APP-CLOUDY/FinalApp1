@@ -20,6 +20,7 @@ class RewardCardView: UIView {
 
 class StyledTextField: RewardCardView {
     private let tf = UITextField()
+
     var textValue: String { tf.text ?? "" }
 
     init(placeholder: String) {
@@ -89,11 +90,27 @@ class StyledTextView: RewardCardView, UITextViewDelegate {
 // MARK: - SelectRow (button-backed, supports UIMenu)
 // ===========================================================
 class SelectRow: RewardCardView {
+    // Hides the chevron arrow
+    func hideChevron() {
+        chevron.isHidden = true
+    }
 
+    // Inserts custom views at the end of the right side
+    func addTrailingViews(_ views: [UIView]) {
+        for v in views {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            hStack.addArrangedSubview(v)
+        }
+    }
+
+    func setAttributedTitle(_ text: NSAttributedString) {
+            titleLabel.attributedText = text
+        }
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let chevron = UIImageView(image: UIImage(systemName: "chevron.down"))
     private let button = UIButton(configuration: .plain())
+    let hStack = UIStackView()
 
     var onTap: (() -> Void)?
     var detailText: String? { detailLabel.text }
@@ -111,22 +128,30 @@ class SelectRow: RewardCardView {
 
         chevron.tintColor = UIColor.white.withAlphaComponent(0.5)
 
-        let h = UIStackView(arrangedSubviews: [titleLabel, UIView(), detailLabel, chevron])
-        h.axis = .horizontal
-        h.alignment = .center
-        h.spacing = 8
-        h.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(h)
+        hStack.axis = .horizontal
+        hStack.alignment = .center
+        hStack.spacing = 8
+        hStack.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(hStack)
+
+        hStack.addArrangedSubview(titleLabel)
+        hStack.addArrangedSubview(UIView())  // spacer
+        hStack.addArrangedSubview(detailLabel)
+        hStack.addArrangedSubview(chevron)
+
 
         button.translatesAutoresizingMaskIntoConstraints = false
         button.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
         addSubview(button)
 
         NSLayoutConstraint.activate([
-            h.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            h.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            h.topAnchor.constraint(equalTo: topAnchor),
-            h.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+                hStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+                hStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+                hStack.topAnchor.constraint(equalTo: topAnchor),
+                hStack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            
 
             button.leadingAnchor.constraint(equalTo: leadingAnchor),
             button.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -175,7 +200,7 @@ class PointsRow: RewardCardView {
         title.textColor = .white
         title.font = .systemFont(ofSize: 16)
 
-        valueLabel.text = "0"
+        valueLabel.text = "10"
         valueLabel.textColor = .white
         valueLabel.font = .boldSystemFont(ofSize: 18)
 
@@ -202,8 +227,8 @@ class PointsRow: RewardCardView {
         ])
     }
 
-    @objc private func inc() { countValue += 1 }
-    @objc private func dec() { countValue = max(0, countValue - 1) }
+    @objc private func inc() { countValue += 5 }
+    @objc private func dec() { countValue = max(0, countValue - 5) }
 
     required init?(coder: NSCoder) { fatalError() }
 }
@@ -368,4 +393,3 @@ class ApprovalToggleRow: RewardCardView {
     var isOn: Bool { toggle.isOn }
     required init?(coder: NSCoder) { fatalError() }
 }
-

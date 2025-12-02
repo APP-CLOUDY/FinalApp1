@@ -8,6 +8,20 @@ import UIKit
 class NewTaskViewController: UIViewController {
 
     // ===========================================================
+    // MARK: - Initialization (FORCE FULL SCREEN)
+    // ===========================================================
+    
+    init() {
+        super.init(nibName: nil, bundle: nil)
+        // This line ensures the view covers the whole screen
+        self.modalPresentationStyle = .fullScreen
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // ===========================================================
     // MARK: - UI Base Containers
     // ===========================================================
 
@@ -36,6 +50,22 @@ class NewTaskViewController: UIViewController {
 
     // Multi-select storage
     private var assignedSelections = Set<String>()
+    
+    func makeRequired(_ title: String) -> NSAttributedString {
+        let text = NSMutableAttributedString(string: title + " ")
+        let star = NSAttributedString(
+            string: "*",
+            attributes: [.foregroundColor: UIColor.systemRed]
+        )
+        text.append(star)
+        return text
+    }
+    
+    private func markRequiredFields() {
+        assignedRow.setAttributedTitle(makeRequired("Assigned To"))
+        dateRow.setAttributedTitle(makeRequired("Date & Time"))
+        listRow.setAttributedTitle(makeRequired("List"))
+    }
 
     // ===========================================================
     // MARK: - Lifecycle
@@ -51,8 +81,10 @@ class NewTaskViewController: UIViewController {
         setupScrollView()
         setupStack()
         setupHeights()
-        setupMenus()        // Floating menus
-        setupActions()       // Extra behaviors like date picker + list page
+        setupMenus()
+        setupActions()
+        applyDefaultValues()
+        markRequiredFields()
     }
 
     override func viewDidLayoutSubviews() {
@@ -63,12 +95,25 @@ class NewTaskViewController: UIViewController {
     // ===========================================================
     // MARK: - Navigation Bar
     // ===========================================================
+    
+    private func applyDefaultValues() {
+        priorityRow.setDetail("None")
+        frequencyRow.setDetail("Doesn't repeat")
+        assignedRow.setDetail("None")
+        listRow.setDetail("None")
+    }
 
     private func setupNavigationBar() {
+        // Ensure nav bar is visible and styled
         navigationController?.navigationBar.tintColor = .white
         navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-        navigationController?.navigationBar.setBackgroundImage(UIImage(), for: .default)
-        navigationController?.navigationBar.shadowImage = UIImage()
+        
+        // Transparent nav bar look
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "Cancel",
@@ -91,8 +136,8 @@ class NewTaskViewController: UIViewController {
 
     private func setupGradient() {
         gradient.colors = [
-            UIColor(red: 10/255, green: 13/255, blue: 41/255, alpha: 1).cgColor,
-            UIColor(red: 24/255, green: 30/255, blue: 74/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0, y: 0)
         gradient.endPoint = CGPoint(x: 1, y: 1)
@@ -144,13 +189,13 @@ class NewTaskViewController: UIViewController {
         let fields: [UIView] = [
             titleField,
             descriptionView,
-            priorityRow,
             pointsRow,
+            assignedRow,
+            priorityRow,
             dateRow,
             frequencyRow,
             listRow,
-            approvalRow,
-            assignedRow
+            approvalRow
         ]
 
         fields.forEach {
@@ -184,8 +229,7 @@ class NewTaskViewController: UIViewController {
     // ===========================================================
 
     private func setupMenus() {
-
-        // ---------- Priority ----------
+        // Priority
         let priorityMenu = UIMenu(children: ["None", "Low", "Medium", "High"].map { name in
             UIAction(title: name) { [weak self] _ in
                 self?.priorityRow.setDetail(name)
@@ -193,7 +237,7 @@ class NewTaskViewController: UIViewController {
         })
         priorityRow.setMenu(priorityMenu)
 
-        // ---------- Frequency ----------
+        // Frequency
         let frequencyMenu = UIMenu(children: ["Doesn't repeat", "Daily", "Weekly", "Monthly"].map { name in
             UIAction(title: name) { [weak self] _ in
                 self?.frequencyRow.setDetail(name)
@@ -201,7 +245,7 @@ class NewTaskViewController: UIViewController {
         })
         frequencyRow.setMenu(frequencyMenu)
 
-        // ---------- Multi-select Assigned Row ----------
+        // Multi-select Assigned
         updateAssignedMenu()
     }
 
@@ -223,12 +267,9 @@ class NewTaskViewController: UIViewController {
 
                 let final = self.assignedSelections.sorted().joined(separator: ", ")
                 self.assignedRow.setDetail(final.isEmpty ? "None" : final)
-
-                // Refresh menu
                 self.updateAssignedMenu()
             }
         }
-
         assignedRow.setMenu(UIMenu(children: actions))
     }
 
@@ -237,13 +278,12 @@ class NewTaskViewController: UIViewController {
     // ===========================================================
 
     private func setupActions() {
-
-        // ---------- Date picker ----------
+        // Date picker
         dateRow.onTap = { [weak self] in
             self?.openDatePicker()
         }
 
-        // ---------- List selection page ----------
+        // List selection page
         listRow.onTap = { [weak self] in
             let vc = ListsViewController()
             let nav = UINavigationController(rootViewController: vc)
@@ -262,16 +302,48 @@ class NewTaskViewController: UIViewController {
             }
         }
     }
-
+    
     // ===========================================================
     // MARK: - Date Picker Popup
     // ===========================================================
-
+    
     private func openDatePicker() {
         let vc = UIViewController()
-        vc.modalPresentationStyle = .pageSheet
         vc.view.backgroundColor = .systemBackground
+        vc.modalPresentationStyle = .pageSheet
 
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.custom { _ in return 320 }]
+            sheet.preferredCornerRadius = 20
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.largestUndimmedDetentIdentifier = .medium
+        }
+
+        // Header
+        let header = UIStackView()
+        header.axis = .horizontal
+        header.distribution = .equalCentering
+        header.alignment = .center
+        header.translatesAutoresizingMaskIntoConstraints = false
+
+        let cancelBtn = UIButton(type: .system)
+        cancelBtn.setTitle("Cancel", for: .normal)
+        cancelBtn.addAction(UIAction(handler: { _ in vc.dismiss(animated: true) }), for: .touchUpInside)
+
+        let title = UILabel()
+        title.text = "Select Date"
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+
+        let doneBtn = UIButton(type: .system)
+        doneBtn.setTitle("Done", for: .normal)
+
+        header.addArrangedSubview(cancelBtn)
+        header.addArrangedSubview(title)
+        header.addArrangedSubview(doneBtn)
+
+        vc.view.addSubview(header)
+
+        // Picker
         let picker = UIDatePicker()
         picker.datePickerMode = .dateAndTime
         picker.preferredDatePickerStyle = .wheels
@@ -280,39 +352,37 @@ class NewTaskViewController: UIViewController {
         vc.view.addSubview(picker)
 
         NSLayoutConstraint.activate([
+            header.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 12),
+            header.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor, constant: 20),
+            header.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor, constant: -20),
+
+            picker.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             picker.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
             picker.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
-            picker.topAnchor.constraint(equalTo: vc.view.topAnchor, constant: 20),
-            picker.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -80)
+            picker.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor, constant: -20)
         ])
 
-        vc.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: nil, action: nil)
-        vc.navigationItem.rightBarButtonItem?.primaryAction = UIAction(handler: { _ in
+        doneBtn.addAction(UIAction(handler: { _ in
             let df = DateFormatter()
             df.dateFormat = "MMM d, h:mm a"
             self.selectedDate = picker.date
             self.dateRow.setDetail(df.string(from: picker.date))
             vc.dismiss(animated: true)
-        })
+        }), for: .touchUpInside)
 
-        let nav = UINavigationController(rootViewController: vc)
-        present(nav, animated: true)
+        present(vc, animated: true)
     }
 
     // ===========================================================
-    // MARK: - Save
+    // MARK: - Save Actions
     // ===========================================================
 
     @objc private func doneTapped() {
-
         var missing: [String] = []
 
         if titleField.textValue.isEmpty { missing.append("Title") }
-        if priorityRow.detailText == nil { missing.append("Priority") }
         if dateRow.detailText == nil { missing.append("Date") }
-        if frequencyRow.detailText == nil { missing.append("Frequency") }
         if listRow.detailText == nil { missing.append("List") }
-        if pointsRow.countValue <= 0 { missing.append("Points") }
         if assignedSelections.isEmpty { missing.append("Assigned To") }
 
         if !missing.isEmpty {
@@ -323,7 +393,7 @@ class NewTaskViewController: UIViewController {
             return
         }
 
-        print("Saving task…")
+        print("Saving task...")
         dismiss(animated: true)
     }
 
@@ -331,4 +401,3 @@ class NewTaskViewController: UIViewController {
         dismiss(animated: true)
     }
 }
-
