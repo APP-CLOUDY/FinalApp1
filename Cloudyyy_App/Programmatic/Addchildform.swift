@@ -3,6 +3,10 @@ import UIKit
 // MARK: - Addchildform
 final class Addchildform: UIViewController {
 
+    // MARK: - Data Properties
+    // We store the actual date object here to send to Supabase
+    private var selectedDate: Date = Date()
+
     // MARK: - Views
 
     // This layer handles the full-screen gradient
@@ -24,16 +28,17 @@ final class Addchildform: UIViewController {
         return v
     }()
 
-    // Cloud image (from Assets) - inside the scrollable content
+    // Cloud image (from Assets)
     private let cloudImageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        iv.image = UIImage(named: "cloudyy_logo") // <- replace with your asset name if different
+        // Replace "cloudyy_logo" with your actual asset name
+        iv.image = UIImage(named: "cloudyy_logo")
         return iv
     }()
 
-    // Floating back button for when navigationBar is not used
+    // Floating back button
     private lazy var backButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -43,7 +48,7 @@ final class Addchildform: UIViewController {
         return b
     }()
 
-    // White rounded card (The actual form container)
+    // White rounded card
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -102,6 +107,9 @@ final class Addchildform: UIViewController {
         setupConstraints()
         setupDatePicker()
         registerKeyboardNotifications()
+        
+        // Hide default back button if we are using our custom one
+        navigationItem.hidesBackButton = true
     }
 
     override func viewWillLayoutSubviews() {
@@ -126,32 +134,20 @@ final class Addchildform: UIViewController {
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
-    // MARK: - Setup
+    // MARK: - Setup Logic
 
     private func setupHierarchy() {
-        // Add scroll view and card view
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
-
         contentView.addSubview(cloudImageView)
         contentView.addSubview(cardView)
 
-        // Card content stack
         let stack = UIStackView(arrangedSubviews: [
             titleLabel,
-
-            nameLabel,
-            nameField,
-
-            nickNameLabel,
-            nickField,
-
-            dobLabel,
-            dobField,
-
-            genderLabel,
-            genderSelector,
-
+            nameLabel, nameField,
+            nickNameLabel, nickField,
+            dobLabel, dobField,
+            genderLabel, genderSelector,
             doneButton
         ])
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -160,13 +156,11 @@ final class Addchildform: UIViewController {
         stack.alignment = .fill
         stack.distribution = .fill
 
-        // Custom Spacing adjustments
+        // Custom Spacing
         stack.setCustomSpacing(24, after: nameField)
         stack.setCustomSpacing(24, after: nickField)
         stack.setCustomSpacing(24, after: dobField)
         stack.setCustomSpacing(24, after: genderSelector)
-
-        // Smaller spacing between labels and fields
         stack.setCustomSpacing(4, after: nameLabel)
         stack.setCustomSpacing(4, after: nickNameLabel)
         stack.setCustomSpacing(4, after: dobLabel)
@@ -174,16 +168,13 @@ final class Addchildform: UIViewController {
 
         cardView.addSubview(stack)
 
-        // Use navigationItem when inside a UINavigationController; otherwise use floating back button
         if let nav = navigationController, !nav.isNavigationBarHidden {
-            // Show a default left bar button that looks like the floating chevron
             navigationItem.leftBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"),
                                                                style: .plain,
                                                                target: self,
                                                                action: #selector(backTapped))
             navigationItem.leftBarButtonItem?.tintColor = .white
         } else {
-            // Add floating back button for standalone presentation
             view.addSubview(backButton)
         }
     }
@@ -193,73 +184,59 @@ final class Addchildform: UIViewController {
         let frameLayoutGuide = scrollView.frameLayoutGuide
         let safe = view.safeAreaLayoutGuide
 
-        // Core Constraints
         var activeConstraints: [NSLayoutConstraint] = [
-            // ScrollView fills safe area
             scrollView.topAnchor.constraint(equalTo: safe.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: safe.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: safe.bottomAnchor),
 
-            // ContentView pinned to scrollView content layout guide
             contentView.topAnchor.constraint(equalTo: contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: contentLayoutGuide.bottomAnchor),
-
-            // Make contentView width match the visible width
             contentView.widthAnchor.constraint(equalTo: frameLayoutGuide.widthAnchor),
 
-            // Cloud Image Base Constraints
             cloudImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             cloudImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 40),
             cloudImageView.heightAnchor.constraint(lessThanOrEqualToConstant: 180),
             cloudImageView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.75),
 
-            // Card View (Top anchored relative to cloud, horizontal padding fixed)
             cardView.topAnchor.constraint(equalTo: cloudImageView.bottomAnchor, constant: 20),
             cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22)
         ]
 
-        // Add floating back button constraints only if it's in the view hierarchy
         if backButton.superview != nil {
-            let backConstraints: [NSLayoutConstraint] = [
+            activeConstraints.append(contentsOf: [
                 backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
                 backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
                 backButton.widthAnchor.constraint(equalToConstant: 36),
                 backButton.heightAnchor.constraint(equalToConstant: 36)
-            ]
-            activeConstraints.append(contentsOf: backConstraints)
+            ])
         }
 
         NSLayoutConstraint.activate(activeConstraints)
 
-        // Responsive Cloud Constraints (use frameLayoutGuide for height)
         NSLayoutConstraint.activate([
             cloudImageView.heightAnchor.constraint(lessThanOrEqualTo: frameLayoutGuide.heightAnchor, multiplier: 0.30).withPriority(.defaultHigh),
             cloudImageView.widthAnchor.constraint(equalToConstant: 280).withPriority(.defaultHigh)
         ])
 
-        // Stack inside card
-        guard let stack = cardView.subviews.compactMap({ $0 as? UIStackView }).first else { return }
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
-            stack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
-            stack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
-            stack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -22)
-        ])
+        if let stack = cardView.subviews.compactMap({ $0 as? UIStackView }).first {
+            NSLayoutConstraint.activate([
+                stack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
+                stack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+                stack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
+                stack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -22)
+            ])
+        }
 
-        // Ensure ContentView stretches to fill at least the visible frame height, plus padding below the card
-        let contentMinHeightConstraint = contentView.heightAnchor.constraint(greaterThanOrEqualTo: frameLayoutGuide.heightAnchor)
-        contentMinHeightConstraint.priority = .defaultLow
-        contentMinHeightConstraint.isActive = true
+        let contentMinHeight = contentView.heightAnchor.constraint(greaterThanOrEqualTo: frameLayoutGuide.heightAnchor)
+        contentMinHeight.priority = .defaultLow
+        contentMinHeight.isActive = true
 
-        // This forces the bottom of the content to be below the card, ensuring padding and scrollable area.
         contentView.bottomAnchor.constraint(greaterThanOrEqualTo: cardView.bottomAnchor, constant: 40).isActive = true
     }
-
-    // MARK: - Full Background Gradient
 
     private func applyFullBackgroundGradient() {
         if backgroundGradientLayer == nil {
@@ -304,6 +281,10 @@ final class Addchildform: UIViewController {
     }
 
     @objc private func datePicked(_ sender: UIDatePicker) {
+        // 1. Store the Date object for the API
+        self.selectedDate = sender.date
+        
+        // 2. Update display text
         let df = DateFormatter()
         df.dateFormat = "dd/MM/yyyy"
         dobField.text = df.string(from: sender.date)
@@ -344,7 +325,6 @@ final class Addchildform: UIViewController {
     // MARK: - Actions
 
     @objc private func backTapped() {
-        // If inside a nav controller, pop. Otherwise, dismiss or try pop (safe fallback)
         if navigationController != nil {
             navigationController?.popViewController(animated: true)
         } else {
@@ -354,14 +334,54 @@ final class Addchildform: UIViewController {
 
     @objc private func doneTapped() {
         view.endEditing(true)
-        let name = nameField.text ?? ""
+        
+        // 1. Validate (Using single name field)
+        guard let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            // Optional: Shake animation or alert here
+            print("Name is empty")
+            return
+        }
+        
         let nick = nickField.text ?? ""
-        let dob  = dobField.text ?? ""
-        let gender = genderSelector.selectedGender.rawValue
-
-        print("Submit -> name:\(name) nick:\(nick) dob:\(dob) gender:\(gender)")
-        let vc = FamilyViewController()
-            navigationController?.pushViewController(vc, animated: true)
+        let gender = genderSelector.selectedGender.rawValue.lowercased()
+        
+        // 2. UI Loading State
+        doneButton.isEnabled = false
+        doneButton.setTitle("Saving...", for: .normal)
+        doneButton.alpha = 0.7
+        
+        // 3. API Call via Service
+        // Use _Concurrency.Task to avoid conflict with "Task" model
+        _Concurrency.Task {
+            do {
+                // We send the SINGLE name directly
+                let joinCode = try await ChildService.shared.addChild(
+                    name: name,
+                    nickname: nick,
+                    dob: self.selectedDate,
+                    gender: gender
+                )
+                
+                print("Success! Child Added. Code: \(joinCode)")
+                
+                await MainActor.run {
+                    self.doneButton.isEnabled = true
+                    self.doneButton.setTitle("Done", for: .normal)
+                    self.doneButton.alpha = 1.0
+                    
+                    // 4. Navigate to Family/Dashboard
+                    let vc = FamilyViewController()
+                    self.navigationController?.pushViewController(vc, animated: true)
+                }
+            } catch {
+                print("Error adding child: \(error)")
+                await MainActor.run {
+                    self.doneButton.isEnabled = true
+                    self.doneButton.setTitle("Try Again", for: .normal)
+                    self.doneButton.alpha = 1.0
+                }
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -382,13 +402,13 @@ final class Addchildform: UIViewController {
         tf.font = UIFont.systemFont(ofSize: 15)
         tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
         tf.layer.cornerRadius = 10
-        tf.setLeftPaddingPointss(12)
+        tf.setLeftPaddingPoints(12)
         tf.heightAnchor.constraint(equalToConstant: 48).isActive = true
         return tf
     }
 }
 
-// MARK: - GenderSelector (stable & rotation friendly)
+// MARK: - GenderSelector (Custom Control)
 
 private class GenderSelector: UIControl {
     enum Gender: String {
@@ -414,7 +434,6 @@ private class GenderSelector: UIControl {
         }
     }
 
-    // pill constraints
     private var pillLeading: NSLayoutConstraint?
     private var pillWidth: NSLayoutConstraint?
     private var pillTop: NSLayoutConstraint?
@@ -474,7 +493,6 @@ private class GenderSelector: UIControl {
     func refreshPillPosition(animated: Bool) {
         guard buttons.indices.contains(selectedIndex) else { return }
 
-        // deactivate old constraints
         pillLeading?.isActive = false
         pillWidth?.isActive = false
         pillTop?.isActive = false
@@ -493,7 +511,6 @@ private class GenderSelector: UIControl {
         pillTop?.isActive = true
         pillHeight?.isActive = true
 
-        // update buttons' text color / weight
         for (i, btn) in buttons.enumerated() {
             if i == selectedIndex {
                 btn.setTitleColor(.white, for: .normal)
@@ -524,14 +541,14 @@ private class GenderSelector: UIControl {
 // MARK: - UITextField padding helper
 
 private extension UITextField {
-    func setLeftPaddingPointss(_ amount: CGFloat) {
+    func setLeftPaddingPoints(_ amount: CGFloat) {
         let pad = UIView(frame: CGRect(x: 0, y: 0, width: amount, height: 48))
         leftView = pad
         leftViewMode = .always
     }
 }
 
-// MARK: - UIResponder extension for finding first responder
+// MARK: - UIResponder extension
 
 private extension UIResponder {
     private static weak var _currentFirstResponder: UIResponder?
@@ -550,7 +567,6 @@ private extension UIResponder {
 // MARK: - NSLayoutConstraint convenience
 
 private extension NSLayoutConstraint {
-    /// Fluent helper to set priority and return the constraint
     func withPriority(_ p: UILayoutPriority) -> NSLayoutConstraint {
         self.priority = p
         return self

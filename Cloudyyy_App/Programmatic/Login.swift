@@ -6,6 +6,15 @@
 import UIKit
 import Supabase
 
+// Renamed to avoid conflict with your existing UserProfile struct
+private struct LoginUserProfile: Decodable {
+    let id: UUID
+    let first_name: String
+    let email: String
+    let role: String
+    let date_of_birth: String?
+}
+
 final class Login: UIViewController {
 
     // MARK: - UI Components
@@ -74,7 +83,7 @@ final class Login: UIViewController {
         b.translatesAutoresizingMaskIntoConstraints = false
         b.setTitle("Forgot Password ?", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
-        b.setTitleColor(CloudyyyColors.accentBlue, for: .normal)
+        b.setTitleColor(.systemBlue, for: .normal)
         return b
     }()
 
@@ -264,12 +273,9 @@ final class Login: UIViewController {
     }
 
     @objc private func didTapClose() {
-        // Check if we were pushed onto a navigation controller
         if let nav = self.navigationController {
-            // If yes, pop this view controller
             nav.popViewController(animated: true)
         } else {
-            // Otherwise, we were presented modally. Dismiss ourselves.
             self.dismiss(animated: true, completion: nil)
         }
     }
@@ -302,56 +308,52 @@ final class Login: UIViewController {
 
         setLoading(true)
 
-        // Use the concurrency Task (force via _Concurrency to avoid name collisions in odd cases)
+        // Using _Concurrency.Task to avoid name conflicts with your 'Task' model
         _Concurrency.Task {
             do {
                 // 1) Sign in via Supabase Auth
-                _ = try await SupabaseManager.shared.client.auth.signIn(
+                let session = try await SupabaseManager.shared.client.auth.signIn(
                     email: email,
                     password: password
                 )
+                
+                let userId = session.user.id
 
-                // 2) Optional: fetch profile row from public.users by email
-                let resp = try await SupabaseManager.shared.client
+                // 2) Fetch profile row from public.users using the User ID
+                // Note: We use .single() to expect exactly one row.
+                // Note: Decodes into 'LoginUserProfile' now
+                let profile: LoginUserProfile = try await SupabaseManager.shared.client
                     .from("users")
                     .select()
-                    .eq("email", value: email)
+                    .eq("id", value: userId)
+                    .single()
                     .execute()
-
-                // Decode first row from resp.value (your SDK returns rows in `value`)
-                var profile: UserProfile? = nil
-                if let raw = resp.value as? [[String: Any]],
-                   let first = raw.first
-                {
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: first),
-                       let decoded = try? JSONDecoder().decode(UserProfile.self, from: jsonData)
-                    {
-                        profile = decoded
-                    }
-                } else if let single = resp.value as? [String: Any] {
-                    // sometimes the SDK returns a single dictionary for single row responses
-                    if let jsonData = try? JSONSerialization.data(withJSONObject: single),
-                       let decoded = try? JSONDecoder().decode(UserProfile.self, from: jsonData)
-                    {
-                        profile = decoded
-                    }
-                }
+                    .value
 
                 // 3) Remember me: persist email if checked
-                let rememberChecked = rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill")
-                if rememberChecked {
-                    UserDefaults.standard.set(email, forKey: "Cloudyyy_RememberedEmail")
-                } else {
-                    UserDefaults.standard.removeObject(forKey: "Cloudyyy_RememberedEmail")
+                await MainActor.run {
+                    let rememberChecked = self.rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill")
+                    if rememberChecked {
+                        UserDefaults.standard.set(email, forKey: "Cloudyyy_RememberedEmail")
+                    } else {
+                        UserDefaults.standard.removeObject(forKey: "Cloudyyy_RememberedEmail")
+                    }
                 }
 
-                // 4) Navigate to main UI on success (you can pass profile to root VC if desired)
+                // 4) Navigate to Main App on success
                 await MainActor.run {
                     self.setLoading(false)
+                    
                     let mainTabBarController = CustomTabBarController()
-                    // Optionally pass profile to mainTabBarController or root VC
-                    // mainTabBarController.currentUserProfile = profile
-                    self.navigationController?.setViewControllers([mainTabBarController], animated: true)
+                    // If you want to replace the root so they can't "back" to login:
+                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate,
+                       let window = sceneDelegate.window {
+                        window.rootViewController = mainTabBarController
+                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                    } else {
+                        // Fallback navigation
+                        self.navigationController?.pushViewController(mainTabBarController, animated: true)
+                    }
                 }
             } catch {
                 await MainActor.run {

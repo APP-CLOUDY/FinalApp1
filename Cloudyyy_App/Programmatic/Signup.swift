@@ -1,6 +1,5 @@
 //
 // Signup.swift
-// Uses CommonUI.swift components
 //
 
 import UIKit
@@ -17,8 +16,9 @@ private struct ProfileInsert: Encodable {
 
 final class Signup: UIViewController {
 
-    // MARK: - UI (from CommonUI.swift)
+    // MARK: - UI Components
     private let headerView = GradientHeaderView(dottedImage: UIImage(named: "dots"))
+    
     private let scrollView: UIScrollView = {
         let s = UIScrollView()
         s.translatesAutoresizingMaskIntoConstraints = false
@@ -26,6 +26,7 @@ final class Signup: UIViewController {
         s.keyboardDismissMode = .interactive
         return s
     }()
+    
     private let contentView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -34,8 +35,9 @@ final class Signup: UIViewController {
 
     private let card = CardView()
 
-    // Fields (using your CommonUI)
+    // Fields
     private let nameField = CustomTextField(placeholder: "Name")
+    
     private let emailField: CustomTextField = {
         let f = CustomTextField(placeholder: "Email")
         f.keyboardType = .emailAddress
@@ -43,8 +45,15 @@ final class Signup: UIViewController {
         f.accessibilityIdentifier = "emailField"
         return f
     }()
+    
     private let dobField = DateTextField(placeholder: "Date of birth")
-    private let roleSegmented: UISegmentedControl = makeRoleSegmentedControl()
+    
+    private let roleSegmented: UISegmentedControl = {
+        let sc = UISegmentedControl(items: ["Mom", "Dad"])
+        sc.translatesAutoresizingMaskIntoConstraints = false
+        sc.selectedSegmentIndex = 0
+        return sc
+    }()
 
     private let passwordField: PasswordField = {
         let p = PasswordField(placeholder: "Set Password")
@@ -92,22 +101,18 @@ final class Signup: UIViewController {
     // MARK: - Hierarchy
     private func setupHierarchy() {
         view.addSubview(headerView)
-
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
-
         contentView.addSubview(card)
 
-        // add fields to card
         [nameField, emailField, dobField, roleSegmented, passwordField, signUpButton].forEach {
             card.addSubview($0)
         }
         
-        // Add close button and activity indicator
         view.addSubview(closeButton)
         view.addSubview(activity)
 
-        // Accessibility hints
+        // Accessibility
         nameField.accessibilityLabel = "Full name"
         dobField.accessibilityLabel = "Date of birth"
         passwordField.accessibilityLabel = "Password"
@@ -117,12 +122,12 @@ final class Signup: UIViewController {
     // MARK: - Constraints
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            // Close Button Constraints (pinned to view safe area)
+            // Close Button
             closeButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             closeButton.widthAnchor.constraint(equalToConstant: 32),
             closeButton.heightAnchor.constraint(equalToConstant: 32),
-        
+       
             // Header
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -149,12 +154,11 @@ final class Signup: UIViewController {
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 40),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
 
-            // Activity center
+            // Activity
             activity.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             activity.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // Fields constraints
         let spacing: CGFloat = 14
         NSLayoutConstraint.activate([
             nameField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -193,11 +197,9 @@ final class Signup: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
-        // explicit types to avoid inference issues
         roleSegmented.layer.cornerRadius = 18
         roleSegmented.setContentCompressionResistancePriority(UILayoutPriority.defaultLow, for: NSLayoutConstraint.Axis.horizontal)
 
-        // calendar icon for dobField
         let calImage = UIImageView(image: UIImage(systemName: "calendar")?.withRenderingMode(.alwaysTemplate))
         calImage.tintColor = .systemGray
         calImage.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
@@ -207,7 +209,6 @@ final class Signup: UIViewController {
 
         dobField.selectedDate = Calendar.current.date(byAdding: .year, value: -20, to: Date()) ?? Date()
 
-        // tap to dismiss
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
@@ -228,7 +229,7 @@ final class Signup: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 
-    // MARK: - Sign Up (final corrected: generate local UUID for profile ID)
+    // MARK: - Sign Up Logic (Direct Login / No Confirmation)
     @objc private func didTapSignUp() {
         view.endEditing(true)
 
@@ -241,9 +242,8 @@ final class Signup: UIViewController {
             return
         }
 
-        let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex) ?? "Mom"
+        let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex)?.lowercased() ?? "mom"
 
-        // Convert DateTextField's picker date -> "YYYY-MM-DD"
         let dobISO: String? = {
             let date = dobField.selectedDate
             let fmt = DateFormatter()
@@ -254,52 +254,56 @@ final class Signup: UIViewController {
 
         setLoading(true)
 
-        // Force concurrency Task (safe and avoids name collisions)
+        // Use _Concurrency.Task to avoid name conflict with your 'Task' model
         _Concurrency.Task {
             do {
-                // 1) Sign up with Supabase Auth (Supabase handles password hashing & storage).
-                // We do not depend on obtaining user.id from the SDK response here.
-                _ = try await SupabaseManager.shared.client.auth.signUp(
+                // 1) Sign up
+                // With "Confirm Email" OFF in Supabase, this logs the user in immediately.
+                let result = try await SupabaseManager.shared.client.auth.signUp(
                     email: email,
-                    password: pass
+                    password: pass,
+                    data: [
+                        "first_name": .string(name),
+                        "role": .string(role)
+                    ]
                 )
 
-                // 2) Generate local UUID for the users table primary key.
-                //    (Optional: later you can link auth <-> profile using email or add a server trigger.)
-                let generatedId = UUID().uuidString
+                // 2) Get User ID
+                // Note: result.user is non-optional in new SDKs, so we assign directly.
+                let user = result.user
+                let userId = user.id.uuidString
 
-                // 3) Insert profile into public.users
+                // 3) Insert Profile
                 let profile = ProfileInsert(
-                    id: generatedId,
+                    id: userId,
                     first_name: name,
                     email: email,
                     role: role,
                     date_of_birth: dobISO
                 )
 
-                // execute() will throw on failure for many SDK versions; rely on try/await
-                _ = try await SupabaseManager.shared.client
+                // Insert into public.users
+                // This will succeed because the user is now authenticated (logged in).
+                try await SupabaseManager.shared.client
                     .from("users")
-                    .insert([profile])
+                    .insert(profile)
                     .execute()
 
-                // 4) Success — update UI on main actor
+                // 4) Navigate to Family Name (Main Thread)
                 await MainActor.run {
                     self.setLoading(false)
-                    let alert = UIAlertController(title: "Success", message: "Account created. Check your email if confirmation is required.", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                        let vc = FamilyName()
-                        self.navigationController?.pushViewController(vc, animated: true)
-                    })
-                    self.present(alert, animated: true)
+                    // DIRECT NAVIGATION - No OTP, No Alert
+                    let vc = FamilyName()
+                    self.navigationController?.pushViewController(vc, animated: true)
                 }
+
             } catch {
                 await MainActor.run {
                     self.setLoading(false)
                     self.showAlert(title: "Sign up failed", message: error.localizedDescription)
                 }
             }
-        } // _Concurrency.Task
+        }
     }
 
     // MARK: - Helpers
@@ -347,7 +351,7 @@ final class Signup: UIViewController {
     }
 }
 
-// MARK: - UIView extension to find current first responder
+// MARK: - UIView extension
 private extension UIView {
     func currentFirstResponder() -> UIResponder? {
         if self.isFirstResponder { return self }

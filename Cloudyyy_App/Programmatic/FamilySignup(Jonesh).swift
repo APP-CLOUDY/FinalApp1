@@ -1,12 +1,8 @@
 import UIKit
 
-// --- Custom Gradient View ---
-// This view replicates the subtle gradient seen in the cards
+// --- Custom Gradient View (For Cards) ---
 class GradientCardView: UIView {
-    
     private let gradientLayer = CAGradientLayer()
-    
-    // Gradient colors from the image
     private let startColor = UIColor(red: 50/255, green: 60/255, blue: 85/255, alpha: 1.0)
     private let endColor = UIColor(red: 40/255, green: 50/255, blue: 75/255, alpha: 1.0)
 
@@ -22,43 +18,46 @@ class GradientCardView: UIView {
     
     private func setupGradient() {
         gradientLayer.colors = [startColor.cgColor, endColor.cgColor]
-        gradientLayer.startPoint = CGPoint(x: 0, y: 0) // Top-left
-        gradientLayer.endPoint = CGPoint(x: 1, y: 1) // Bottom-right
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
         layer.insertSublayer(gradientLayer, at: 0)
         clipsToBounds = true
     }
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Update the gradient layer's frame when the view's bounds change
         gradientLayer.frame = bounds
     }
     
-    // Helper to set corner radius
     func setCornerRadius(_ radius: CGFloat) {
         layer.cornerRadius = radius
     }
 }
-// --- End Custom View ---
 
-
+// --- Main Controller ---
 class FamilyViewController: UIViewController {
 
     private let darkBlueBackground = UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 1.0)
+
+    // MARK: - UI Components
+    
+    private let scrollView: UIScrollView = {
+        let sv = UIScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        sv.showsVerticalScrollIndicator = false
+        return sv
+    }()
+    
+    private let contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
 
     private let searchBar: UISearchBar = {
         let sb = UISearchBar()
         sb.placeholder = "Search"
         sb.backgroundImage = UIImage()
-        
-        let micButton = UIButton(type: .system)
-        micButton.setImage(UIImage(systemName: "mic.fill"), for: .normal)
-        micButton.tintColor = .systemGray
-        
-        sb.searchTextField.rightView = micButton
-        sb.searchTextField.rightViewMode = .always
-        sb.searchTextField.leftView?.tintColor = .systemGray
-        // Use the flat color for the search bar as gradients are complex here
         sb.searchTextField.backgroundColor = UIColor(red: 40/255, green: 50/255, blue: 75/255, alpha: 1.0)
         sb.searchTextField.textColor = .white
         sb.searchTextField.layer.cornerRadius = 18
@@ -76,7 +75,6 @@ class FamilyViewController: UIViewController {
         return label
     }()
 
-    // Use GradientCardView for the container
     private let familyNameContainer: GradientCardView = {
         let view = GradientCardView()
         view.setCornerRadius(10)
@@ -86,21 +84,13 @@ class FamilyViewController: UIViewController {
 
     private let familyNameTextField: UITextField = {
         let tf = UITextField()
-        tf.text = "Happy Home"
+        tf.text = "Loading..."
         tf.textColor = .white
         tf.borderStyle = .none
-        tf.backgroundColor = .clear // Important: make background clear
+        tf.backgroundColor = .clear
+        tf.isUserInteractionEnabled = false
         tf.translatesAutoresizingMaskIntoConstraints = false
         return tf
-    }()
-
-    private let editIcon: UIImageView = {
-        let iv = UIImageView()
-        iv.image = UIImage(systemName: "pencil")
-        iv.tintColor = .white
-        iv.contentMode = .scaleAspectFit
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        return iv
     }()
 
     private let parentsLabel: UILabel = {
@@ -111,6 +101,14 @@ class FamilyViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    
+    private let parentsStack: UIStackView = {
+        let sv = UIStackView()
+        sv.axis = .vertical
+        sv.spacing = 12
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        return sv
+    }()
 
     private let childrenLabel: UILabel = {
         let label = UILabel()
@@ -120,133 +118,149 @@ class FamilyViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    
+    private let childrenStack: UIStackView = {
+        let sv = UIStackView()
+        sv.axis = .vertical
+        sv.spacing = 12
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        return sv
+    }()
 
-    private let addButton: UIButton = {
+    // BUTTON 1: Add Child
+    private let addChildButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Add", for: .normal)
+        button.setTitle("Add Child", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.backgroundColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1.0)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
+        // A slightly lighter blue/gray to differentiate from the primary "Done" button
+        button.backgroundColor = UIColor(red: 60/255, green: 70/255, blue: 95/255, alpha: 1.0)
+        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
         button.layer.cornerRadius = 14
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
 
-    // Use a custom button with gradient
-    private let nextButton: UIButton = {
+    // BUTTON 2: Done (Primary Action)
+    private let doneButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Next", for: .normal)
-        button.setTitleColor(.white.withAlphaComponent(0.8), for: .normal)
+        button.setTitle("Done", for: .normal)
+        button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
         button.layer.cornerRadius = 14
-        button.clipsToBounds = true // Important for gradient
+        button.clipsToBounds = true
         button.translatesAutoresizingMaskIntoConstraints = false
         
-        // Add gradient layer to the button
+        // Gradient for the primary button
         let gradientLayer = CAGradientLayer()
-        let startColor = UIColor(red: 50/255, green: 60/255, blue: 85/255, alpha: 1.0)
-        let endColor = UIColor(red: 40/255, green: 50/255, blue: 75/255, alpha: 1.0)
-        gradientLayer.colors = [startColor.cgColor, endColor.cgColor]
+        gradientLayer.colors = [
+            UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1.0).cgColor,
+            UIColor(red: 0/255, green: 180/255, blue: 255/255, alpha: 1.0).cgColor
+        ]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
-        
-        // Use a name to find this layer later in viewDidLayoutSubviews
         gradientLayer.name = "buttonGradient"
-        
         button.layer.insertSublayer(gradientLayer, at: 0)
         
         return button
     }()
-    @objc private func handleNext() {
-        // 1. (Optional) You can add validation here
-        // (e.g., check if familyNameTextField.text is not empty).
-        // If setup is complete:
 
-        // 2. Instantiate your main app's tab bar controller.
-        let mainTabBarController = CustomTabBarController()
-
-        // 3. Set this tab bar as the new "root" of the navigation controller.
-        // This removes the FamilyViewController from the stack, so the user can't go "back" to it.
-        navigationController?.setViewControllers([mainTabBarController], animated: true)
-    }
-    // --- New Properties for Scroll View ---
-    private let scrollView: UIScrollView = {
-        let sv = UIScrollView()
-        sv.translatesAutoresizingMaskIntoConstraints = false
-        return sv
-    }()
+    // MARK: - Lifecycle
     
-    private let contentView: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    // --- End New Properties ---
-    
-    // We need this to resize the button's gradient when the view lays out
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        if let gradientLayer = nextButton.layer.sublayers?.first(where: { $0.name == "buttonGradient" }) as? CAGradientLayer {
-            gradientLayer.frame = nextButton.bounds
-        }
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = darkBlueBackground
-        setupNavigation()
         setupUI()
         
-        nextButton.addTarget(self, action: #selector(handleNext), for: .touchUpInside)
-    }
-
-    private func setupNavigation() {
-        title = "Family"
+        navigationItem.hidesBackButton = true
         
-        // Add the back button manually
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "chevron.left"),
-            style: .plain,
-            target: self,
-            action: #selector(handleBack)
-        )
-        // Set the arrow color
-        navigationController?.navigationBar.tintColor = .white
-        
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = darkBlueBackground
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.shadowColor = .clear
-        
-        // --- NEW: Force default button styles to be blank ---
-        // This is the key to removing the "glass" circle background
-        let buttonAppearance = UIBarButtonItemAppearance(style: .plain)
-        buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear] // Hide any text
-        
-        appearance.buttonAppearance = buttonAppearance
-        appearance.backButtonAppearance = buttonAppearance
-        // --- END NEW ---
-        
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
+        addChildButton.addTarget(self, action: #selector(handleAddChild), for: .touchUpInside)
+        doneButton.addTarget(self, action: #selector(handleDone), for: .touchUpInside)
     }
     
-    // Action for the manual back button
-    @objc private func handleBack() {
-        print("Back button tapped")
-        // If you were pushed to this view, you would use:
-        // navigationController?.popViewController(animated: true)
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        fetchFamilyData()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Resize gradient frame
+        if let gradientLayer = doneButton.layer.sublayers?.first(where: { $0.name == "buttonGradient" }) as? CAGradientLayer {
+            gradientLayer.frame = doneButton.bounds
+        }
     }
 
-    // Updated to use GradientCardView
+    // MARK: - Data Fetching
+    
+    private func fetchFamilyData() {
+        _Concurrency.Task {
+            do {
+                let data = try await FamilyService.shared.fetchDashboard()
+                
+                await MainActor.run {
+                    self.updateUI(with: data)
+                }
+            } catch {
+                print("Error fetching dashboard: \(error)")
+            }
+        }
+    }
+    
+    private func updateUI(with data: DashboardData) {
+        familyNameTextField.text = data.family_name
+        
+        parentsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for parent in data.parents {
+            let card = createMemberCard(
+                avatarImage: UIImage(systemName: "person.circle.fill")!,
+                name: parent.first_name,
+                subtitle1: parent.role.capitalized,
+                subtitle2: nil
+            )
+            parentsStack.addArrangedSubview(card)
+        }
+        
+        childrenStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for child in data.children {
+            // Check for optional nickname safely
+            let displaySubtitle = (child.nickname?.isEmpty == false) ? child.nickname! : "Child"
+            
+            let card = createMemberCard(
+                avatarImage: UIImage(systemName: "face.smiling.fill")!,
+                name: child.name,
+                subtitle1: displaySubtitle,
+                subtitle2: "Code: \(child.join_code)"
+            )
+            childrenStack.addArrangedSubview(card)
+        }
+    }
+
+    // MARK: - Actions
+    
+    @objc private func handleAddChild() {
+        // Navigate back to Add Child Form
+        let vc = Addchildform()
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    @objc private func handleDone() {
+        // Finish setup -> Go to Parent Dashboard
+        // NOTE: Ensure 'ParentDashboardViewController' is defined in your project
+        let dashboardVC = ParentDashboardViewController()
+        
+        // Use setViewControllers to reset the stack so they can't go back to setup screens
+        navigationController?.setViewControllers([dashboardVC], animated: true)
+    }
+
+    // MARK: - UI Setup
+    
     private func createMemberCard(avatarImage: UIImage, name: String, subtitle1: String, subtitle2: String?) -> UIView {
-        let card = GradientCardView() // Use the custom gradient view
+        let card = GradientCardView()
         card.setCornerRadius(16)
         card.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarView = UIImageView(image: avatarImage)
+        avatarView.tintColor = .systemGray4
         avatarView.contentMode = .scaleAspectFill
         avatarView.layer.cornerRadius = 30
         avatarView.clipsToBounds = true
@@ -269,8 +283,8 @@ class FamilyViewController: UIViewController {
         if let subtitle2 = subtitle2 {
             let subtitle2Label = UILabel()
             subtitle2Label.text = subtitle2
-            subtitle2Label.textColor = .systemGray
-            subtitle2Label.font = .systemFont(ofSize: 14) // <-- Corrected typo: was ofLife
+            subtitle2Label.textColor = UIColor(red: 100/255, green: 200/255, blue: 255/255, alpha: 1)
+            subtitle2Label.font = .systemFont(ofSize: 14, weight: .bold)
             textStackView.addArrangedSubview(subtitle2Label)
         }
         
@@ -280,6 +294,8 @@ class FamilyViewController: UIViewController {
         card.addSubview(textStackView)
         
         NSLayoutConstraint.activate([
+            card.heightAnchor.constraint(equalToConstant: 92),
+            
             avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
             avatarView.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             avatarView.widthAnchor.constraint(equalToConstant: 60),
@@ -287,83 +303,60 @@ class FamilyViewController: UIViewController {
             
             textStackView.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
             textStackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            textStackView.centerYAnchor.constraint(equalTo: card.centerYAnchor),
-            
-            card.heightAnchor.constraint(equalToConstant: 92)
+            textStackView.centerYAnchor.constraint(equalTo: card.centerYAnchor)
         ])
         
         return card
     }
 
     private func setupUI() {
-        // --- Add buttons and scrollview to the main view ---
-        view.addSubview(nextButton)
-        view.addSubview(addButton)
+        view.addSubview(doneButton)
+        view.addSubview(addChildButton)
         view.addSubview(scrollView)
-        
-        // --- Add the content view to the scroll view ---
         scrollView.addSubview(contentView)
         
-        // --- Add content *inside* the contentView ---
         contentView.addSubview(searchBar)
-        
         contentView.addSubview(familyNameLabel)
         contentView.addSubview(familyNameContainer)
         familyNameContainer.addSubview(familyNameTextField)
-        familyNameContainer.addSubview(editIcon)
         
         contentView.addSubview(parentsLabel)
-        let parentCard = createMemberCard(
-            avatarImage: UIImage(named: "mom_avatar") ?? UIImage(systemName: "person.fill")!,
-            name: "Ridu Mom",
-            subtitle1: "Mom",
-            subtitle2: nil
-        )
-        contentView.addSubview(parentCard)
+        contentView.addSubview(parentsStack)
         
         contentView.addSubview(childrenLabel)
-        let childCard = createMemberCard(
-            avatarImage: UIImage(named: "child_avatar") ?? UIImage(systemName: "person.fill")!,
-            name: "Ananya varshini",
-            subtitle1: "Anu",
-            subtitle2: "Code: 33501"
-        )
-        contentView.addSubview(childCard)
+        contentView.addSubview(childrenStack)
         
-        // --- Activate Constraints ---
         NSLayoutConstraint.activate([
-            // --- Stick buttons to the bottom safe area ---
-            nextButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            nextButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            nextButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            nextButton.heightAnchor.constraint(equalToConstant: 50),
+            // 1. Done Button (Bottom)
+            doneButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            doneButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            doneButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            doneButton.heightAnchor.constraint(equalToConstant: 50),
             
-            addButton.bottomAnchor.constraint(equalTo: nextButton.topAnchor, constant: -16),
-            addButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            addButton.heightAnchor.constraint(equalToConstant: 50),
+            // 2. Add Child Button (Above Done)
+            addChildButton.bottomAnchor.constraint(equalTo: doneButton.topAnchor, constant: -16),
+            addChildButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            addChildButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addChildButton.heightAnchor.constraint(equalToConstant: 50),
             
-            // --- Configure Scroll View ---
-            // Pin scroll view to top safe area and the top of the "Add" button
+            // 3. ScrollView (Fills rest)
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -16), // Space above the button
-
-            // --- Configure Content View (inside scroll view) ---
+            scrollView.bottomAnchor.constraint(equalTo: addChildButton.topAnchor, constant: -16),
+            
+            // 4. Content View
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            
-            // This constraint is key for a vertical-only scroll view
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-
-            // --- Constraints for items inside the Content View ---
+            
+            // Inner Content
             searchBar.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             searchBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             searchBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-
+            
             familyNameLabel.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 24),
             familyNameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
@@ -372,31 +365,25 @@ class FamilyViewController: UIViewController {
             familyNameContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             familyNameContainer.heightAnchor.constraint(equalToConstant: 50),
             
-            editIcon.centerYAnchor.constraint(equalTo: familyNameContainer.centerYAnchor),
-            editIcon.trailingAnchor.constraint(equalTo: familyNameContainer.trailingAnchor, constant: -16),
-            editIcon.widthAnchor.constraint(equalToConstant: 20),
-            editIcon.heightAnchor.constraint(equalToConstant: 20),
-            
             familyNameTextField.centerYAnchor.constraint(equalTo: familyNameContainer.centerYAnchor),
             familyNameTextField.leadingAnchor.constraint(equalTo: familyNameContainer.leadingAnchor, constant: 16),
-            familyNameTextField.trailingAnchor.constraint(equalTo: editIcon.leadingAnchor, constant: -8),
+            familyNameTextField.trailingAnchor.constraint(equalTo: familyNameContainer.trailingAnchor, constant: -16),
             
             parentsLabel.topAnchor.constraint(equalTo: familyNameContainer.bottomAnchor, constant: 30),
             parentsLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
-            parentCard.topAnchor.constraint(equalTo: parentsLabel.bottomAnchor, constant: 12),
-            parentCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            parentCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            parentsStack.topAnchor.constraint(equalTo: parentsLabel.bottomAnchor, constant: 12),
+            parentsStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            parentsStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            childrenLabel.topAnchor.constraint(equalTo: parentCard.bottomAnchor, constant: 30),
+            childrenLabel.topAnchor.constraint(equalTo: parentsStack.bottomAnchor, constant: 30),
             childrenLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
-            childCard.topAnchor.constraint(equalTo: childrenLabel.bottomAnchor, constant: 12),
-            childCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            childCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            childrenStack.topAnchor.constraint(equalTo: childrenLabel.bottomAnchor, constant: 12),
+            childrenStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            childrenStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // This last constraint is also key: it tells the scroll view how tall its content is.
-            childCard.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20) // Add padding at the very bottom
+            childrenStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
         ])
     }
 }
