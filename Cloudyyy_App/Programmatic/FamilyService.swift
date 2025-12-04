@@ -15,7 +15,10 @@ struct ParentModel: Decodable, Sendable {
     let role: String
 }
 
+// In FamilyService.swift
+
 struct ChildModel: Decodable, Sendable {
+    let id: UUID // <--- MAKE SURE THIS LINE EXISTS
     let name: String
     let nickname: String?
     let join_code: String

@@ -1,32 +1,32 @@
 import UIKit
 import SwiftUI
+import Charts // Requires iOS 16+
+
+// MARK: - Local Chart Model
+struct HomeChartDataPoint: Identifiable {
+    let id = UUID()
+    let day: String
+    let completed: Int
+    let pending: Int
+}
 
 final class ParentDashboardViewController: UIViewController {
+    
+    // MARK: - Properties
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
+    private var weeklyPoints: [HomeChartDataPoint] = []
+    private var monthlyPoints: [HomeChartDataPoint] = []
     
     // MARK: - UI Elements
     private let gradient = CAGradientLayer()
     private let header = HomeHeaderView(title: "Home")
-    
-    // Overview card
     private let overviewCard = OverviewCardView()
-    // Note: missionsLabel, redeemedLabel, circleArc should be inside OverviewCardView
-    
-    // Small stats (pending / allocated)
     private let pendingLabel = UILabel()
     private let allocatedLabel = UILabel()
-    
-    // Segmented control
     private let segment = UISegmentedControl(items: ["Weekly", "Monthly"])
-    
-    // Layout container
     private let contentScroll = UIScrollView()
     private let content = UIView()
-    
-    // Chart data
-    private var currentWeekly: [HomeChartItem] = []
-    private var currentMonthly: [HomeChartItem] = []
-    
-    // SwiftUI chart host (Typed as AnyView to prevent iOS version errors)
     private var chartHostingController: UIHostingController<AnyView>?
     
     // MARK: - Lifecycle
@@ -38,24 +38,26 @@ final class ParentDashboardViewController: UIViewController {
         setupHeader()
         setupContentLayout()
         
-        // Header dropdown
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onProfileTapped = { [weak self] in
+             let vc = ParentProfileViewController()
+             self?.navigationController?.pushViewController(vc, animated: true)
+        }
         
-        // Listen for kid changes
+        // 1. Initial Load
+        fetchKidsAndLoad()
+        
+        // 2. Instant Update Listener
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(onKidChanged(_:)),
-            name: ChildManager.kidChangedNotification,
+            selector: #selector(handleDataChange),
+            name: NSNotification.Name("DataChanged"),
             object: nil
         )
-        
-        // Default selection
-        if let kid = ChildManager.shared.selectedKid {
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-            loadHomeData(for: kid)
-        } else if let first = ChildManager.shared.kids.first {
-            ChildManager.shared.selectedKid = first
-        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewDidLayoutSubviews() {
@@ -64,21 +66,126 @@ final class ParentDashboardViewController: UIViewController {
     }
     
     override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
-            
-            // 1. Hide the system navigation bar so your custom header sits at the top
-            navigationController?.setNavigationBarHidden(true, animated: animated)
-            
-            // 2. Keep your existing scroll adjustment
-            contentScroll.contentInsetAdjustmentBehavior = .never
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        contentScroll.contentInsetAdjustmentBehavior = .never
+        
+        if let kid = selectedKid {
+            fetchStats(for: kid)
+            fetchCharts(for: kid)
         }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        view.layoutIfNeeded()
+    }
+    
+    @objc private func handleDataChange() {
+        if let kid = selectedKid {
+            fetchStats(for: kid)
+            fetchCharts(for: kid)
+        }
     }
 
-    // MARK: - Gradient
+    // MARK: - Data Logic
+    
+    private func fetchKidsAndLoad() {
+        _Concurrency.Task {
+            do {
+                let dashboardData = try await FamilyService.shared.fetchDashboard()
+                await MainActor.run {
+                    self.kids = dashboardData.children
+                    if let first = self.kids.first {
+                        self.selectKid(first)
+                    } else {
+                        self.header.childButton.setTitle("No Kids", for: .normal)
+                    }
+                }
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
+        }
+    }
+    
+    private func selectKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        fetchStats(for: kid)
+        fetchCharts(for: kid)
+    }
+    
+    private func fetchStats(for kid: ChildModel) {
+        _Concurrency.Task {
+            do {
+                let stats = try await HomeService.shared.fetchHomeStats(for: kid.id)
+                await MainActor.run { self.updateUI(with: stats) }
+            } catch {
+                print("Error stats: \(error)")
+            }
+        }
+    }
+    
+    private func fetchCharts(for kid: ChildModel) {
+        _Concurrency.Task {
+            do {
+                let wData = try await HomeService.shared.fetchChartData(for: kid.id, range: "weekly")
+                let mData = try await HomeService.shared.fetchChartData(for: kid.id, range: "monthly")
+                
+                await MainActor.run {
+                    self.weeklyPoints = wData.map {
+                        HomeChartDataPoint(day: $0.day, completed: $0.completed_count, pending: $0.pending_count)
+                    }
+                    self.monthlyPoints = mData.map {
+                        HomeChartDataPoint(day: $0.day, completed: $0.completed_count, pending: $0.pending_count)
+                    }
+                    self.refreshChartDisplay()
+                }
+            } catch {
+                print("Error chart: \(error)")
+            }
+        }
+    }
+    
+    private func updateUI(with stats: HomeStats) {
+        let progress = stats.missions_total > 0
+            ? CGFloat(stats.missions_done) / CGFloat(stats.missions_total)
+            : 0.0
+            
+        overviewCard.configure(
+            missionsDone: stats.missions_done,
+            missionsTotal: stats.missions_total,
+            redeemedText: stats.redeemed_count > 0 ? "\(stats.redeemed_count) Rewards" : "",
+            progress: progress,
+            animated: true
+        )
+        pendingLabel.text = "\(stats.pending_count)"
+        allocatedLabel.text = "\(stats.allocated_count)"
+    }
+    
+    @objc private func segmentChanged(_ s: UISegmentedControl) {
+        refreshChartDisplay()
+    }
+    
+    private func refreshChartDisplay() {
+        let isWeekly = segment.selectedSegmentIndex == 0
+        let dataToShow = isWeekly ? weeklyPoints : monthlyPoints
+        
+        if #available(iOS 16.0, *), let host = chartHostingController {
+            host.rootView = AnyView(HomeChartView(points: dataToShow))
+        }
+    }
+    
+    // MARK: - Kids Menu Logic
+    private func showKidsMenu() {
+        guard !kids.isEmpty else { return }
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+        menu.onKidSelected = { [weak self] selectedUiKid in
+            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
+                self?.selectKid(realKid)
+            }
+        }
+        menu.show(in: view, anchor: header.childButton)
+    }
+
+    // MARK: - Setup UI
     private func setupGradient() {
         gradient.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -89,7 +196,6 @@ final class ParentDashboardViewController: UIViewController {
         view.layer.insertSublayer(gradient, at: 0)
     }
     
-    // MARK: - Header
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
@@ -99,14 +205,8 @@ final class ParentDashboardViewController: UIViewController {
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: 98)
         ])
-        // --- ✅ ADD THIS NEW ACTION ---
-                header.onProfileTapped = { [weak self] in
-                    let vc = ParentProfileViewController()
-                    self?.navigationController?.pushViewController(vc, animated: true)
-                }
     }
     
-    // MARK: - Content layout
     private func setupContentLayout() {
         contentScroll.translatesAutoresizingMaskIntoConstraints = false
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -126,11 +226,9 @@ final class ParentDashboardViewController: UIViewController {
             content.widthAnchor.constraint(equalTo: contentScroll.frameLayoutGuide.widthAnchor)
         ])
         
-        // 1. Overview card
         overviewCard.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(overviewCard)
         
-        // 2. Small stats stack
         let smallStack = UIStackView()
         smallStack.axis = .horizontal
         smallStack.spacing = 14
@@ -143,73 +241,54 @@ final class ParentDashboardViewController: UIViewController {
         smallStack.addArrangedSubview(allocatedCard)
         content.addSubview(smallStack)
         
-        // 3. Segmented control
         segment.selectedSegmentIndex = 0
         segment.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
         segment.translatesAutoresizingMaskIntoConstraints = false
         segment.selectedSegmentTintColor = .white
         segment.backgroundColor = UIColor.white.withAlphaComponent(0.10)
-        segment.setTitleTextAttributes([
-            .foregroundColor: UIColor.white.withAlphaComponent(0.7)
-        ], for: .normal)
-        segment.setTitleTextAttributes([
-            .foregroundColor: UIColor.black
-        ], for: .selected)
+        segment.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.7)], for: .normal)
+        segment.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
         segment.layer.cornerRadius = 20
         segment.layer.masksToBounds = true
         content.addSubview(segment)
         
-        // 4. Chart holder (Glass Effect)
         let chartHolder = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
         chartHolder.layer.cornerRadius = 14
         chartHolder.layer.masksToBounds = true
         chartHolder.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(chartHolder)
         
-        // 5. Layout Constraints
         NSLayoutConstraint.activate([
-            // Overview
             overviewCard.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             overviewCard.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             overviewCard.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
             overviewCard.heightAnchor.constraint(equalToConstant: 140),
             
-            // Small Stats
             smallStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             smallStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             smallStack.topAnchor.constraint(equalTo: overviewCard.bottomAnchor, constant: 18),
             smallStack.heightAnchor.constraint(equalToConstant: 84),
             
-            // Segment
             segment.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             segment.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             segment.topAnchor.constraint(equalTo: smallStack.bottomAnchor, constant: 18),
             segment.heightAnchor.constraint(equalToConstant: 40),
             
-            // Chart Holder
             chartHolder.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             chartHolder.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             chartHolder.topAnchor.constraint(equalTo: segment.bottomAnchor, constant: 12),
             chartHolder.heightAnchor.constraint(equalToConstant: 220),
-            
-            // CRITICAL: Bottom constraint makes ScrollView work
             chartHolder.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28)
         ])
         
-        // Embed SwiftUI chart
         setupChartEmbed(in: chartHolder)
-        
-        // Setup Taps
         setupTaps(pendingCard: pendingCard, allocatedCard: allocatedCard)
     }
     
-    // MARK: - Embed Chart
     private func setupChartEmbed(in holder: UIVisualEffectView) {
         if #available(iOS 16.0, *) {
-            // Use AnyView to erase type
-            let hosting = UIHostingController(rootView: AnyView(DashboardChartViews(points: [])))
+            let hosting = UIHostingController(rootView: AnyView(HomeChartView(points: [])))
             hosting.view.backgroundColor = .clear
-
             addChild(hosting)
             holder.contentView.addSubview(hosting.view)
             hosting.view.translatesAutoresizingMaskIntoConstraints = false
@@ -220,7 +299,6 @@ final class ParentDashboardViewController: UIViewController {
                 hosting.view.bottomAnchor.constraint(equalTo: holder.contentView.bottomAnchor, constant: -8)
             ])
             hosting.didMove(toParent: self)
-            
             chartHostingController = hosting
         } else {
             let lbl = UILabel()
@@ -235,11 +313,8 @@ final class ParentDashboardViewController: UIViewController {
         }
     }
     
-    // MARK: - Taps Setup
     private func setupTaps(pendingCard: UIVisualEffectView, allocatedCard: UIVisualEffectView) {
-        // Reward Tap
         let rewardButton = UIButton(type: .system)
-        rewardButton.backgroundColor = .clear
         rewardButton.addTarget(self, action: #selector(openRewardsPage), for: .touchUpInside)
         rewardButton.translatesAutoresizingMaskIntoConstraints = false
         allocatedCard.contentView.addSubview(rewardButton)
@@ -250,9 +325,7 @@ final class ParentDashboardViewController: UIViewController {
             rewardButton.bottomAnchor.constraint(equalTo: allocatedCard.contentView.bottomAnchor)
         ])
 
-        // Overview Tap
         let overviewButton = UIButton(type: .system)
-        overviewButton.backgroundColor = .clear
         overviewButton.addTarget(self, action: #selector(openProgressPage), for: .touchUpInside)
         overviewButton.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(overviewButton)
@@ -263,9 +336,7 @@ final class ParentDashboardViewController: UIViewController {
             overviewButton.bottomAnchor.constraint(equalTo: overviewCard.bottomAnchor)
         ])
 
-        // Pending Tap
         let pendingButton = UIButton(type: .system)
-        pendingButton.backgroundColor = .clear
         pendingButton.addTarget(self, action: #selector(openApprovalPage), for: .touchUpInside)
         pendingButton.translatesAutoresizingMaskIntoConstraints = false
         pendingCard.contentView.addSubview(pendingButton)
@@ -277,20 +348,10 @@ final class ParentDashboardViewController: UIViewController {
         ])
     }
     
-    // MARK: - Navigation Actions
-    @objc private func openProgressPage() {
-        DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 }
-    }
-    @objc private func openApprovalPage() {
-        let vc = ApprovalViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.pushViewController(vc, animated: true)
-    }
-    @objc private func openRewardsPage() {
-        DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 }
-    }
+    @objc private func openProgressPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } }
+    @objc private func openApprovalPage() { /* Navigation code */ }
+    @objc private func openRewardsPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 } }
 
-    // MARK: - Small Stat Card Factory
     private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
         blur.layer.cornerRadius = 14
@@ -335,67 +396,86 @@ final class ParentDashboardViewController: UIViewController {
         ])
         return blur
     }
+}
 
-    // MARK: - Kids Logic
-    private func showKidsMenu() {
-        let kids = ChildManager.shared.kids
-        guard !kids.isEmpty else { return }
-        let menu = FloatingKidsMenu(kids: kids)
-        menu.onKidSelected = { [weak self] kid in
-            ChildManager.shared.selectedKid = kid
+// MARK: - FIXED CHART VIEW (With Manual Legend)
+@available(iOS 16.0, *)
+struct HomeChartView: View {
+    var points: [HomeChartDataPoint]
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            
+            // 1. CUSTOM LEGEND (Forced White Text)
+            HStack(spacing: 16) {
+                Spacer()
+                
+                // Assigned Item
+                HStack(spacing: 6) {
+                    Circle().fill(Color.orange).frame(width: 8, height: 8)
+                    Text("Assigned")
+                        .font(.caption.bold())
+                        .foregroundColor(.white) // Forces white text
+                }
+                
+                // Completed Item
+                HStack(spacing: 6) {
+                    Circle().fill(Color.green).frame(width: 8, height: 8)
+                    Text("Completed")
+                        .font(.caption.bold())
+                        .foregroundColor(.white) // Forces white text
+                }
+            }
+            .padding(.trailing, 10)
+            
+            // 2. THE CHART
+            Chart(points) { point in
+                // Completed Bar (Green)
+                BarMark(
+                    x: .value("Day", point.day),
+                    y: .value("Completed", point.completed)
+                )
+                .foregroundStyle(Color.green)
+                .cornerRadius(4)
+                
+                // Assigned Bar (Orange)
+                BarMark(
+                    x: .value("Day", point.day),
+                    y: .value("Assigned", point.pending)
+                )
+                .foregroundStyle(Color.orange)
+                .cornerRadius(4)
+            }
+            // Axis Styling (Forced White)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic) { _ in
+                    AxisGridLine().foregroundStyle(Color.white.opacity(0.15))
+                    AxisValueLabel().foregroundStyle(Color.white)
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic) { _ in
+                    AxisGridLine().foregroundStyle(Color.white.opacity(0.15))
+                    AxisValueLabel().foregroundStyle(Color.white)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
         }
-        menu.show(in: view, anchor: header.childButton)
-    }
-    
-    @objc private func onKidChanged(_ n: Notification) {
-        guard let kid = n.object as? Kid else { return }
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        loadHomeData(for: kid)
-    }
-    
-    // MARK: - Load Data
-    private func loadHomeData(for kid: Kid) {
-        let data = ChildManager.shared.homeData(for: kid.id)
-
-        let done = data.overview.missionsDone
-        let total = data.overview.missionsTotal
-        let redeemed = data.overview.redeemedText
-        let progress: CGFloat = total == 0 ? 0 : CGFloat(done) / CGFloat(total)
-
-        overviewCard.configure(
-            missionsDone: done,
-            missionsTotal: total,
-            redeemedText: redeemed,
-            progress: progress,
-            animated: true
-        )
-
-        pendingLabel.text = "\(data.pending.pendingCount)"
-        allocatedLabel.text = "\(data.allocated.allocatedCount)"
-
-        currentWeekly = data.weeklyChart
-        currentMonthly = ChildManager.shared.monthlyChartAggregated(for: kid.id)
-
-        updateChartForSegment()
-    }
-    
-    // MARK: - Chart Logic
-    @objc private func segmentChanged(_ s: UISegmentedControl) {
-        updateChartForSegment()
-    }
-    
-    private func updateChartForSegment() {
-        guard #available(iOS 16.0, *),
-              let hosting = chartHostingController else { return }
-
-        let isWeekly = (segment.selectedSegmentIndex == 0)
-        let source = isWeekly ? currentWeekly : currentMonthly
-
-        let points = source.map { item in
-            DashboardChartPoint(label: item.day, rewards: item.rewards, tasks: item.tasks)
-        }
-
-        // Update the SwiftUI view wrapped in AnyView
-        hosting.rootView = AnyView(DashboardChartView(points: points))
+        // Force Dark Mode context for this view
+        .environment(\.colorScheme, .dark)
     }
 }
+
+// MARK: - Placeholder Profile VC
+//class ParentProfileViewController: UIViewController {
+//    override func viewDidLoad() {
+//        super.viewDidLoad()
+//        view.backgroundColor = .systemBackground
+//        title = "Profile"
+//        let lbl = UILabel()
+//        lbl.text = "Profile Placeholder"
+//        lbl.center = view.center
+//        view.addSubview(lbl)
+//    }
+//}

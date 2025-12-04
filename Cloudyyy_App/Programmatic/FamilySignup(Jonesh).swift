@@ -244,13 +244,14 @@ class FamilyViewController: UIViewController {
     }
     
     @objc private func handleDone() {
-        // Finish setup -> Go to Parent Dashboard
-        // NOTE: Ensure 'ParentDashboardViewController' is defined in your project
-        let dashboardVC = ParentDashboardViewController()
-        
-        // Use setViewControllers to reset the stack so they can't go back to setup screens
-        navigationController?.setViewControllers([dashboardVC], animated: true)
-    }
+            // 1. Initialize your Main Tab Bar Controller
+            // This assumes you have a class named 'CustomTabBarController' in your project
+            let mainTabBar = CustomTabBarController()
+            
+            // 2. Swap the root view controller
+            // This replaces the entire navigation stack, so the user cannot click "Back" to return to the setup flow.
+            navigationController?.setViewControllers([mainTabBar], animated: true)
+        }
 
     // MARK: - UI Setup
     
