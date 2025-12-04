@@ -1,13 +1,26 @@
-//
-//  RewardHomeViewController.swift
-//  Cloudyyy_App
-//
-
 import UIKit
+
+// Local model for the category list rows
+struct RewardCategoryData {
+    let title: String
+    let subtitle: String
+    let icon: String
+}
 
 final class RewardHomeViewController: UIViewController {
 
-    // MARK: - UI
+    // MARK: - Properties
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
+    
+    // Static list of categories that map to our specific ViewControllers
+    private let categories: [RewardCategoryData] = [
+        RewardCategoryData(title: "Quick Rewards", subtitle: "Small instant treats (e.g., cartoon, snack)", icon: "gift"),
+        RewardCategoryData(title: "Dream it", subtitle: "Long-term goals (e.g., cycle, art kit)", icon: "sparkles"),
+        RewardCategoryData(title: "Spring On", subtitle: "Experience-based goal (e.g., zoo trip)", icon: "leaf")
+    ]
+
+    // MARK: - UI Elements
     private let header = HomeHeaderView(title: "Rewards")
     private let gradient = CAGradientLayer()
 
@@ -33,32 +46,105 @@ final class RewardHomeViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // selected kid init
-        if let kid = ChildManager.shared.selectedKid {
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        } else if let first = ChildManager.shared.kids.first {
-            ChildManager.shared.selectedKid = first
-        }
-
         setupGradient()
         setupHeader()
         setupStatsCards()
         setupCategorySection()
-        setupListeners()
+        
+        // Setup fixed categories immediately
+        setupCategoryRows()
 
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewRewardPage() }
-
-        // initial load
-        if let kid = ChildManager.shared.selectedKid {
-            reloadForKid(kid)
+        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onProfileTapped = { [weak self] in
+             let vc = ParentProfileViewController()
+             self?.navigationController?.pushViewController(vc, animated: true)
         }
+
+        // Listen for updates (e.g. points spent)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
+        
+        // Load Real Data
+        fetchKidsAndLoad()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        
+        // Refresh stats when returning
+        if let kid = selectedKid {
+            fetchStats(for: kid)
+        }
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
+    }
+    
+    @objc private func handleDataChange() {
+        if let kid = selectedKid {
+            fetchStats(for: kid)
+        }
+    }
+
+    // MARK: - Data Logic (Supabase)
+    
+    private func fetchKidsAndLoad() {
+        _Concurrency.Task {
+            do {
+                let dashboardData = try await FamilyService.shared.fetchDashboard()
+                
+                await MainActor.run {
+                    self.kids = dashboardData.children
+                    if let first = self.kids.first {
+                        self.selectKid(first)
+                    } else {
+                        self.header.childButton.setTitle("No Kids", for: .normal)
+                    }
+                }
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
+        }
+    }
+    
+    private func selectKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        fetchStats(for: kid)
+    }
+    
+    private func fetchStats(for kid: ChildModel) {
+        _Concurrency.Task {
+            do {
+                // Call RewardService to get real numbers
+                let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
+                
+                await MainActor.run {
+                    self.activeLabel.text = "\(stats.active_rewards)"
+                    self.weekLabel.text = "\(stats.stars_this_week)"
+                    self.totalLabel.text = "\(stats.total_stars)"
+                }
+            } catch {
+                print("Error fetching reward stats: \(error)")
+            }
+        }
+    }
+    
+    private func showKidsMenu() {
+        guard !kids.isEmpty else { return }
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+        menu.onKidSelected = { [weak self] selectedUiKid in
+            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
+                self?.selectKid(realKid)
+            }
+        }
+        menu.show(in: view, anchor: header.childButton)
     }
 
     // MARK: - Gradient
@@ -83,14 +169,6 @@ final class RewardHomeViewController: UIViewController {
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: 98)
         ])
-
-        header.onChildTapped = { [weak self] in
-            self?.showKidsMenu()
-        }
-        header.onProfileTapped = { [weak self] in
-                    let vc = ParentProfileViewController()
-                    self?.navigationController?.pushViewController(vc, animated: true)
-                }
     }
 
     // MARK: - Stats Cards
@@ -105,6 +183,7 @@ final class RewardHomeViewController: UIViewController {
         // ACTIVE rewards
         activeLabel.font = .systemFont(ofSize: 28, weight: .bold)
         activeLabel.textColor = .white
+        activeLabel.text = "-"
         activeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         activeTitle.font = .systemFont(ofSize: 13)
@@ -115,6 +194,7 @@ final class RewardHomeViewController: UIViewController {
         // STARS THIS WEEK
         weekLabel.font = .systemFont(ofSize: 28, weight: .bold)
         weekLabel.textColor = .white
+        weekLabel.text = "-"
         weekLabel.translatesAutoresizingMaskIntoConstraints = false
 
         weekTitle.font = .systemFont(ofSize: 13)
@@ -125,6 +205,7 @@ final class RewardHomeViewController: UIViewController {
         // TOTAL stars
         totalLabel.font = .systemFont(ofSize: 32, weight: .bold)
         totalLabel.textColor = .white
+        totalLabel.text = "-"
         totalLabel.translatesAutoresizingMaskIntoConstraints = false
 
         totalTitle.font = .systemFont(ofSize: 13)
@@ -172,13 +253,13 @@ final class RewardHomeViewController: UIViewController {
             largeCard.heightAnchor.constraint(equalToConstant: 78),
 
             leftStack.centerXAnchor.constraint(equalTo: smallLeft.contentView.centerXAnchor),
-                leftStack.centerYAnchor.constraint(equalTo: smallLeft.contentView.centerYAnchor),
+            leftStack.centerYAnchor.constraint(equalTo: smallLeft.contentView.centerYAnchor),
 
-                rightStack.centerXAnchor.constraint(equalTo: smallRight.contentView.centerXAnchor),
-                rightStack.centerYAnchor.constraint(equalTo: smallRight.contentView.centerYAnchor),
+            rightStack.centerXAnchor.constraint(equalTo: smallRight.contentView.centerXAnchor),
+            rightStack.centerYAnchor.constraint(equalTo: smallRight.contentView.centerYAnchor),
 
-                centerStack.centerXAnchor.constraint(equalTo: largeCard.contentView.centerXAnchor),
-                centerStack.centerYAnchor.constraint(equalTo: largeCard.contentView.centerYAnchor)
+            centerStack.centerXAnchor.constraint(equalTo: largeCard.contentView.centerXAnchor),
+            centerStack.centerYAnchor.constraint(equalTo: largeCard.contentView.centerYAnchor)
         ])
     }
 
@@ -196,18 +277,9 @@ final class RewardHomeViewController: UIViewController {
         ])
     }
 
-    // MARK: - Reload from ChildManager (REAL DATA)
-    private func reloadForKid(_ kid: Kid) {
-
-        let summary = ChildManager.shared.rewardsSummary(for: kid.id)
-        activeLabel.text = "\(summary.activeRewards)"
-        weekLabel.text   = "\(summary.starsThisWeek)"
-        totalLabel.text  = "\(summary.totalStars)"
-
-        // categories
+    private func setupCategoryRows() {
         categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        let categories = ChildManager.shared.rewardCategories(for: kid.id)
         for item in categories {
             let row = makeCategoryRow(item: item)
             categoryStack.addArrangedSubview(row)
@@ -215,8 +287,7 @@ final class RewardHomeViewController: UIViewController {
     }
 
     // MARK: - Build Category Row
-    private func makeCategoryRow(item: RewardCategoryItem) -> UIControl {
-
+    private func makeCategoryRow(item: RewardCategoryData) -> UIControl {
         let row = UIControl()
         row.layer.cornerRadius = 14
         row.clipsToBounds = true
@@ -226,7 +297,7 @@ final class RewardHomeViewController: UIViewController {
         glass.translatesAutoresizingMaskIntoConstraints = false
         glass.layer.cornerRadius = 14
         glass.clipsToBounds = true
-        glass.isUserInteractionEnabled = false 
+        glass.isUserInteractionEnabled = false
         row.addSubview(glass)
 
         let iconView = UIImageView(image: UIImage(systemName: item.icon))
@@ -303,32 +374,4 @@ final class RewardHomeViewController: UIViewController {
     @objc private func openNewRewardPage() {
         navigationController?.pushViewController(NewRewardViewController(), animated: true)
     }
-
-    // MARK: - Kid dropdown
-    private func showKidsMenu() {
-        let kids = ChildManager.shared.kids
-        guard !kids.isEmpty else { return }
-        let menu = FloatingKidsMenu(kids: kids)
-        menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { kid in
-            ChildManager.shared.selectedKid = kid
-        }
-        menu.show(in: view, anchor: header.childButton)
-    }
-
-    private func setupListeners() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(onKidChanged(_:)),
-            name: ChildManager.kidChangedNotification,
-            object: nil
-        )
-    }
-
-    @objc private func onKidChanged(_ n: Notification) {
-        guard let kid = n.object as? Kid else { return }
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        reloadForKid(kid)
-    }
 }
-

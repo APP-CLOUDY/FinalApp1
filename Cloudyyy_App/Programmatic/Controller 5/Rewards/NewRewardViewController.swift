@@ -2,13 +2,21 @@ import UIKit
 
 final class NewRewardViewController: UIViewController {
 
+    // MARK: - Properties
+    // 1. Store real children from Supabase
+    private var childrenList: [ChildModel] = []
+    // 2. Store selected IDs (UUIDs) for the database
+    private var assignedSelections = Set<UUID>()
+    // 3. Store selected image
+    private var selectedImage: UIImage? {
+        didSet { uploadBox.setImage(selectedImage) }
+    }
+
     // ===========================================================
     // MARK: - UI Base Containers
     // ===========================================================
 
-    // 1. Custom Header Container
     private let customHeaderView = UIView()
-    
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
@@ -55,12 +63,7 @@ final class NewRewardViewController: UIViewController {
     private let select3DBox = Select3DCard()
 
     private let claimOptions = ["Once", "Daily", "Weekly", "Monthly", "Unlimited"]
-    private let assignedOptions = ["Bob", "Jonesh", "Aisha", "Ramesh"]
     private let rewardTypeOptions = ["Experience", "Toy", "Food", "Custom"]
-
-    private var selectedImage: UIImage? {
-        didSet { uploadBox.setImage(selectedImage) }
-    }
 
     // ===========================================================
     // MARK: - Form Sections
@@ -74,7 +77,6 @@ final class NewRewardViewController: UIViewController {
     // MARK: - Lifecycle
     // ===========================================================
     
-    // Force Full Screen
     init() {
         super.init(nibName: nil, bundle: nil)
         self.modalPresentationStyle = .fullScreen
@@ -89,7 +91,7 @@ final class NewRewardViewController: UIViewController {
         view.backgroundColor = .black
 
         setupGradient()
-        setupCustomHeader() // <--- New Custom Header
+        setupCustomHeader()
         setupScroll()
         setupStack()
 
@@ -100,9 +102,11 @@ final class NewRewardViewController: UIViewController {
         applySegment(animated: false)
 
         segment.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+        
+        // FETCH DATA: Load children from DB immediately
+        fetchChildren()
     }
     
-    // Hide System Nav Bar
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
@@ -112,9 +116,28 @@ final class NewRewardViewController: UIViewController {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
+    
+    // ===========================================================
+    // MARK: - Data Logic (Supabase)
+    // ===========================================================
+    
+    private func fetchChildren() {
+        _Concurrency.Task {
+            do {
+                let data = try await FamilyService.shared.fetchDashboard()
+                
+                await MainActor.run {
+                    self.childrenList = data.children
+                    self.updateAssignedMenu()
+                }
+            } catch {
+                print("Error fetching children: \(error)")
+            }
+        }
+    }
 
     // ===========================================================
-    // MARK: - Gradient Background
+    // MARK: - Gradient & Header
     // ===========================================================
 
     private func setupGradient() {
@@ -127,22 +150,16 @@ final class NewRewardViewController: UIViewController {
         view.layer.insertSublayer(gradient, at: 0)
     }
     
-    // ===========================================================
-    // MARK: - Custom Header (Replaces Navigation Bar)
-    // ===========================================================
-    
     private func setupCustomHeader() {
         customHeaderView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(customHeaderView)
         
-        // 1. Title
         let titleLabel = UILabel()
         titleLabel.text = "New Reward"
         titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = .white
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // 2. Cancel Button
         let cancelBtn = UIButton(type: .system)
         cancelBtn.setTitle("Cancel", for: .normal)
         cancelBtn.setTitleColor(.white, for: .normal)
@@ -150,10 +167,9 @@ final class NewRewardViewController: UIViewController {
         cancelBtn.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
         cancelBtn.translatesAutoresizingMaskIntoConstraints = false
         
-        // 3. Done Button
         let doneBtn = UIButton(type: .system)
         doneBtn.setTitle("Done", for: .normal)
-        doneBtn.setTitleColor(.systemBlue, for: .normal) // Highlight color
+        doneBtn.setTitleColor(.systemBlue, for: .normal)
         doneBtn.titleLabel?.font = .systemFont(ofSize: 17, weight: .bold)
         doneBtn.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
         doneBtn.translatesAutoresizingMaskIntoConstraints = false
@@ -163,21 +179,17 @@ final class NewRewardViewController: UIViewController {
         customHeaderView.addSubview(doneBtn)
         
         NSLayoutConstraint.activate([
-            // Header Container (Top Safe Area + 44pt height)
             customHeaderView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             customHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             customHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             customHeaderView.heightAnchor.constraint(equalToConstant: 50),
             
-            // Center Title
             titleLabel.centerXAnchor.constraint(equalTo: customHeaderView.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: customHeaderView.centerYAnchor),
             
-            // Left Cancel
             cancelBtn.leadingAnchor.constraint(equalTo: customHeaderView.leadingAnchor, constant: 16),
             cancelBtn.centerYAnchor.constraint(equalTo: customHeaderView.centerYAnchor),
             
-            // Right Done
             doneBtn.trailingAnchor.constraint(equalTo: customHeaderView.trailingAnchor, constant: -16),
             doneBtn.centerYAnchor.constraint(equalTo: customHeaderView.centerYAnchor)
         ])
@@ -192,7 +204,6 @@ final class NewRewardViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            // Pin ScrollView to BOTTOM of Header
             scrollView.topAnchor.constraint(equalTo: customHeaderView.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
@@ -228,10 +239,6 @@ final class NewRewardViewController: UIViewController {
         stack.addArrangedSubview(segment)
     }
 
-    // ===========================================================
-    // MARK: - Heights
-    // ===========================================================
-
     private func setupHeights() {
         titleField.heightAnchor.constraint(equalToConstant: 52).isActive = true
         descriptionView.heightAnchor.constraint(equalToConstant: 140).isActive = true
@@ -245,40 +252,10 @@ final class NewRewardViewController: UIViewController {
         select3DBox.heightAnchor.constraint(equalToConstant: 160).isActive = true
     }
 
-    // ===========================================================
-    // MARK: - Build Sections
-    // ===========================================================
-
     private func buildSections() {
-
-        springViews = [
-            subtitleLabel,
-            titleField,
-            descriptionView,
-            pointsSpring,
-            claimLimitRow,
-            assignedToRow,
-            uploadBox
-        ]
-
-        dreamViews = [
-            subtitleLabel,
-            titleField,
-            descriptionView,
-            pointsDream,
-            assignedToRow,
-            select3DBox
-        ]
-
-        quickViews = [
-            subtitleLabel,
-            titleField,
-            descriptionView,
-            pointsQuick,
-            claimLimitRow,
-            rewardTypeRow,
-            assignedToRow
-        ]
+        springViews = [subtitleLabel, titleField, descriptionView, pointsSpring, claimLimitRow, assignedToRow, uploadBox]
+        dreamViews = [subtitleLabel, titleField, descriptionView, pointsDream, assignedToRow, select3DBox]
+        quickViews = [subtitleLabel, titleField, descriptionView, pointsQuick, claimLimitRow, rewardTypeRow, assignedToRow]
     }
 
     // ===========================================================
@@ -292,17 +269,45 @@ final class NewRewardViewController: UIViewController {
             })
         )
 
-        assignedToRow.setMenu(
-            UIMenu(children: assignedOptions.map { name in
-                UIAction(title: name) { [weak self] _ in self?.assignedToRow.setDetail(name) }
-            })
-        )
-
         rewardTypeRow.setMenu(
             UIMenu(children: rewardTypeOptions.map { name in
                 UIAction(title: name) { [weak self] _ in self?.rewardTypeRow.setDetail(name) }
             })
         )
+    }
+    
+    private func updateAssignedMenu() {
+        if childrenList.isEmpty {
+            assignedToRow.setDetail("No Children Found")
+            return
+        }
+        
+        let menuItems = childrenList.map { child in
+            UIAction(
+                title: child.name,
+                state: assignedSelections.contains(child.id) ? .on : .off
+            ) { [weak self] _ in
+                guard let self = self else { return }
+                if self.assignedSelections.contains(child.id) {
+                    self.assignedSelections.remove(child.id)
+                } else {
+                    self.assignedSelections.insert(child.id)
+                }
+                self.updateAssignedLabel()
+                self.updateAssignedMenu()
+            }
+        }
+        
+        assignedToRow.setMenu(UIMenu(title: "Select Children", options: .displayInline, children: menuItems))
+    }
+    
+    private func updateAssignedLabel() {
+        if assignedSelections.isEmpty {
+            assignedToRow.setDetail("Select Child")
+            return
+        }
+        let names = childrenList.filter { assignedSelections.contains($0.id) }.map { $0.name }
+        assignedToRow.setDetail(names.joined(separator: ", "))
     }
 
     // ===========================================================
@@ -315,14 +320,7 @@ final class NewRewardViewController: UIViewController {
         }
 
         select3DBox.onTap = { [weak self] in
-            let vc = ThreeDObjectViewController()
-            vc.onSelect = { selected in
-                self?.select3DBox.setDetail(selected)
-            }
-            // Since we hid the nav bar, we must manually present or push carefully
-            // If using push, we need the nav bar back for the next screen
-            self?.navigationController?.setNavigationBarHidden(false, animated: true)
-            self?.navigationController?.pushViewController(vc, animated: true)
+            // Placeholder for 3D picker
         }
     }
 
@@ -333,23 +331,19 @@ final class NewRewardViewController: UIViewController {
     @objc private func segmentChanged() { applySegment(animated: true) }
 
     private func applySegment(animated: Bool) {
-
         for v in stack.arrangedSubviews where v != segment {
             stack.removeArrangedSubview(v)
             v.removeFromSuperview()
         }
 
         let selectedViews: [UIView]
-
         switch segment.selectedSegmentIndex {
         case 0:
             subtitleLabel.text = "Fun experiences your child can unlock — piece by piece."
             selectedViews = springViews
-
         case 1:
             subtitleLabel.text = "Big dream rewards your child earns step by step."
             selectedViews = dreamViews
-
         default:
             subtitleLabel.text = "Quick rewards your child can earn fast."
             selectedViews = quickViews
@@ -383,37 +377,39 @@ final class NewRewardViewController: UIViewController {
     }
 
     // ===========================================================
-    // MARK: - Save / Cancel (Navigation)
+    // MARK: - Save / Cancel
     // ===========================================================
 
     @objc private func cancelTapped() {
-        // "Go back" logic
         navigationController?.popViewController(animated: true)
     }
 
     @objc private func doneTapped() {
+        view.endEditing(true)
 
+        // 1. Validation
         var missing: [String] = []
+        if titleField.textValue.isEmpty { missing.append("Title") }
+        if assignedSelections.isEmpty { missing.append("Assigned To") }
 
-        if titleField.textValue.isEmpty {
-            missing.append("Title")
-        }
-
+        var points = 0
+        var categoryName = "Quick Rewards"
+        
+        // Get points based on active segment
         switch segment.selectedSegmentIndex {
         case 0:
-            if pointsSpring.countValue <= 0 { missing.append("Points") }
+            categoryName = "Spring On"
+            points = pointsSpring.countValue
+            if points <= 0 { missing.append("Points") }
         case 1:
-            if pointsDream.countValue <= 0 { missing.append("Points") }
-            if select3DBox.selectedValue == nil { missing.append("3D Object") }
+            categoryName = "Dream it"
+            points = pointsDream.countValue
+            if points <= 0 { missing.append("Points") }
         case 2:
-            if pointsQuick.countValue <= 0 { missing.append("Points") }
-            if claimLimitRow.detailText == nil { missing.append("Claim Limit") }
-            if rewardTypeRow.detailText == nil { missing.append("Reward Type") }
+            categoryName = "Quick Rewards"
+            points = pointsQuick.countValue
+            if points <= 0 { missing.append("Points") }
         default: break
-        }
-
-        if assignedToRow.detailText == nil {
-            missing.append("Assigned To")
         }
 
         if !missing.isEmpty {
@@ -425,9 +421,45 @@ final class NewRewardViewController: UIViewController {
             present(alert, animated: true)
             return
         }
+        
+        // Get Claim Limit (if present in UI)
+        let claimLimit = claimLimitRow.detailText
+        
+        // Disable UI
+        let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last
+        doneBtn?.isEnabled = false
+        doneBtn?.setTitle("Saving...", for: .normal)
 
-        print("Saving reward...")
-        navigationController?.popViewController(animated: true)
+        // 2. Call Service
+        _Concurrency.Task {
+            do {
+                let rewardId = try await RewardService.shared.createReward(
+                    title: titleField.textValue,
+                    description: descriptionView.textValue,
+                    points: points,
+                    category: categoryName,
+                    assignTo: Array(assignedSelections),
+                    image: selectedImage, // ✅ Sending Image
+                    claimLimit: claimLimit // ✅ Sending Limit
+                )
+                
+                print("Reward Created! ID: \(rewardId)")
+                
+                await MainActor.run {
+                    self.navigationController?.popViewController(animated: true)
+                }
+            } catch {
+                print("Error: \(error)")
+                await MainActor.run {
+                    doneBtn?.isEnabled = true
+                    doneBtn?.setTitle("Done", for: .normal)
+                    
+                    let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
+        }
     }
 }
 

@@ -2,11 +2,31 @@ import UIKit
 
 final class QuickRewardsViewController: UIViewController {
 
-    // MARK: - UI Components
-    private let header = HomeHeaderView(title: "Quick Rewards") // Changed Title
-    private let gradient = CAGradientLayer()
+    // MARK: - Properties
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
     
+    // Data
+    private var activeItems: [RewardDetailItem] = []
+    private var historyItems: [RewardDetailItem] = []
+    private var currentBalance: Int = 0
+
+    // MARK: - UI Components
+    private let header = HomeHeaderView(title: "Quick Rewards")
+    private let gradient = CAGradientLayer()
     private let searchBar = SimpleSearchBar()
+
+    // BACK BUTTON
+    private lazy var backButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = .white
+        b.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        b.layer.cornerRadius = 16
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        return b
+    }()
 
     // Scroll Layout
     private let scrollView = UIScrollView()
@@ -19,7 +39,7 @@ final class QuickRewardsViewController: UIViewController {
     private var selectedCategoryIndex = 0
 
     // 2. Active Section (Horizontal Scroll)
-    private let activeLabel = SectionLabel(text: "Active") // Renamed to Active
+    private let activeLabel = SectionLabel(text: "Active")
     private let activeScroll = UIScrollView()
     private let activeStack = UIStackView()
 
@@ -28,13 +48,6 @@ final class QuickRewardsViewController: UIViewController {
     private let historyStack = UIStackView()
 
     private let bottomSpacer = UIView()
-
-    // Data
-    private var activeItems: [RewardDetailItem] = []
-    private var historyItems: [RewardDetailItem] = []
-    
-    // Mock Balance for progress bars
-    private var currentBalance: Int = 350
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -46,26 +59,169 @@ final class QuickRewardsViewController: UIViewController {
         setupScroll()
         setupContentLayout()
         
+        // Add Back Button
+        view.addSubview(backButton)
+        NSLayoutConstraint.activate([
+            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            backButton.widthAnchor.constraint(equalToConstant: 32),
+            backButton.heightAnchor.constraint(equalToConstant: 32)
+        ])
+        view.bringSubviewToFront(backButton)
+        
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         setupCategoryChips()
         
-        if let kid = ChildManager.shared.selectedKid {
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-            reloadForKid(kid)
-        }
+        header.showPlusButton(true)
+        header.onPlusTapped = { [weak self] in self?.openNewReward() }
+        
+        // Fetch Kids, then load data
+        fetchKidsAndLoad()
+        
+        // Listen for updates
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
-            navigationController?.setNavigationBarHidden(true, animated: animated)
-        }
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
+    
+    @objc private func handleBack() {
+        navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func handleDataChange() {
+        if let kid = selectedKid {
+            reloadForKid(kid)
+        }
+    }
 
-    // MARK: - Setup Visuals
+    // MARK: - Data Logic (Supabase)
+    
+    private func fetchKidsAndLoad() {
+        _Concurrency.Task {
+            do {
+                let data = try await FamilyService.shared.fetchDashboard()
+                await MainActor.run {
+                    self.kids = data.children
+                    if let first = self.kids.first {
+                        self.selectedKid = first
+                        self.header.childButton.setTitle("\(first.name) ▾", for: .normal)
+                        self.reloadForKid(first)
+                    }
+                }
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
+        }
+    }
+
+    private func reloadForKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        
+        _Concurrency.Task {
+            do {
+                // 1. Get Balance
+                let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
+                
+                // 2. Get Rewards List (Category: "Quick Rewards")
+                let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Quick Rewards")
+                
+                await MainActor.run {
+                    self.currentBalance = stats.total_stars
+                    
+                    self.activeItems = lists.active.map { item in
+                        RewardDetailItem(
+                            id: item.id.uuidString,
+                            title: item.title,
+                            subtitle: item.description ?? "Quick Treat",
+                            points: item.points,
+                            imageName: "",
+                            isActive: true
+                        )
+                    }
+                    
+                    self.historyItems = lists.history.map { item in
+                        RewardDetailItem(
+                            id: item.id.uuidString,
+                            title: item.title,
+                            subtitle: item.description ?? "Redeemed",
+                            points: item.points,
+                            imageName: "",
+                            isActive: false
+                        )
+                    }
+                    
+                    self.populateActive(self.activeItems)
+                    self.populateHistory(self.historyItems)
+                }
+            } catch {
+                print("Error loading rewards: \(error)")
+            }
+        }
+    }
+
+    // MARK: - UI Population
+    private func populateActive(_ list: [RewardDetailItem]) {
+        activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for item in list {
+            // Use RewardLargeCards
+            let card = RewardLargeCards(item: item, currentBalance: currentBalance)
+            card.widthAnchor.constraint(equalToConstant: 160).isActive = true
+            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+            activeStack.addArrangedSubview(card)
+        }
+        
+        if list.isEmpty {
+            let emptyLabel = UILabel()
+            emptyLabel.text = "No active rewards"
+            emptyLabel.textColor = .white
+            activeStack.addArrangedSubview(emptyLabel)
+        }
+    }
+
+    private func populateHistory(_ list: [RewardDetailItem]) {
+        historyStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for item in list {
+            // FIX: Use RewardSmallCards (plural) now defined at the bottom of this file
+            let row = RewardSmallCards(item: item)
+            row.heightAnchor.constraint(equalToConstant: 70).isActive = true
+            historyStack.addArrangedSubview(row)
+        }
+    }
+
+    // MARK: - Actions
+    @objc private func cardTapped(_ sender: UITapGestureRecognizer) {
+        print("Card tapped")
+    }
+    
+    @objc private func openNewReward() {
+        navigationController?.pushViewController(NewRewardViewController(), animated: true)
+    }
+    
+    private func showKidsMenu() {
+        guard !kids.isEmpty else { return }
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+        menu.onKidSelected = { [weak self] selectedUiKid in
+            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
+                self?.reloadForKid(realKid)
+            }
+        }
+        menu.show(in: view, anchor: header.childButton)
+    }
+
+    // MARK: - Visuals & Layout
     private func setupGradient() {
         gradient.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -81,8 +237,6 @@ final class QuickRewardsViewController: UIViewController {
         header.translatesAutoresizingMaskIntoConstraints = false
         header.showNotificationButton(false)
         header.showProfileButton(false)
-        header.showPlusButton(true)
-        header.onPlusTapped = { [weak self] in self?.openNewReward() }
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -116,7 +270,6 @@ final class QuickRewardsViewController: UIViewController {
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(searchBar)
 
-        // Categories
         categoryScroll.showsHorizontalScrollIndicator = false
         categoryScroll.translatesAutoresizingMaskIntoConstraints = false
         categoryStack.axis = .horizontal
@@ -125,15 +278,13 @@ final class QuickRewardsViewController: UIViewController {
         categoryScroll.addSubview(categoryStack)
         content.addSubview(categoryScroll)
 
-        // Active (Horizontal Scroll)
         activeScroll.showsHorizontalScrollIndicator = false
         activeScroll.translatesAutoresizingMaskIntoConstraints = false
         activeStack.axis = .horizontal
         activeStack.spacing = 16
         activeStack.translatesAutoresizingMaskIntoConstraints = false
         activeScroll.addSubview(activeStack)
-        
-        // History (Vertical)
+
         historyStack.axis = .vertical
         historyStack.spacing = 12
         historyStack.translatesAutoresizingMaskIntoConstraints = false
@@ -144,13 +295,11 @@ final class QuickRewardsViewController: UIViewController {
         }
 
         NSLayoutConstraint.activate([
-            // 1. Search Bar (Top)
             searchBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             searchBar.heightAnchor.constraint(equalToConstant: 44),
 
-            // 2. Category Chips
             categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
             categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -160,20 +309,18 @@ final class QuickRewardsViewController: UIViewController {
             categoryStack.trailingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.trailingAnchor, constant: -20),
             categoryStack.heightAnchor.constraint(equalTo: categoryScroll.frameLayoutGuide.heightAnchor),
 
-            // 3. Active Section (Horizontal)
             activeLabel.topAnchor.constraint(equalTo: categoryScroll.bottomAnchor, constant: 24),
             activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
             activeScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             activeScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            activeScroll.heightAnchor.constraint(equalToConstant: 220), // Height for Cards
+            activeScroll.heightAnchor.constraint(equalToConstant: 220),
 
             activeStack.leadingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.leadingAnchor),
             activeStack.trailingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.trailingAnchor, constant: -20),
             activeStack.heightAnchor.constraint(equalTo: activeScroll.frameLayoutGuide.heightAnchor),
 
-            // 4. History Section
             historyLabel.topAnchor.constraint(equalTo: activeScroll.bottomAnchor, constant: 30),
             historyLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
@@ -181,7 +328,6 @@ final class QuickRewardsViewController: UIViewController {
             historyStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             historyStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
 
-            // Spacer
             bottomSpacer.topAnchor.constraint(equalTo: historyStack.bottomAnchor, constant: 20),
             bottomSpacer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             bottomSpacer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -190,7 +336,6 @@ final class QuickRewardsViewController: UIViewController {
         ])
     }
 
-    // MARK: - Category Logic
     private func setupCategoryChips() {
         categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
@@ -210,7 +355,6 @@ final class QuickRewardsViewController: UIViewController {
                 btn.backgroundColor = UIColor.white.withAlphaComponent(0.1)
                 btn.setTitleColor(.white, for: .normal)
             }
-            
             categoryStack.addArrangedSubview(btn)
         }
     }
@@ -219,80 +363,11 @@ final class QuickRewardsViewController: UIViewController {
         selectedCategoryIndex = sender.tag
         setupCategoryChips()
     }
-
-    // MARK: - Data Reloading
-    private func reloadForKid(_ kid: Kid) {
-        // Mock Data fetching
-        let allItems = ChildManager.shared.quickRewards(for: kid.id) ?? []
-        
-        activeItems = allItems.filter { $0.isActive }
-        
-        // !!! DUMMY DATA FOR SCROLL DEMO !!!
-        // Duplicating items so you can see horizontal scrolling immediately
-        if !activeItems.isEmpty {
-            let item = activeItems[0]
-            activeItems.append(RewardDetailItem(id: "2", title: "Ice Cream", subtitle: "Treat", points: 80, imageName: "Cycle", isActive: true))
-            activeItems.append(RewardDetailItem(id: "3", title: "Video Game", subtitle: "1 Hour", points: 120, imageName: "Cycle", isActive: true))
-        }
-        
-        historyItems = allItems.filter { !$0.isActive }
-
-        populateActive(activeItems)
-        populateHistory(historyItems)
-    }
-
-    private func populateActive(_ list: [RewardDetailItem]) {
-        activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        for item in list {
-            // Use the Card
-            let card = RewardLargeCards(item: item, currentBalance: currentBalance)
-            
-            // Width constraint for horizontal scroll cards
-            card.widthAnchor.constraint(equalToConstant: 160).isActive = true
-            
-            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped(_:))))
-            card.tag = item.id.hashValue
-            
-            activeStack.addArrangedSubview(card)
-        }
-        
-        if list.isEmpty {
-            let emptyLabel = UILabel()
-            emptyLabel.text = "No active rewards"
-            emptyLabel.textColor = .white
-            activeStack.addArrangedSubview(emptyLabel)
-        }
-    }
-
-    private func populateHistory(_ list: [RewardDetailItem]) {
-        historyStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        for item in list {
-            let row = RewardSmallCard(item: item)
-            row.heightAnchor.constraint(equalToConstant: 70).isActive = true
-            historyStack.addArrangedSubview(row)
-        }
-    }
-
-    // MARK: - Actions
-    @objc private func cardTapped(_ sender: UITapGestureRecognizer) {
-        print("Card tapped")
-    }
-    
-    @objc private func openNewReward() {
-        navigationController?.pushViewController(NewRewardViewController(), animated: true)
-    }
-    
-    private func showKidsMenu() { }
-    
-    @objc private func onKidChanged(_ n: Notification) {
-        guard let kid = n.object as? Kid else { return }
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        reloadForKid(kid)
-    }
 }
 
+// ======================================================
+// MARK: - Reward Large Card (For Active)
+// ======================================================
 final class RewardLargeCards: UIView {
     
     private let titleLabel = UILabel()
@@ -304,19 +379,16 @@ final class RewardLargeCards: UIView {
     init(item: RewardDetailItem, currentBalance: Int) {
         super.init(frame: .zero)
         
-        // 1. SOLID DARK BACKGROUND
         backgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1)
         layer.cornerRadius = 20
         clipsToBounds = true
         
-        // 2. Icon
         iconView.text = "🎁"
         iconView.font = .systemFont(ofSize: 80)
-        iconView.alpha = 0.05 // Very Subtle
+        iconView.alpha = 0.05
         iconView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(iconView)
         
-        // 3. Title
         titleLabel.text = item.title
         titleLabel.font = .systemFont(ofSize: 18, weight: .bold)
         titleLabel.textColor = .white
@@ -324,26 +396,23 @@ final class RewardLargeCards: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         
-        // 4. Cost
         costLabel.text = "\(item.points) ⭐️"
         costLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         costLabel.textColor = UIColor.white.withAlphaComponent(0.7)
         costLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(costLabel)
         
-        // 5. Progress Bar
         let totalCost = Float(item.points > 0 ? item.points : 1)
         let progress = Float(currentBalance) / totalCost
         
         progressView.progress = min(progress, 1.0)
         progressView.trackTintColor = UIColor.white.withAlphaComponent(0.1)
-        progressView.progressTintColor = UIColor(red: 255/255, green: 140/255, blue: 100/255, alpha: 1) // Soft Orange for Quick Rewards
+        progressView.progressTintColor = UIColor(red: 255/255, green: 140/255, blue: 100/255, alpha: 1)
         progressView.layer.cornerRadius = 2
         progressView.clipsToBounds = true
         progressView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(progressView)
         
-        // 6. Progress Text
         if currentBalance >= item.points {
             progressLabel.text = "Ready!"
             progressLabel.textColor = .systemYellow
@@ -356,7 +425,6 @@ final class RewardLargeCards: UIView {
         progressLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(progressLabel)
         
-        // Layout
         NSLayoutConstraint.activate([
             iconView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 10),
             iconView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 10),
@@ -382,7 +450,7 @@ final class RewardLargeCards: UIView {
 }
 
 // ======================================================
-// MARK: - 3. Reward Small Card (History)
+// MARK: - Reward Small Card (History)
 // ======================================================
 final class RewardSmallCards: UIView {
     

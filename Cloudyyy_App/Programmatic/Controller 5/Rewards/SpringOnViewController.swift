@@ -1,13 +1,32 @@
 import UIKit
 
-final class DreamItViewController: UIViewController {
+final class SpringOnViewController: UIViewController {
+
+    // MARK: - Properties
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
+    
+    // Data
+    private var activeItems: [RewardDetailItem] = []
+    private var completedItems: [RewardDetailItem] = []
+    private var currentBalance: Int = 0
 
     // MARK: - UI Components
-    private let header = HomeHeaderView(title: "Dream It")
+    private let header = HomeHeaderView(title: "Spring On")
     private let gradient = CAGradientLayer()
-    
-    // Search Bar (Now at the top)
     private let searchBar = SimpleSearchBar()
+
+    // BACK BUTTON
+    private lazy var backButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        b.tintColor = .white
+        b.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        b.layer.cornerRadius = 16
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        return b
+    }()
 
     // Scroll Layout
     private let scrollView = UIScrollView()
@@ -16,26 +35,19 @@ final class DreamItViewController: UIViewController {
     // 1. Categories
     private let categoryScroll = UIScrollView()
     private let categoryStack = UIStackView()
-    private let categories = ["All", "Gadgets", "Toys", "Experiences", "Bicycles"]
+    private let categories = ["All", "Outdoor", "Events", "Trips", "Classes"]
     private var selectedCategoryIndex = 0
 
-    // 2. Active Dreams (Horizontal Scroll)
-    private let activeLabel = SectionLabel(text: "My Dream List")
+    // 2. Active Experiences (Horizontal Scroll)
+    private let activeLabel = SectionLabel(text: "Upcoming Adventures")
     private let activeScroll = UIScrollView()
     private let activeStack = UIStackView()
 
-    // 3. Achieved (History)
-    private let completedLabel = SectionLabel(text: "Redemption History")
+    // 3. Past Experiences (History)
+    private let completedLabel = SectionLabel(text: "Memories")
     private let completedStack = UIStackView()
 
     private let bottomSpacer = UIView()
-
-    // Data
-    private var activeItems: [RewardDetailItem] = []
-    private var completedItems: [RewardDetailItem] = []
-    
-    // Mock Balance (Only used for calculating progress bars now)
-    private var currentBalance: Int = 350
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -48,34 +60,170 @@ final class DreamItViewController: UIViewController {
         setupContentLayout()
         setupCategoryChips()
         
+        // Add Back Button
+        view.addSubview(backButton)
+        NSLayoutConstraint.activate([
+            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            backButton.widthAnchor.constraint(equalToConstant: 32),
+            backButton.heightAnchor.constraint(equalToConstant: 32)
+        ])
+        view.bringSubviewToFront(backButton)
+        
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewReward() }
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(onKidChanged(_:)),
-            name: ChildManager.kidChangedNotification,
-            object: nil
-        )
-
-        if let kid = ChildManager.shared.selectedKid {
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-            reloadForKid(kid)
-        }
+        // Fetch Kids, then load data
+        fetchKidsAndLoad()
+        
+        // Listen for updates (e.g. newly created reward)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
-            navigationController?.setNavigationBarHidden(true, animated: animated)
-        }
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
+    
+    @objc private func handleBack() {
+        navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func handleDataChange() {
+        if let kid = selectedKid {
+            reloadForKid(kid)
+        }
+    }
 
-    // MARK: - Visuals
+    // MARK: - Data Logic (Supabase)
+    
+    private func fetchKidsAndLoad() {
+        _Concurrency.Task {
+            do {
+                let data = try await FamilyService.shared.fetchDashboard()
+                await MainActor.run {
+                    self.kids = data.children
+                    if let first = self.kids.first {
+                        self.selectedKid = first
+                        self.header.childButton.setTitle("\(first.name) ▾", for: .normal)
+                        self.reloadForKid(first)
+                    }
+                }
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
+        }
+    }
+
+    private func reloadForKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        
+        _Concurrency.Task {
+            do {
+                // 1. Get Balance
+                let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
+                
+                // 2. Get Rewards List (Category: "Spring On")
+                let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Spring On")
+                
+                await MainActor.run {
+                    self.currentBalance = stats.total_stars
+                    
+                    // Map Backend Model -> UI Model
+                    self.activeItems = lists.active.map { item in
+                        RewardDetailItem(
+                            id: item.id.uuidString,
+                            title: item.title,
+                            subtitle: item.description ?? "Experience",
+                            points: item.points,
+                            // ✅ MAPPING THE IMAGE URL HERE
+                            imageName: item.image_url,
+                            isActive: true
+                        )
+                    }
+                    
+                    self.completedItems = lists.history.map { item in
+                        RewardDetailItem(
+                            id: item.id.uuidString,
+                            title: item.title,
+                            subtitle: item.description ?? "Redeemed",
+                            points: item.points,
+                            // ✅ MAPPING THE IMAGE URL HERE
+                            imageName: item.image_url,
+                            isActive: false
+                        )
+                    }
+                    
+                    self.populateActive(self.activeItems)
+                    self.populateCompleted(self.completedItems)
+                }
+            } catch {
+                print("Error loading rewards: \(error)")
+            }
+        }
+    }
+
+    // MARK: - UI Population
+    private func populateActive(_ arr: [RewardDetailItem]) {
+        activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for item in arr {
+            // Uses ExperienceCard defined below
+            let card = ExperienceCard(item: item, currentBalance: currentBalance)
+            card.widthAnchor.constraint(equalToConstant: 200).isActive = true
+            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+            activeStack.addArrangedSubview(card)
+        }
+        
+        if arr.isEmpty {
+            let lbl = UILabel()
+            lbl.text = "No upcoming adventures! 🏕️"
+            lbl.textColor = .white
+            activeStack.addArrangedSubview(lbl)
+        }
+    }
+
+    private func populateCompleted(_ arr: [RewardDetailItem]) {
+        completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for item in arr {
+            // Uses RewardSmallCards (make sure RewardSmallCards class is available in project)
+            let row = RewardSmallCards(item: item)
+            row.heightAnchor.constraint(equalToConstant: 70).isActive = true
+            completedStack.addArrangedSubview(row)
+        }
+    }
+
+    // MARK: - Actions
+    @objc private func openNewReward() {
+        navigationController?.pushViewController(NewRewardViewController(), animated: true)
+    }
+    
+    @objc private func cardTapped() {
+        // Open Detail logic
+    }
+
+    private func showKidsMenu() {
+        guard !kids.isEmpty else { return }
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+        menu.onKidSelected = { [weak self] selectedUiKid in
+            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
+                self?.reloadForKid(realKid)
+            }
+        }
+        menu.show(in: view, anchor: header.childButton)
+    }
+    
+    // MARK: - Visuals & Layout
     private func setupGradient() {
         gradient.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -89,7 +237,6 @@ final class DreamItViewController: UIViewController {
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        // Clean header
         header.showNotificationButton(false)
         header.showProfileButton(false)
 
@@ -122,11 +269,9 @@ final class DreamItViewController: UIViewController {
     }
 
     private func setupContentLayout() {
-        // 1. Search Bar (Now at the top)
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(searchBar)
         
-        // 2. Categories
         categoryScroll.showsHorizontalScrollIndicator = false
         categoryScroll.translatesAutoresizingMaskIntoConstraints = false
         categoryStack.axis = .horizontal
@@ -135,7 +280,6 @@ final class DreamItViewController: UIViewController {
         categoryScroll.addSubview(categoryStack)
         content.addSubview(categoryScroll)
 
-        // 3. Active Dreams (Horizontal)
         activeScroll.showsHorizontalScrollIndicator = false
         activeScroll.translatesAutoresizingMaskIntoConstraints = false
         activeStack.axis = .horizontal
@@ -143,7 +287,6 @@ final class DreamItViewController: UIViewController {
         activeStack.translatesAutoresizingMaskIntoConstraints = false
         activeScroll.addSubview(activeStack)
 
-        // 4. Completed
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
@@ -154,13 +297,11 @@ final class DreamItViewController: UIViewController {
         }
 
         NSLayoutConstraint.activate([
-            // Search (Pinned to top)
             searchBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             searchBar.heightAnchor.constraint(equalToConstant: 44),
             
-            // Categories
             categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
             categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -170,21 +311,18 @@ final class DreamItViewController: UIViewController {
             categoryStack.trailingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.trailingAnchor, constant: -20),
             categoryStack.heightAnchor.constraint(equalTo: categoryScroll.frameLayoutGuide.heightAnchor),
 
-            // Active Label
             activeLabel.topAnchor.constraint(equalTo: categoryScroll.bottomAnchor, constant: 24),
             activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
-            // Active Scroll
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
             activeScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             activeScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            activeScroll.heightAnchor.constraint(equalToConstant: 240), // Taller for big dream cards
+            activeScroll.heightAnchor.constraint(equalToConstant: 240),
 
             activeStack.leadingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.leadingAnchor),
             activeStack.trailingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.trailingAnchor, constant: -20),
             activeStack.heightAnchor.constraint(equalTo: activeScroll.frameLayoutGuide.heightAnchor),
 
-            // Completed
             completedLabel.topAnchor.constraint(equalTo: activeScroll.bottomAnchor, constant: 30),
             completedLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
 
@@ -192,7 +330,6 @@ final class DreamItViewController: UIViewController {
             completedStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
             completedStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
 
-            // Bottom
             bottomSpacer.topAnchor.constraint(equalTo: completedStack.bottomAnchor, constant: 20),
             bottomSpacer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             bottomSpacer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -201,7 +338,6 @@ final class DreamItViewController: UIViewController {
         ])
     }
     
-    // MARK: - Category Logic
     private func setupCategoryChips() {
         categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
@@ -221,7 +357,6 @@ final class DreamItViewController: UIViewController {
                 btn.backgroundColor = UIColor.white.withAlphaComponent(0.1)
                 btn.setTitleColor(.white, for: .normal)
             }
-            
             categoryStack.addArrangedSubview(btn)
         }
     }
@@ -230,84 +365,12 @@ final class DreamItViewController: UIViewController {
         selectedCategoryIndex = sender.tag
         setupCategoryChips()
     }
-
-    // MARK: - Data Logic
-    @objc private func onKidChanged(_ n: Notification) {
-        guard let kid = n.object as? Kid else { return }
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        reloadForKid(kid)
-    }
-
-    private func reloadForKid(_ kid: Kid) {
-        let all = ChildManager.shared.dreamItRewards(for: kid.id) ?? []
-        activeItems = all.filter { $0.isActive }
-        
-        // Dummy Data for Visualization
-        if !activeItems.isEmpty {
-            activeItems.append(RewardDetailItem(id: "99", title: "New Bicycle", subtitle: "Sports", points: 5000, imageName: "Cycle", isActive: true))
-            activeItems.append(RewardDetailItem(id: "98", title: "Game Console", subtitle: "Tech", points: 8000, imageName: "Cycle", isActive: true))
-        }
-        
-        completedItems = all.filter { !$0.isActive }
-
-        populateActive(activeItems)
-        populateCompleted(completedItems)
-    }
-
-    private func populateActive(_ arr: [RewardDetailItem]) {
-        activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        for item in arr {
-            // Use DreamCard (Gamified)
-            let card = DreamCard(item: item, currentBalance: currentBalance)
-            
-            // Size for Horizontal Scroll
-            card.widthAnchor.constraint(equalToConstant: 200).isActive = true
-            
-            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
-            activeStack.addArrangedSubview(card)
-        }
-        
-        if arr.isEmpty {
-            let lbl = UILabel()
-            lbl.text = "No dreams yet! ✨"
-            lbl.textColor = .white
-            activeStack.addArrangedSubview(lbl)
-        }
-    }
-
-    private func populateCompleted(_ arr: [RewardDetailItem]) {
-        completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        for item in arr {
-            let row = RewardSmallCard(item: item)
-            row.heightAnchor.constraint(equalToConstant: 70).isActive = true
-            row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
-            completedStack.addArrangedSubview(row)
-        }
-    }
-
-    @objc private func openNewReward() {
-        navigationController?.pushViewController(NewRewardViewController(), animated: true)
-    }
-    
-    @objc private func cardTapped() {
-        // Open Detail
-    }
-
-    private func showKidsMenu() {
-        let kids = ChildManager.shared.kids
-        guard !kids.isEmpty else { return }
-        let menu = FloatingKidsMenu(kids: kids)
-        menu.onKidSelected = { ChildManager.shared.selectedKid = $0 }
-        menu.show(in: view, anchor: header.childButton)
-    }
 }
 
 // ======================================================
-// MARK: - Dream Card (Gamified for Big Goals)
+// MARK: - Experience Card (With Image Loader)
 // ======================================================
-final class DreamCard: UIView {
+final class ExperienceCard: UIView {
     
     private let titleLabel = UILabel()
     private let costLabel = UILabel()
@@ -315,25 +378,57 @@ final class DreamCard: UIView {
     private let progressLabel = UILabel()
     private let iconView = UILabel()
     
+    // ✅ New Image Views
+    private let bgImageView = UIImageView()
+    private let dimOverlay = UIView()
+    
     init(item: RewardDetailItem, currentBalance: Int) {
         super.init(frame: .zero)
         
-        // 1. SUBTLE BACKGROUND (Matches Schedule/Approval Cards)
+        // 1. Background Setup
         backgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1)
         layer.cornerRadius = 24
         clipsToBounds = true
         
-        // 2. Big Icon (Very Faded - Subtle Background Detail)
-        iconView.text = "🚲"
-        if item.title.contains("Console") { iconView.text = "🎮" }
-        if item.title.contains("Phone") { iconView.text = "📱" }
+        // 2. Background Image
+        bgImageView.contentMode = .scaleAspectFill
+        bgImageView.clipsToBounds = true
+        bgImageView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(bgImageView)
         
+        // 3. Dark Overlay (so text is visible on top of images)
+        dimOverlay.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+        dimOverlay.translatesAutoresizingMaskIntoConstraints = false
+        dimOverlay.isHidden = true
+        addSubview(dimOverlay)
+        
+        // 4. Load Image Logic
+        if let urlString = item.imageName, let url = URL(string: urlString) {
+            dimOverlay.isHidden = false
+            // Async Image Loading
+            DispatchQueue.global().async {
+                if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                    DispatchQueue.main.async {
+                        self.bgImageView.image = img
+                    }
+                }
+            }
+        }
+        
+        // 5. Fallback Icon (Hide if we have an image)
+        iconView.text = "🎟️"
+        if item.title.contains("Zoo") { iconView.text = "🦁" }
+        if item.title.contains("Camping") { iconView.text = "⛺️" }
         iconView.font = .systemFont(ofSize: 100)
-        iconView.alpha = 0.05 // <--- Extremely subtle
+        iconView.alpha = 0.05
         iconView.translatesAutoresizingMaskIntoConstraints = false
+        // Logic to hide icon if image exists
+        if let urlString = item.imageName, !urlString.isEmpty {
+            iconView.isHidden = true
+        }
         addSubview(iconView)
         
-        // 3. Title
+        // 6. Title
         titleLabel.text = item.title
         titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
         titleLabel.textColor = .white
@@ -341,41 +436,50 @@ final class DreamCard: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         
-        // 4. Cost
+        // 7. Cost
         costLabel.text = "\(item.points) ⭐️"
         costLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        costLabel.textColor = UIColor.white.withAlphaComponent(0.7)
+        costLabel.textColor = UIColor.white.withAlphaComponent(0.9) // Brighter text
         costLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(costLabel)
         
-        // 5. Progress Bar
+        // 8. Progress Bar
         let totalCost = Float(item.points > 0 ? item.points : 1)
         let progress = Float(currentBalance) / totalCost
         
         progressView.progress = min(progress, 1.0)
-        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.1)
-        progressView.progressTintColor = UIColor(red: 64/255, green: 156/255, blue: 255/255, alpha: 1) // Task Blue
+        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.2)
+        progressView.progressTintColor = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)
         progressView.layer.cornerRadius = 3
         progressView.clipsToBounds = true
         progressView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(progressView)
         
-        // 6. Progress Text
+        // 9. Progress Text
         if currentBalance >= item.points {
-            progressLabel.text = "Goal Reached! 🎉"
-            progressLabel.textColor = .systemYellow
+            progressLabel.text = "Let's Go! 🚀"
+            progressLabel.textColor = .systemGreen
         } else {
             let percent = Int(progress * 100)
             progressLabel.text = "\(percent)% saved"
-            progressLabel.textColor = UIColor.white.withAlphaComponent(0.5)
+            progressLabel.textColor = UIColor.white.withAlphaComponent(0.9)
         }
         progressLabel.font = .systemFont(ofSize: 12, weight: .medium)
         progressLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(progressLabel)
         
-        // Layout
+        // Layout Constraints
         NSLayoutConstraint.activate([
-            // Icon Bottom Right
+            bgImageView.topAnchor.constraint(equalTo: topAnchor),
+            bgImageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            bgImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bgImageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            
+            dimOverlay.topAnchor.constraint(equalTo: topAnchor),
+            dimOverlay.bottomAnchor.constraint(equalTo: bottomAnchor),
+            dimOverlay.leadingAnchor.constraint(equalTo: leadingAnchor),
+            dimOverlay.trailingAnchor.constraint(equalTo: trailingAnchor),
+            
             iconView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 10),
             iconView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 10),
             

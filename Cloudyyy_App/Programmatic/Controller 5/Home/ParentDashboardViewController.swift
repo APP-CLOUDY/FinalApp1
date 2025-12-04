@@ -278,6 +278,7 @@ final class ParentDashboardViewController: UIViewController {
             chartHolder.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
             chartHolder.topAnchor.constraint(equalTo: segment.bottomAnchor, constant: 12),
             chartHolder.heightAnchor.constraint(equalToConstant: 220),
+            
             chartHolder.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28)
         ])
         
@@ -300,16 +301,6 @@ final class ParentDashboardViewController: UIViewController {
             ])
             hosting.didMove(toParent: self)
             chartHostingController = hosting
-        } else {
-            let lbl = UILabel()
-            lbl.text = "Chart (iOS 16+ required)"
-            lbl.textColor = .white
-            lbl.translatesAutoresizingMaskIntoConstraints = false
-            holder.contentView.addSubview(lbl)
-            NSLayoutConstraint.activate([
-                lbl.centerXAnchor.constraint(equalTo: holder.contentView.centerXAnchor),
-                lbl.centerYAnchor.constraint(equalTo: holder.contentView.centerYAnchor)
-            ])
         }
     }
     
@@ -349,7 +340,14 @@ final class ParentDashboardViewController: UIViewController {
     }
     
     @objc private func openProgressPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } }
-    @objc private func openApprovalPage() { /* Navigation code */ }
+    
+    // ✅ IMPLEMENTED NAVIGATION
+    @objc private func openApprovalPage() {
+        let vc = ApprovalViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
     @objc private func openRewardsPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 } }
 
     private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
@@ -415,7 +413,7 @@ struct HomeChartView: View {
                     Circle().fill(Color.orange).frame(width: 8, height: 8)
                     Text("Assigned")
                         .font(.caption.bold())
-                        .foregroundColor(.white) // Forces white text
+                        .foregroundColor(.white)
                 }
                 
                 // Completed Item
@@ -423,14 +421,13 @@ struct HomeChartView: View {
                     Circle().fill(Color.green).frame(width: 8, height: 8)
                     Text("Completed")
                         .font(.caption.bold())
-                        .foregroundColor(.white) // Forces white text
+                        .foregroundColor(.white)
                 }
             }
             .padding(.trailing, 10)
             
             // 2. THE CHART
             Chart(points) { point in
-                // Completed Bar (Green)
                 BarMark(
                     x: .value("Day", point.day),
                     y: .value("Completed", point.completed)
@@ -438,7 +435,6 @@ struct HomeChartView: View {
                 .foregroundStyle(Color.green)
                 .cornerRadius(4)
                 
-                // Assigned Bar (Orange)
                 BarMark(
                     x: .value("Day", point.day),
                     y: .value("Assigned", point.pending)
@@ -446,7 +442,6 @@ struct HomeChartView: View {
                 .foregroundStyle(Color.orange)
                 .cornerRadius(4)
             }
-            // Axis Styling (Forced White)
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic) { _ in
                     AxisGridLine().foregroundStyle(Color.white.opacity(0.15))
@@ -462,12 +457,11 @@ struct HomeChartView: View {
             .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
-        // Force Dark Mode context for this view
         .environment(\.colorScheme, .dark)
     }
 }
 
-// MARK: - Placeholder Profile VC
+// MARK: - Placeholders
 //class ParentProfileViewController: UIViewController {
 //    override func viewDidLoad() {
 //        super.viewDidLoad()
@@ -475,6 +469,18 @@ struct HomeChartView: View {
 //        title = "Profile"
 //        let lbl = UILabel()
 //        lbl.text = "Profile Placeholder"
+//        lbl.center = view.center
+//        view.addSubview(lbl)
+//    }
+//}
+//
+//class ApprovalViewController: UIViewController {
+//    override func viewDidLoad() {
+//        super.viewDidLoad()
+//        view.backgroundColor = .systemBackground
+//        title = "Approvals"
+//        let lbl = UILabel()
+//        lbl.text = "Approvals Placeholder"
 //        lbl.center = view.center
 //        view.addSubview(lbl)
 //    }

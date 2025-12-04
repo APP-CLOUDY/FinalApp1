@@ -2,6 +2,10 @@ import UIKit
 
 final class ProgressViewController: UIViewController {
     
+    // MARK: - Properties
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
+    
     // MARK: - UI Components
     private let gradient = CAGradientLayer()
     private let header = HomeHeaderView(title: "Progress")
@@ -9,7 +13,7 @@ final class ProgressViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     
-    // 1. Stats Card (Now strictly uses Semi-Circle)
+    // 1. Stats Card
     private let statsCard = StatsCardView()
     
     private let recentLabel: UILabel = {
@@ -52,27 +56,121 @@ final class ProgressViewController: UIViewController {
         
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(onKidChanged(_:)),
-            name: ChildManager.kidChangedNotification,
-            object: nil
-        )
+        // INITIAL LOAD
+        fetchKidsAndLoad()
         
-        if let kid = ChildManager.shared.selectedKid {
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-            reloadForKid(kid)
-        }
+        // Auto-refresh on changes
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
+    
+    deinit { NotificationCenter.default.removeObserver(self) }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        if let kid = selectedKid {
+            reloadForKid(kid)
+        }
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
+    }
+    
+    @objc private func handleDataChange() {
+        if let kid = selectedKid {
+            reloadForKid(kid)
+        }
+    }
+    
+    // MARK: - Data Logic
+    
+    private func fetchKidsAndLoad() {
+        _Concurrency.Task {
+            do {
+                let data = try await FamilyService.shared.fetchDashboard()
+                await MainActor.run {
+                    self.kids = data.children
+                    if let first = self.kids.first {
+                        self.selectKid(first)
+                    } else {
+                        self.header.childButton.setTitle("No Kids", for: .normal)
+                    }
+                }
+            } catch { print("Error fetching kids: \(error)") }
+        }
+    }
+    
+    private func selectKid(_ kid: ChildModel) {
+        selectedKid = kid
+        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        reloadForKid(kid)
+    }
+    
+    private func reloadForKid(_ kid: ChildModel) {
+        _Concurrency.Task {
+            do {
+                let data = try await ProgressService.shared.fetchProgress(for: kid.id)
+                
+                await MainActor.run {
+                    // 1. Stats Card
+                    let progress = data.missions_total > 0 ? CGFloat(data.missions_done) / CGFloat(data.missions_total) : 0
+                    self.statsCard.configure(
+                        percentage: progress,
+                        tasksDone: "\(data.missions_done)/\(data.missions_total)",
+                        todayPoints: "\(data.today_points)",
+                        totalPoints: "\(data.total_points)"
+                    )
+                    
+                    // 2. Achievements
+                    self.achievementsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+                    if data.achievements.isEmpty {
+                        let lbl = UILabel()
+                        lbl.text = "No recent achievements yet"
+                        lbl.textColor = UIColor.white.withAlphaComponent(0.6)
+                        self.achievementsStack.addArrangedSubview(lbl)
+                    } else {
+                        for item in data.achievements {
+                            let card = AchievementCardView(title: item.title, subtitle: item.subtitle, child: kid.name)
+                            card.heightAnchor.constraint(equalToConstant: 72).isActive = true
+                            self.achievementsStack.addArrangedSubview(card)
+                        }
+                    }
+                    
+                    // 3. Efforts
+                    self.effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+                    if data.efforts.isEmpty {
+                        let lbl = UILabel()
+                        lbl.text = "No category data available"
+                        lbl.textColor = UIColor.white.withAlphaComponent(0.6)
+                        lbl.textAlignment = .center
+                        self.effortsStack.addArrangedSubview(lbl)
+                    } else {
+                        for e in data.efforts {
+                            let prog = e.total_count > 0 ? Float(e.done_count) / Float(e.total_count) : 0
+                            let row = EffortRow(title: e.title, progress: prog, rightText: "\(e.done_count)/\(e.total_count)")
+                            row.heightAnchor.constraint(equalToConstant: 44).isActive = true
+                            self.effortsStack.addArrangedSubview(row)
+                        }
+                    }
+                }
+            } catch { print("Error fetching progress: \(error)") }
+        }
+    }
+    
+    // MARK: - Kids Menu
+    private func showKidsMenu() {
+        guard !kids.isEmpty else { return }
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+        menu.onKidSelected = { [weak self] selectedUiKid in
+            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
+                self?.selectKid(realKid)
+            }
+        }
+        menu.show(in: view, anchor: header.childButton)
     }
     
     // MARK: - Layouts
@@ -160,58 +258,10 @@ final class ProgressViewController: UIViewController {
             bottomSpacer.heightAnchor.constraint(equalToConstant: 80)
         ])
     }
-    
-    private func showKidsMenu() {
-        let kids = ChildManager.shared.kids
-        guard !kids.isEmpty else { return }
-        let menu = FloatingKidsMenu(kids: kids)
-        menu.onKidSelected = { [weak self] kid in ChildManager.shared.selectedKid = kid }
-        menu.show(in: view, anchor: header.childButton)
-    }
-    
-    @objc private func onKidChanged(_ n: Notification) {
-        guard let kid = n.object as? Kid else { return }
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        reloadForKid(kid)
-    }
-    
-    private func reloadForKid(_ kid: Kid) {
-        let data = ChildManager.shared.dataForKid(kid.id)
-        
-        statsCard.configure(
-            percentage: data.progress,
-            tasksDone: data.tasksDoneText,
-            todayPoints: data.todayPoints,
-            totalPoints: data.totalPoints
-        )
-        
-        achievementsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        if data.achievements.isEmpty {
-            let lbl = UILabel()
-            lbl.text = "No recent achievements"
-            lbl.textColor = UIColor.white.withAlphaComponent(0.6)
-            achievementsStack.addArrangedSubview(lbl)
-        } else {
-            let times = ["Today 8:51 AM", "Yesterday"]
-            for (i, item) in data.achievements.enumerated() {
-                let time = i < times.count ? times[i] : "Recently"
-                let card = AchievementCardView(title: item.title, subtitle: time, child: kid.name)
-                achievementsStack.addArrangedSubview(card)
-                card.heightAnchor.constraint(equalToConstant: 72).isActive = true
-            }
-        }
-        
-        effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        data.efforts.forEach { e in
-            let row = EffortRow(title: e.title, progress: e.progress, rightText: e.rightText)
-            effortsStack.addArrangedSubview(row)
-            row.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        }
-    }
 }
 
 // ======================================================
-// MARK: - 1. Stats Card (Strictly Semi-Circle)
+// MARK: - 1. Stats Card
 // ======================================================
 private final class StatsCardView: UIView {
     
@@ -224,8 +274,6 @@ private final class StatsCardView: UIView {
     }()
     
     private let container = UIView()
-    
-    // USE THE PRIVATE SEMI CIRCLE CLASS HERE
     private let arcView = ProgressSemiCircleView()
     
     private let percentageLabel: UILabel = {
@@ -319,7 +367,6 @@ private final class StatsCardView: UIView {
             container.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor),
             container.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor),
             
-            // ARC (Top Center) - WIDE Aspect Ratio
             arcView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             arcView.topAnchor.constraint(equalTo: container.topAnchor, constant: 25),
             arcView.widthAnchor.constraint(equalToConstant: 240),
@@ -367,8 +414,7 @@ private final class StatsCardView: UIView {
     }
 }
 
-// MARK: - 2. Progress Semi-Circle View (Private Helper)
-// This ensures it NEVER conflicts with the Home Circle
+// MARK: - 2. Progress Semi-Circle View
 private final class ProgressSemiCircleView: UIView {
     private let track = CAShapeLayer()
     private let progress = CAShapeLayer()
@@ -382,7 +428,6 @@ private final class ProgressSemiCircleView: UIView {
         track.lineCap = .round
         
         progress.fillColor = UIColor.clear.cgColor
-        // Task Blue
         progress.strokeColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1).cgColor
         progress.lineWidth = 14
         progress.lineCap = .round
@@ -396,16 +441,14 @@ private final class ProgressSemiCircleView: UIView {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Draw Semi-Circle (Pi to 0)
-        // Center X = Middle, Center Y = Bottom
         let center = CGPoint(x: bounds.midX, y: bounds.maxY - 10)
         let radius = bounds.width / 2 - 10
         
         let path = UIBezierPath(
             arcCenter: center,
             radius: radius,
-            startAngle: .pi, // 180 deg
-            endAngle: 0,     // 0 deg
+            startAngle: .pi,
+            endAngle: 0,
             clockwise: true
         )
         track.path = path.cgPath
@@ -423,9 +466,7 @@ private final class ProgressSemiCircleView: UIView {
     }
 }
 
-// ======================================================
-// MARK: - 3. Achievement Card (Solid, Icon Left)
-// ======================================================
+// MARK: - 3. Achievement Card
 private final class AchievementCardView: UIView {
     
     private let container = UIView()
@@ -485,9 +526,7 @@ private final class AchievementCardView: UIView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-// ======================================================
-// MARK: - 4. Effort Row (Inside Container)
-// ======================================================
+// MARK: - 4. Effort Row
 private final class EffortRow: UIView {
     
     private let titleLabel = UILabel()

@@ -14,7 +14,8 @@ final class ScheduleTaskCard: UIView {
     private let categoryLabel = UILabel()
     private let categoryStack = UIStackView()
 
-    init(task: ScheduleTask) {
+    // UPDATED: Init with Real Model
+    init(task: ScheduleTaskModel) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         
@@ -27,7 +28,7 @@ final class ScheduleTaskCard: UIView {
         leadingStripe.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leadingStripe)
 
-        // 3. Container for text
+        // 3. Container
         container.translatesAutoresizingMaskIntoConstraints = false
         addSubview(container)
 
@@ -37,13 +38,14 @@ final class ScheduleTaskCard: UIView {
         titleLabel.textColor = .white
         titleLabel.text = task.title
 
-        // 5. Time
+        // 5. Time / Frequency
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .systemFont(ofSize: 13, weight: .regular)
         timeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
-        timeLabel.text = task.time
+        // Show frequency or points since we don't always have specific time
+        timeLabel.text = "\(task.points) Points • \(task.frequency)"
 
-        // 6. Category (Folder + Text)
+        // 6. Category (Placeholder icon for now)
         categoryIcon.image = UIImage(systemName: "folder")
         categoryIcon.tintColor = UIColor.white.withAlphaComponent(0.5)
         categoryIcon.contentMode = .scaleAspectFit
@@ -51,11 +53,10 @@ final class ScheduleTaskCard: UIView {
         categoryIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
         categoryIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
         
-        categoryLabel.text = "Habits"
+        categoryLabel.text = "Task" // Default
         categoryLabel.font = .systemFont(ofSize: 12, weight: .medium)
         categoryLabel.textColor = UIColor.white.withAlphaComponent(0.5)
         
-        // Stack View for perfect alignment of Icon + Text
         categoryStack.axis = .horizontal
         categoryStack.spacing = 6
         categoryStack.alignment = .center
@@ -69,51 +70,41 @@ final class ScheduleTaskCard: UIView {
 
         // 7. Layout Constraints
         NSLayoutConstraint.activate([
-            // Stripe
             leadingStripe.leadingAnchor.constraint(equalTo: leadingAnchor),
             leadingStripe.topAnchor.constraint(equalTo: topAnchor),
             leadingStripe.bottomAnchor.constraint(equalTo: bottomAnchor),
             leadingStripe.widthAnchor.constraint(equalToConstant: 6),
 
-            // Container
             container.leadingAnchor.constraint(equalTo: leadingStripe.trailingAnchor),
             container.trailingAnchor.constraint(equalTo: trailingAnchor),
             container.topAnchor.constraint(equalTo: topAnchor),
             container.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // Title (Top)
             titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
             titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
 
-            // Time (Below Title)
-            // Align strictly with Title
             timeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             timeLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
 
-            // Category (Bottom)
-            // Align strictly with Title
             categoryStack.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            categoryStack.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 10), // Increased spacing for cleaner look
+            categoryStack.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 10),
             categoryStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14)
         ])
 
-        // 8. Color Logic (Stripe)
-        let status = task.status.lowercased()
+        // 8. Color Logic based on Real Status
+        let status = task.submission_status ?? "todo" // Default if nil
         
-        // Custom Colors
         let softRed = UIColor(red: 255/255, green: 99/255, blue: 71/255, alpha: 1)
+        let softYellow = UIColor(red: 255/255, green: 217/255, blue: 61/255, alpha: 1)
+        let softGreen = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)
 
-   // Lighter Red
-        let softYellow = UIColor(red: 255/255, green: 217/255, blue: 61/255, alpha: 1) // Soft Yellow
-        let softGreen = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)   // Soft Green
-
-        if status.contains("completed") {
+        if status == "approved" {
             leadingStripe.backgroundColor = softGreen
-        } else if status.contains("progress") || status.contains("in progress") {
+        } else if status == "pending" {
             leadingStripe.backgroundColor = softYellow
         } else {
-            leadingStripe.backgroundColor = softRed // Applied new lighter red
+            leadingStripe.backgroundColor = softRed // Not done yet
         }
     }
 
