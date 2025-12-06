@@ -1,9 +1,9 @@
 import Foundation
 import Supabase
 
-// MARK: - 1. Shared Models (Must be outside the class)
+// MARK: - Models (Defined OUTSIDE class to fix concurrency errors)
 
-// --- For Creating Tasks ---
+// 1. For Creating Tasks
 struct CreateTaskParams: Encodable, @unchecked Sendable {
     let title_input: String
     let description_input: String
@@ -34,7 +34,7 @@ struct TaskResponse: Decodable, Sendable {
     let status: String
 }
 
-// --- For Viewing Schedule (Fixes your error) ---
+// 2. For Schedule (This was missing!)
 struct ScheduleTaskModel: Decodable, Sendable, Identifiable {
     let id: UUID
     let title: String
@@ -43,10 +43,10 @@ struct ScheduleTaskModel: Decodable, Sendable, Identifiable {
     let priority: String?
     let frequency: String
     let due_date: String?
-    let submission_status: String? // "pending", "approved", or nil
+    let submission_status: String?
 }
 
-// MARK: - 2. Service Class
+// MARK: - Service Class
 final class TaskService: Sendable {
     static let shared = TaskService()
     
@@ -54,17 +54,10 @@ final class TaskService: Sendable {
         return SupabaseManager.shared.client
     }
     
-    // MARK: - Create Task
+    // 1. Create Task
     func createTask(
-        title: String,
-        description: String,
-        points: Int,
-        priority: String,
-        frequency: String,
-        assignTo children: [UUID],
-        dueDate: Date?
+        title: String, description: String, points: Int, priority: String, frequency: String, assignTo children: [UUID], dueDate: Date?
     ) async throws -> UUID {
-        
         var dateString: String? = nil
         if let date = dueDate {
             let formatter = DateFormatter()
@@ -74,34 +67,21 @@ final class TaskService: Sendable {
         }
         
         let params = CreateTaskParams(
-            title_input: title,
-            description_input: description,
-            points_input: points,
-            priority_input: priority,
-            frequency_input: frequency,
-            child_ids_input: children,
-            due_date_input: dateString
+            title_input: title, description_input: description, points_input: points, priority_input: priority, frequency_input: frequency, child_ids_input: children, due_date_input: dateString
         )
         
-        let response: TaskResponse = try await client
-            .database
-            .rpc("create_new_task", params: params)
-            .execute()
-            .value
-            
-        // Notify app to refresh data
+        let response: TaskResponse = try await client.database.rpc("create_new_task", params: params).execute().value
         NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
-            
         return response.task_id
     }
     
-    // MARK: - Fetch Schedule (Fixes ViewController error)
+    // 2. Fetch Schedule (The Missing Piece!)
     func fetchSchedule(for childId: UUID, date: Date) async throws -> [ScheduleTaskModel] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         
-        // FIX: Explicitly type as [String: String] to ensure safe encoding
+        // Use [String: String] to avoid encoding errors
         let params: [String: String] = [
             "child_id_input": childId.uuidString,
             "target_date": formatter.string(from: date)

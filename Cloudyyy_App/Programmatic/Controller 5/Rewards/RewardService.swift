@@ -3,6 +3,7 @@ import Supabase
 import UIKit // Needed for UIImage
 
 // MARK: - 1. Request Parameters
+// Uses @unchecked Sendable to satisfy Swift 6 concurrency
 struct CreateRewardParams: Encodable, @unchecked Sendable {
     let title_input: String
     let description_input: String
@@ -10,12 +11,13 @@ struct CreateRewardParams: Encodable, @unchecked Sendable {
     let category_input: String
     let child_ids_input: [UUID]
     let image_url_input: String?
-    let claim_limit_input: String? // ✅ Added to match UI
+    let claim_limit_input: String?
 
     enum CodingKeys: String, CodingKey {
         case title_input, description_input, points_input, category_input, child_ids_input, image_url_input, claim_limit_input
     }
 
+    // Explicitly nonisolated to fix Main Actor errors
     nonisolated func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(title_input, forKey: .title_input)
@@ -76,49 +78,53 @@ final class RewardService: Sendable {
         return try await client.database.rpc("get_child_rewards", params: params).execute().value
     }
     
-    // MARK: - Upload Image
+    // MARK: - Upload Image (Fixed)
     private func uploadImage(_ image: UIImage) async throws -> String {
+        // 1. Compress image to JPEG
         guard let data = image.jpegData(compressionQuality: 0.5) else {
             throw NSError(domain: "ImageError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid image data"])
         }
         
+        // 2. Create a unique file name
         let fileName = "\(UUID().uuidString).jpg"
         
-        // FIX: Correct Supabase Storage syntax
-        let fileOptions = FileOptions(contentType: "image/jpeg")
+        // 3. Setup Options
+        let options = FileOptions(contentType: "image/jpeg")
         
-        // note: 'upload' signature varies by SDK version.
-        // If 'path:' label error persists, remove 'path:'.
-        // If 'data' label error, remove 'data:'.
-        // This version assumes the standard recent SDK: upload(_ path: String, data: Data, options: FileOptions)
-        _ = try await client.storage.from("rewards").upload(fileName, data: data, options: fileOptions)
+        // 4. Upload using DATA (not File)
+        // FIX: Removed 'path:' label to match your SDK version
+        _ = try await client.storage.from("rewards").upload(fileName, data: data, options: options)
         
-        // FIX: Use 'getPublicURL' (capital URL)
+        // 5. Get Public URL (Try both capitalizations if one fails, usually getPublicURL)
         let url = try client.storage.from("rewards").getPublicURL(path: fileName)
+        
         return url.absoluteString
     }
     
-    // MARK: - Create Reward (Updated Signature)
+    // MARK: - Create Reward
     func createReward(
         title: String,
         description: String,
         points: Int,
         category: String,
         assignTo children: [UUID],
-        image: UIImage?,      // ✅ Added
-        claimLimit: String?   // ✅ Added
+        image: UIImage?,
+        claimLimit: String?
     ) async throws -> UUID {
         
         var imageUrl: String? = nil
         
+        // 1. Upload Image First
         if let img = image {
             do {
                 imageUrl = try await uploadImage(img)
             } catch {
-                print("Image upload warning: \(error)")
+                print("Image upload failed: \(error)")
+                // Continue without image if upload fails
             }
         }
         
+        // 2. Create Params
         let params = CreateRewardParams(
             title_input: title,
             description_input: description,
@@ -129,12 +135,14 @@ final class RewardService: Sendable {
             claim_limit_input: claimLimit
         )
         
+        // 3. Call Database
         let response: RewardResponse = try await client
             .database
             .rpc("create_new_reward", params: params)
             .execute()
             .value
             
+        // 4. Notify UI
         NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
             
         return response.reward_id

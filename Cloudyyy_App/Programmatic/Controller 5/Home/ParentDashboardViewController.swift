@@ -3,6 +3,7 @@ import SwiftUI
 import Charts // Requires iOS 16+
 
 // MARK: - Local Chart Model
+// ✅ RENAMED to prevent conflict with other files
 struct HomeChartDataPoint: Identifiable {
     let id = UUID()
     let day: String
@@ -15,6 +16,8 @@ final class ParentDashboardViewController: UIViewController {
     // MARK: - Properties
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
+    
+    // ✅ FIXED: Unique model name used here
     private var weeklyPoints: [HomeChartDataPoint] = []
     private var monthlyPoints: [HomeChartDataPoint] = []
     
@@ -128,6 +131,7 @@ final class ParentDashboardViewController: UIViewController {
                 let mData = try await HomeService.shared.fetchChartData(for: kid.id, range: "monthly")
                 
                 await MainActor.run {
+                    // ✅ Map to our LOCAL unique struct
                     self.weeklyPoints = wData.map {
                         HomeChartDataPoint(day: $0.day, completed: $0.completed_count, pending: $0.pending_count)
                     }
@@ -167,6 +171,7 @@ final class ParentDashboardViewController: UIViewController {
         let dataToShow = isWeekly ? weeklyPoints : monthlyPoints
         
         if #available(iOS 16.0, *), let host = chartHostingController {
+            // ✅ Use the unique local chart view
             host.rootView = AnyView(HomeChartView(points: dataToShow))
         }
     }
@@ -340,14 +345,11 @@ final class ParentDashboardViewController: UIViewController {
     }
     
     @objc private func openProgressPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } }
-    
-    // ✅ IMPLEMENTED NAVIGATION
     @objc private func openApprovalPage() {
         let vc = ApprovalViewController()
         vc.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(vc, animated: true)
     }
-    
     @objc private func openRewardsPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 } }
 
     private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
@@ -462,18 +464,6 @@ struct HomeChartView: View {
 }
 
 // MARK: - Placeholders
-//class ParentProfileViewController: UIViewController {
-//    override func viewDidLoad() {
-//        super.viewDidLoad()
-//        view.backgroundColor = .systemBackground
-//        title = "Profile"
-//        let lbl = UILabel()
-//        lbl.text = "Profile Placeholder"
-//        lbl.center = view.center
-//        view.addSubview(lbl)
-//    }
-//}
-//
 //class ApprovalViewController: UIViewController {
 //    override func viewDidLoad() {
 //        super.viewDidLoad()
