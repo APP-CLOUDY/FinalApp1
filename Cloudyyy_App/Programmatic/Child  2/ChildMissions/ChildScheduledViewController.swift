@@ -1,36 +1,24 @@
-//
-//  KidAgendaViewController.swift
-//  Cloudyyy_App
-//
-//  Created by you on 2025-11-16.
-//
-
 import UIKit
-
-// MARK: - KidAgendaViewController
 
 final class KidAgendaViewController: UIViewController {
 
     // MARK: - UI Properties
-
     private let backgroundGradientLayer = CAGradientLayer()
 
     // --- Header UI ---
-    
     private let titleHeaderLabel: UILabel = {
-        let title = UILabel()
-        title.text = "Schedules"
-        title.font = UIFont.systemFont(ofSize: 28, weight: .bold)
-        title.textColor = .white
-        title.translatesAutoresizingMaskIntoConstraints = false
-        return title
+        let label = UILabel()
+        label.text = "Schedules"
+        label.font = UIFont.systemFont(ofSize: 28, weight: .bold)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }()
 
     private let approvalsIconButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
-        // SF Symbol for "Approvals" / "Official Requests"
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
         button.setImage(UIImage(systemName: "checkmark.seal", withConfiguration: config), for: .normal)
         return button
@@ -44,41 +32,29 @@ final class KidAgendaViewController: UIViewController {
         return button
     }()
     
-    private let notificationIndicatorDot: UIView = {
-        let indicator = UIView()
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.backgroundColor = UIColor(red: 1, green: 0.23, blue: 0.22, alpha: 1)
-        indicator.layer.cornerRadius = 4
-        indicator.isHidden = false
-        return indicator
-    }()
-    
     private let profileAvatarButton: UIButton = {
-        let avatarButton = UIButton(type: .system)
-        avatarButton.translatesAutoresizingMaskIntoConstraints = false
-        avatarButton.tintColor = .white
-        avatarButton.setImage(UIImage(systemName: "person.circle"), for: .normal)
-        return avatarButton
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.tintColor = .white
+        button.setImage(UIImage(systemName: "person.circle"), for: .normal)
+        return button
     }()
 
-    // --- Dates Strip UI ---
-    
+    // --- Dates Strip ---
     private let datesScrollView = UIScrollView()
     private let datesHorizontalStack = UIStackView()
     private var dateSelectionButtons: [UIButton] = []
     private var currentMonthDates: [Date] = []
 
     // --- Filters ---
-    
     private let statusFilterControl: UISegmentedControl = {
-        let control = UISegmentedControl(items: ["All", "In progress", "Completed"])
+        let control = UISegmentedControl(items: ["All", "To Do", "Done"])
         control.selectedSegmentIndex = 0
         control.translatesAutoresizingMaskIntoConstraints = false
         return control
     }()
 
     // --- Tasks List ---
-    
     private let agendaScrollView = UIScrollView()
     private let agendaVerticalStack = UIStackView()
 
@@ -92,62 +68,237 @@ final class KidAgendaViewController: UIViewController {
         return label
     }()
 
-    // MARK: - Data
-    
+    // MARK: - Data Properties
     private var activeDate: Date = Date()
-    private var activeChild: KidProfile? { KidCoordinator.shared.focusedChild }
-    private var agendaItemsForActiveDate: [AgendaEntry] = []
+    
+    // Stores all tasks fetched from DB for the selected date
+    private var allTasksForDate: [ScheduleTaskModel] = []
+    
+    // Stores the tasks currently visible based on the Filter (All/To Do/Done)
+    private var visibleTasks: [ScheduleTaskModel] = []
 
     // MARK: - Helpers
-    
     private let gregorianCalendar = Calendar.current
-    private let shortDateFormatter = DateFormatter()
     private let dayNumberFormatter = DateFormatter()
     private let monthNameFormatter = DateFormatter()
 
     // MARK: - Lifecycle
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // Formatters
-        shortDateFormatter.dateFormat = "yyyy-MM-dd"
+        // Formatters Setup
         dayNumberFormatter.dateFormat = "d"
         monthNameFormatter.dateFormat = "MMM"
 
+        // UI Setup
         configureGradientBackground()
         configureHeaderSection()
         configureDatesStripSection()
         configureFilterControl()
         configureAgendaList()
-        configureChildChangeListener()
 
+        // Initial Data Setup
         populateCurrentMonthDates()
         rebuildDateButtons()
+        
+        // Select Today by default
         select(date: Date(), animated: false)
-
-        if let initialChild = KidCoordinator.shared.focusedChild {
-            refreshForChild(initialChild)
-        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer.frame = view.bounds
 
-        // Recenter selected date
-        if let index = indexOfDate(activeDate), index + 1 < dateSelectionButtons.count {
-            center(dateButton: dateSelectionButtons[index + 1], animated: false)
+        // Keep selected date centered
+        if let index = indexOfDate(activeDate), index < dateSelectionButtons.count {
+            center(dateButton: dateSelectionButtons[index], animated: false)
         }
     }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
+
+    // MARK: - Data Fetching
+    private func fetchTasks(for date: Date) {
+        // Fetch from Backend using the Service
+        _Concurrency.Task {
+            do {
+                let tasks = try await ChildHomeService.shared.fetchSchedule(date: date)
+                
+                await MainActor.run {
+                    self.allTasksForDate = tasks
+                    self.applyFilterAndRender() // Apply current filter (All/To Do/Done)
+                }
+            } catch {
+                print("Error fetching schedule: \(error)")
+                await MainActor.run {
+                    self.allTasksForDate = []
+                    self.renderAgendaCards()
+                }
+            }
+        }
     }
 
-    // MARK: - Gradient
+    // MARK: - Filtering Logic
+    @objc private func filterSegmentChanged() {
+        applyFilterAndRender()
+    }
+
+    private func applyFilterAndRender() {
+        let index = statusFilterControl.selectedSegmentIndex
+        
+        switch index {
+        case 1: // "To Do"
+            // Show items that are NOT approved yet (nil or pending)
+            visibleTasks = allTasksForDate.filter {
+                $0.submission_status == nil || $0.submission_status == "pending"
+            }
+        case 2: // "Done"
+            // Show approved items
+            visibleTasks = allTasksForDate.filter {
+                $0.submission_status == "approved"
+            }
+        default: // "All"
+            visibleTasks = allTasksForDate
+        }
+        
+        renderAgendaCards()
+    }
+
+    private func renderAgendaCards() {
+        // Clear previous cards
+        agendaVerticalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        if visibleTasks.isEmpty {
+            noTasksLabel.isHidden = false
+            return
+        }
+
+        noTasksLabel.isHidden = true
+
+        for task in visibleTasks {
+            // Initialize the Panel with the task model
+            let card = KidAgendaItemPanel(task: task)
+            
+            // Layout constraints for the card
+            card.heightAnchor.constraint(equalToConstant: 84).isActive = true
+            agendaVerticalStack.addArrangedSubview(card)
+        }
+
+        // Bottom spacer to ensure last item isn't hidden behind tab bar
+        let spacer = UIView()
+        spacer.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        agendaVerticalStack.addArrangedSubview(spacer)
+    }
+
+    // MARK: - Date Logic
+    private func populateCurrentMonthDates() {
+        currentMonthDates.removeAll()
+        let today = Date()
+        // Generate dates for -2 days to +14 days
+        for i in -2...14 {
+            if let date = gregorianCalendar.date(byAdding: .day, value: i, to: today) {
+                currentMonthDates.append(date)
+            }
+        }
+    }
+
+    private func rebuildDateButtons() {
+        datesHorizontalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        dateSelectionButtons.removeAll()
+
+        // Spacers for centering
+        let leftSpace = UIView(); leftSpace.widthAnchor.constraint(equalToConstant: view.bounds.width/2 - 44).isActive = true
+        datesHorizontalStack.addArrangedSubview(leftSpace)
+
+        for (index, date) in currentMonthDates.enumerated() {
+            let btn = createDateButton(for: date)
+            btn.tag = index
+            dateSelectionButtons.append(btn)
+            datesHorizontalStack.addArrangedSubview(btn)
+        }
+
+        let rightSpace = UIView(); rightSpace.widthAnchor.constraint(equalToConstant: view.bounds.width/2 - 44).isActive = true
+        datesHorizontalStack.addArrangedSubview(rightSpace)
+    }
+
+    private func createDateButton(for date: Date) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.widthAnchor.constraint(equalToConstant: 88).isActive = true
+        btn.heightAnchor.constraint(equalToConstant: 72).isActive = true
+        btn.layer.cornerRadius = 12
+        btn.backgroundColor = UIColor.white.withAlphaComponent(0.05)
+
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        
+        let dayName = date.shortWeekdaySymbol()
+        label.attributedText = NSAttributedString(
+            string: "\(monthNameFormatter.string(from: date))\n\(dayNumberFormatter.string(from: date))\n\(dayName)",
+            attributes: [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)]
+        )
+
+        btn.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: btn.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: btn.centerYAnchor)
+        ])
+
+        btn.addTarget(self, action: #selector(dateButtonTapped(_:)), for: .touchUpInside)
+        return btn
+    }
+
+    private func select(date: Date, animated: Bool) {
+        activeDate = date
+        guard let index = indexOfDate(date) else { return }
+
+        // Update Selection UI
+        for (i, btn) in dateSelectionButtons.enumerated() {
+            btn.backgroundColor = (i == index) ? UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1) : UIColor.white.withAlphaComponent(0.05)
+        }
+
+        // Scroll to center
+        if index < dateSelectionButtons.count {
+            center(dateButton: dateSelectionButtons[index], animated: animated)
+        }
+
+        // Fetch Data
+        fetchTasks(for: date)
+    }
+
+    private func indexOfDate(_ date: Date) -> Int? {
+        return currentMonthDates.firstIndex { gregorianCalendar.isDate($0, inSameDayAs: date) }
+    }
+
+    private func center(dateButton: UIButton, animated: Bool) {
+        guard let parent = dateButton.superview else { return }
+        let frame = parent.convert(dateButton.frame, to: datesScrollView)
+        let centerX = datesScrollView.bounds.width / 2
+        let offset = frame.midX - centerX
+        datesScrollView.setContentOffset(CGPoint(x: max(0, offset), y: 0), animated: animated)
+    }
+
+    @objc private func dateButtonTapped(_ sender: UIButton) {
+        let index = sender.tag
+        guard index < currentMonthDates.count else { return }
+        select(date: currentMonthDates[index], animated: true)
+    }
+
+    // MARK: - Navigation Actions (Placeholders)
+    @objc private func didTapApprovals() {
+        print("Approvals Tapped")
+    }
     
+    @objc private func didTapNotifications() {
+        print("Notifications Tapped")
+    }
+    
+    @objc private func didTapProfile() {
+        print("Profile Tapped")
+    }
+
+    // MARK: - UI Configuration Boilerplate
     private func configureGradientBackground() {
         backgroundGradientLayer.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -158,52 +309,32 @@ final class KidAgendaViewController: UIViewController {
         view.layer.insertSublayer(backgroundGradientLayer, at: 0)
     }
 
-    // MARK: - Header Configuration
-    
     private func configureHeaderSection() {
         view.addSubview(titleHeaderLabel)
         view.addSubview(notificationButton)
-        notificationButton.addSubview(notificationIndicatorDot)
         view.addSubview(profileAvatarButton)
         view.addSubview(approvalsIconButton)
-        
-        // --- BUTTON ACTIONS ---
-        approvalsIconButton.addTarget(self, action: #selector(didTapApprovals), for: .touchUpInside)
-        notificationButton.addTarget(self, action: #selector(didTapNotifications), for: .touchUpInside)
-        profileAvatarButton.addTarget(self, action: #selector(didTapProfile), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
-            // 1. Title (Top Left)
             titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
             titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
-            // 2. Profile Icon (Far Right)
             profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
             profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
 
-            // 3. Notification Bell (Left of Profile)
             notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
             notificationButton.widthAnchor.constraint(equalToConstant: 28),
             notificationButton.heightAnchor.constraint(equalToConstant: 28),
-
-//            // Notification Dot logic
-//            notificationIndicatorDot.topAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
-//            notificationIndicatorDot.trailingAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: 2),
-//            notificationIndicatorDot.widthAnchor.constraint(equalToConstant: 8),
-//            notificationIndicatorDot.heightAnchor.constraint(equalToConstant: 8),
             
-            // 4. Approvals Icon (Left of Notification Bell)
             approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
             approvalsIconButton.widthAnchor.constraint(equalToConstant: 30),
             approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
         ])
     }
-
-    // MARK: - Dates Strip UI
 
     private func configureDatesStripSection() {
         datesScrollView.showsHorizontalScrollIndicator = false
@@ -217,53 +348,35 @@ final class KidAgendaViewController: UIViewController {
         datesScrollView.addSubview(datesHorizontalStack)
 
         NSLayoutConstraint.activate([
-            // Spacing
             datesScrollView.topAnchor.constraint(equalTo: titleHeaderLabel.bottomAnchor, constant: 20),
-                        
             datesScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             datesScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             datesScrollView.heightAnchor.constraint(equalToConstant: 84),
 
-            datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor, constant: 12),
-            datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor, constant: -12),
+            datesHorizontalStack.leadingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.leadingAnchor),
+            datesHorizontalStack.trailingAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.trailingAnchor),
             datesHorizontalStack.topAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.topAnchor),
             datesHorizontalStack.bottomAnchor.constraint(equalTo: datesScrollView.contentLayoutGuide.bottomAnchor),
             datesHorizontalStack.heightAnchor.constraint(equalTo: datesScrollView.frameLayoutGuide.heightAnchor)
         ])
     }
 
-    // MARK: - Filters UI
-
     private func configureFilterControl() {
         statusFilterControl.addTarget(self, action: #selector(filterSegmentChanged), for: .valueChanged)
         view.addSubview(statusFilterControl)
-
+        statusFilterControl.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        statusFilterControl.selectedSegmentTintColor = UIColor.white.withAlphaComponent(0.20)
+        statusFilterControl.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.7), .font: UIFont.systemFont(ofSize: 15)], for: .normal)
+        statusFilterControl.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)], for: .selected)
+        
         NSLayoutConstraint.activate([
             statusFilterControl.topAnchor.constraint(equalTo: datesScrollView.bottomAnchor, constant: 14),
             statusFilterControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
             statusFilterControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),
             statusFilterControl.heightAnchor.constraint(equalToConstant: 38)
         ])
-
-        statusFilterControl.backgroundColor = UIColor.white.withAlphaComponent(0.08)
-        statusFilterControl.selectedSegmentTintColor = UIColor.white.withAlphaComponent(0.20)
-
-        statusFilterControl.setTitleTextAttributes([
-            .foregroundColor: UIColor.white.withAlphaComponent(0.7),
-            .font: UIFont.systemFont(ofSize: 15)
-        ], for: .normal)
-
-        statusFilterControl.setTitleTextAttributes([
-            .foregroundColor: UIColor.white,
-            .font: UIFont.systemFont(ofSize: 15, weight: .semibold)
-        ], for: .selected)
-
-        statusFilterControl.layer.cornerRadius = 19
-        statusFilterControl.clipsToBounds = true
     }
 
-    // MARK: - Tasks List UI
-    
     private func configureAgendaList() {
         agendaScrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(agendaScrollView)
@@ -292,213 +405,9 @@ final class KidAgendaViewController: UIViewController {
             noTasksLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40)
         ])
     }
-
-    // MARK: - Date Generation & Selection
-
-    private func populateCurrentMonthDates() {
-        currentMonthDates.removeAll()
-
-        let todayReference = Date()
-        guard
-            let dayRange = gregorianCalendar.range(of: .day, in: .month, for: todayReference),
-            let firstDayOfMonth = gregorianCalendar.date(from: gregorianCalendar.dateComponents([.year, .month], from: todayReference))
-        else { return }
-
-        for dayIndex in dayRange {
-            if let computedDate = gregorianCalendar.date(byAdding: .day, value: dayIndex - 1, to: firstDayOfMonth) {
-                currentMonthDates.append(computedDate)
-            }
-        }
-    }
-
-    private func rebuildDateButtons() {
-        datesHorizontalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        dateSelectionButtons.removeAll()
-
-        // Leading spacer
-        let leadingSpacer = UIView()
-        leadingSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
-        datesHorizontalStack.addArrangedSubview(leadingSpacer)
-
-        // Buttons
-        for (index, currentDate) in currentMonthDates.enumerated() {
-            let dateButton = createDateButton(for: currentDate)
-            dateButton.tag = index
-            dateSelectionButtons.append(dateButton)
-            datesHorizontalStack.addArrangedSubview(dateButton)
-        }
-
-        // Trailing spacer
-        let trailingSpacer = UIView()
-        trailingSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
-        datesHorizontalStack.addArrangedSubview(trailingSpacer)
-    }
-
-    private func createDateButton(for date: Date) -> UIButton {
-        let dateButton = UIButton(type: .system)
-        dateButton.translatesAutoresizingMaskIntoConstraints = false
-        dateButton.widthAnchor.constraint(equalToConstant: 88).isActive = true
-        dateButton.heightAnchor.constraint(equalToConstant: 72).isActive = true
-        dateButton.layer.cornerRadius = 12
-
-        // Month-day-week text
-        let dateLabel = UILabel()
-        dateLabel.numberOfLines = 0
-        dateLabel.textAlignment = .center
-        dateLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        dateLabel.attributedText = NSAttributedString(
-            string: "\(monthNameFormatter.string(from: date))\n\(dayNumberFormatter.string(from: date))\n\(date.shortWeekdaySymbol())",
-            attributes: [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)]
-        )
-
-        dateButton.addSubview(dateLabel)
-        NSLayoutConstraint.activate([
-            dateLabel.centerXAnchor.constraint(equalTo: dateButton.centerXAnchor),
-            dateLabel.centerYAnchor.constraint(equalTo: dateButton.centerYAnchor)
-        ])
-
-        dateButton.backgroundColor = UIColor.white.withAlphaComponent(0.05)
-        dateButton.addTarget(self, action: #selector(dateButtonTapped(_:)), for: .touchUpInside)
-
-        return dateButton
-    }
-
-    private func indexOfDate(_ date: Date) -> Int? {
-        return currentMonthDates.firstIndex { gregorianCalendar.isDate($0, inSameDayAs: date) }
-    }
-
-    private func select(date: Date, animated: Bool) {
-        activeDate = date
-        guard let dateIndex = indexOfDate(date) else { return }
-
-        for (buttonIndex, dateButton) in dateSelectionButtons.enumerated() {
-            // Compare index (buttonIndex - 1) against selected index (accounting for leading spacer)
-            let isCurrentlySelected = buttonIndex - 1 == dateIndex
-            
-            if buttonIndex >= 0 && buttonIndex < dateSelectionButtons.count {
-                dateButton.backgroundColor = isCurrentlySelected
-                    ? UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1)
-                    : UIColor.white.withAlphaComponent(0.05)
-            }
-        }
-
-        // Calculate index for scroll centering (including leading spacer)
-        let arrayButtonIndex = dateIndex + 1
-        if arrayButtonIndex < dateSelectionButtons.count + 2 {
-             if dateIndex < dateSelectionButtons.count {
-                 center(dateButton: dateSelectionButtons[dateIndex], animated: animated)
-             }
-        }
-
-        reloadAgendaFor(date: date)
-    }
-
-    private func center(dateButton: UIButton, animated: Bool) {
-        guard let parentView = dateButton.superview else { return }
-        let convertedFrame = parentView.convert(dateButton.frame, to: datesScrollView)
-        let centerX = datesScrollView.bounds.width / 2
-        
-        var newOffsetX = convertedFrame.midX - centerX
-        newOffsetX = max(0, min(newOffsetX, datesScrollView.contentSize.width - datesScrollView.bounds.width))
-
-        datesScrollView.setContentOffset(CGPoint(x: newOffsetX, y: 0), animated: animated)
-    }
-
-    // MARK: - Logic & Actions
-
-    @objc private func filterSegmentChanged() {
-        reloadAgendaFor(date: activeDate)
-    }
-
-    private func reloadAgendaFor(date: Date) {
-        guard let focusedChild = activeChild else {
-            agendaItemsForActiveDate = []
-            renderAgendaCards()
-            return
-        }
-
-        let fullSchedule = KidCoordinator.shared.schedule(for: focusedChild.id)
-        let keyForDate = shortDateFormatter.string(from: date)
-        let agendaForDate = fullSchedule.filter { $0.date == keyForDate }
-
-        switch statusFilterControl.selectedSegmentIndex {
-        case 1:
-            agendaItemsForActiveDate = agendaForDate.filter { $0.status.lowercased().contains("progress") }
-        case 2:
-            agendaItemsForActiveDate = agendaForDate.filter { $0.status.lowercased().contains("completed") }
-        default:
-            agendaItemsForActiveDate = agendaForDate
-        }
-
-        renderAgendaCards()
-    }
-
-    private func renderAgendaCards() {
-        agendaVerticalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        if agendaItemsForActiveDate.isEmpty {
-            noTasksLabel.isHidden = false
-            return
-        }
-
-        noTasksLabel.isHidden = true
-
-        for agendaEntry in agendaItemsForActiveDate {
-            let agendaCard = KidAgendaItemPanel(entry: agendaEntry)
-            agendaCard.heightAnchor.constraint(equalToConstant: 84).isActive = true
-            agendaVerticalStack.addArrangedSubview(agendaCard)
-        }
-
-        let bottomSpacer = UIView()
-        bottomSpacer.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        agendaVerticalStack.addArrangedSubview(bottomSpacer)
-    }
-
-    @objc private func dateButtonTapped(_ sender: UIButton) {
-        let dateIndex = sender.tag
-        guard dateIndex < currentMonthDates.count else { return }
-        select(date: currentMonthDates[dateIndex], animated: true)
-    }
-    
-    // --- NAVIGATION ACTIONS ---
-    
-    @objc private func didTapApprovals() {
-        let approvalsVC = ApprovalsViewController()
-        approvalsVC.modalPresentationStyle = .fullScreen
-        present(approvalsVC, animated: true)
-    }
-    
-    @objc private func didTapNotifications() {
-        let notifVC = NotificationViewController()
-        notifVC.modalPresentationStyle = .fullScreen
-        present(notifVC, animated: true)
-    }
-    
-    @objc private func didTapProfile() {
-        let vc = ParentProfileViewController()
-        vc.modalPresentationStyle = .fullScreen // Add this line before presenting
-        self.present(vc, animated: true)
-    }
-
-    // MARK: - Notification Listeners
-    
-    private func configureChildChangeListener() {
-        NotificationCenter.default.addObserver(self, selector: #selector(childDidChange(_:)), name: KidCoordinator.childDidChangeNotification, object: nil)
-    }
-
-    @objc private func childDidChange(_ note: Notification) {
-        guard let updatedChild = note.object as? KidProfile else { return }
-        refreshForChild(updatedChild)
-    }
-
-    private func refreshForChild(_ child: KidProfile) {
-        select(date: Date(), animated: true)
-    }
 }
 
 // MARK: - Date Extension
-
 private extension Date {
     func shortWeekdaySymbol() -> String {
         let df = DateFormatter()

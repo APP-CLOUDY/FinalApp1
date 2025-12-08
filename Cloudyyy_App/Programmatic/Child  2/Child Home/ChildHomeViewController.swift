@@ -56,15 +56,56 @@ final class ChildHomeViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // Ensure nav bar is hidden on Home.
-        // When we come back from Notification/Profile, the tab bar will automatically reappear.
         navigationController?.setNavigationBarHidden(true, animated: animated)
         startFloatingAnimation()
+        
+        // ✅ NEW: Fetch Real Data when view appears
+        fetchAndDisplayData()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
         scrollView.contentSize = contentView.bounds.size
+    }
+    
+    // MARK: - Data Logic (Backend Connection)
+    private func fetchAndDisplayData() {
+        // 1. Update Name Tag (From Session)
+        if let name = ChildSessionManager.shared.currentChildName {
+            greetingLabel.text = "Hello \(name)."
+        }
+        
+        // 2. Update Progress (From Database)
+        _Concurrency.Task {
+            do {
+                // Fetch stats using the corrected ChildHomeService
+                let stats = try await ChildHomeService.shared.fetchStats()
+                
+                await MainActor.run {
+                    self.updateProgressUI(stats: stats)
+                }
+            } catch {
+                print("Error loading stats: \(error)")
+            }
+        }
+    }
+    
+    private func updateProgressUI(stats: ChildHomeStats) {
+        // Update Habits Progress Bar based on today's tasks
+        let progress = Float(stats.progress_percent)
+        
+        // Animate the bar
+        habitProgress.setProgress(progress, animated: true)
+        
+        // Update text percentage
+        habitPercentLabel.text = "\(Int(progress * 100))%"
+        
+        // Mirror to Extra Curricular bar (since we are calculating total daily progress)
+        extraProgress.setProgress(progress, animated: true)
+        extraPercentLabel.text = "\(Int(progress * 100))%"
+        
+        print("Child Dashboard Updated: \(stats.completed_tasks)/\(stats.total_tasks) tasks completed")
     }
 
     // MARK: - Setup Gradient
@@ -81,7 +122,7 @@ final class ChildHomeViewController: UIViewController {
     // MARK: - Setup UI Components
     private func setupUI() {
         // Greeting
-        greetingLabel.text = "Hello Jo."
+        greetingLabel.text = "Hello Child." // Placeholder until loaded
         greetingLabel.font = UIFont.boldSystemFont(ofSize: 32)
         greetingLabel.textColor = .white
 
@@ -122,6 +163,7 @@ final class ChildHomeViewController: UIViewController {
         guitarCloud.contentMode = .scaleAspectFit
         guitarCloud.tintColor = .systemBlue
 
+        // Static Text for now (Power Card)
         powerLabel.text = "Your cleanup yesterday created\n15 minutes of calm for Mom."
         powerLabel.font = UIFont.systemFont(ofSize: 14)
         powerLabel.numberOfLines = 0
@@ -147,13 +189,13 @@ final class ChildHomeViewController: UIViewController {
         habitLabel.text = "Habits"
         habitLabel.textColor = .white
         
-        habitProgress.progress = 0.6
+        habitProgress.progress = 0.0 // Default 0
         habitProgress.progressTintColor = UIColor.systemBlue
         habitProgress.trackTintColor = UIColor(white: 1, alpha: 0.3)
         habitProgress.layer.cornerRadius = 4
         habitProgress.clipsToBounds = true
         
-        habitPercentLabel.text = "60%"
+        habitPercentLabel.text = "0%" // Default 0
         habitPercentLabel.textColor = .white
 
         // Extracurricular Row
@@ -163,13 +205,13 @@ final class ChildHomeViewController: UIViewController {
         extraLabel.text = "Extracurricular"
         extraLabel.textColor = .white
         
-        extraProgress.progress = 0.6
+        extraProgress.progress = 0.0
         extraProgress.progressTintColor = UIColor.systemBlue
         extraProgress.trackTintColor = UIColor(white: 1, alpha: 0.3)
         extraProgress.layer.cornerRadius = 4
         extraProgress.clipsToBounds = true
         
-        extraPercentLabel.text = "60%"
+        extraPercentLabel.text = "0%"
         extraPercentLabel.textColor = .white
 
         // --- Adding to View Hierarchy ---
@@ -342,50 +384,15 @@ final class ChildHomeViewController: UIViewController {
     
     @objc private func profileButtonTapped() {
         print("Navigating to Profile")
-        let profileVC = ProfileViewController()
-        
-        // Hide tab bar for Profile screen
-        profileVC.hidesBottomBarWhenPushed = true
-        
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(profileVC, animated: true)
+        // let profileVC = ProfileViewController()
+        // profileVC.hidesBottomBarWhenPushed = true
+        // navigationController?.pushViewController(profileVC, animated: true)
     }
     
     @objc private func bellButtonTapped() {
         print("Navigating to Notifications")
-        let notificationVC = NotificationViewController()
-        
-        // Hide tab bar for Notification screen
-        notificationVC.hidesBottomBarWhenPushed = true
-        
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(notificationVC, animated: true)
+        // let notificationVC = NotificationViewController()
+        // notificationVC.hidesBottomBarWhenPushed = true
+        // navigationController?.pushViewController(notificationVC, animated: true)
     }
 }
-
-// ---------------------------------------------------------
-// DUMMY CLASSES BELOW (Remove if you have your own files)
-// ---------------------------------------------------------
-
-//class ProfileViewController: UIViewController {
-//    override func viewDidLoad() {
-//        super.viewDidLoad()
-//        view.backgroundColor = .white
-//        title = "Profile"
-//    }
-//}
-//
-//class NotificationViewController: UIViewController {
-//    override func viewDidLoad() {
-//        super.viewDidLoad()
-//        view.backgroundColor = .white
-//        title = "Notifications"
-//        
-//        let label = UILabel()
-//        label.text = "No new notifications"
-//        label.textColor = .black
-//        label.center = view.center
-//        label.sizeToFit()
-//        view.addSubview(label)
-//    }
-//}
