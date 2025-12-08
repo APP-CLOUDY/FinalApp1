@@ -15,13 +15,17 @@ class RewardCardView: UIView {
 }
 
 // ===========================================================
-// MARK: - Styled TextField
+// MARK: - Styled TextField (FIXED)
 // ===========================================================
 
 class StyledTextField: RewardCardView {
     private let tf = UITextField()
 
-    var textValue: String { tf.text ?? "" }
+    // ✅ FIX: Added setter to allow assigning values (for Edit mode)
+    var textValue: String {
+        get { tf.text ?? "" }
+        set { tf.text = newValue }
+    }
 
     init(placeholder: String) {
         super.init(frame: .zero)
@@ -43,13 +47,29 @@ class StyledTextField: RewardCardView {
 }
 
 // ===========================================================
-// MARK: - Styled TextView
+// MARK: - Styled TextView (FIXED)
 // ===========================================================
 
 class StyledTextView: RewardCardView, UITextViewDelegate {
     private let tv = UITextView()
     private let placeholder: String
-    var textValue: String { tv.text ?? "" }
+    
+    // ✅ FIX: Added setter with placeholder logic (for Edit mode)
+    var textValue: String {
+        get {
+            // If text matches placeholder, return empty string to data model
+            return tv.text == placeholder ? "" : tv.text
+        }
+        set {
+            if newValue.isEmpty {
+                tv.text = placeholder
+                tv.textColor = UIColor.white.withAlphaComponent(0.4)
+            } else {
+                tv.text = newValue
+                tv.textColor = .white
+            }
+        }
+    }
 
     init(placeholder: String) {
         self.placeholder = placeholder
@@ -89,6 +109,7 @@ class StyledTextView: RewardCardView, UITextViewDelegate {
 // ===========================================================
 // MARK: - SelectRow (button-backed, supports UIMenu)
 // ===========================================================
+
 class SelectRow: RewardCardView {
     // Hides the chevron arrow
     func hideChevron() {
@@ -104,8 +125,9 @@ class SelectRow: RewardCardView {
     }
 
     func setAttributedTitle(_ text: NSAttributedString) {
-            titleLabel.attributedText = text
-        }
+        titleLabel.attributedText = text
+    }
+    
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let chevron = UIImageView(image: UIImage(systemName: "chevron.down"))
@@ -140,18 +162,15 @@ class SelectRow: RewardCardView {
         hStack.addArrangedSubview(detailLabel)
         hStack.addArrangedSubview(chevron)
 
-
         button.translatesAutoresizingMaskIntoConstraints = false
         button.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
         addSubview(button)
 
         NSLayoutConstraint.activate([
-
-                hStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-                hStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-                hStack.topAnchor.constraint(equalTo: topAnchor),
-                hStack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            
+            hStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            hStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            hStack.topAnchor.constraint(equalTo: topAnchor),
+            hStack.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             button.leadingAnchor.constraint(equalTo: leadingAnchor),
             button.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -356,7 +375,7 @@ class Select3DCard: RewardCardView {
 }
 
 // ===========================================================
-// MARK: - ApprovalToggleRow
+// MARK: - ApprovalToggleRow (FIXED)
 // ===========================================================
 
 class ApprovalToggleRow: RewardCardView {
@@ -388,6 +407,11 @@ class ApprovalToggleRow: RewardCardView {
             h.topAnchor.constraint(equalTo: topAnchor),
             h.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+    }
+    
+    // ✅ FIX: Added method to set switch state programmatically
+    func setOn(_ isOn: Bool) {
+        toggle.setOn(isOn, animated: false)
     }
 
     var isOn: Bool { toggle.isOn }

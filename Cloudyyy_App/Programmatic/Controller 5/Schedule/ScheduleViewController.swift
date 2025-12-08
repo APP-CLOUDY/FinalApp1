@@ -20,6 +20,17 @@ final class ScheduleViewController: UIViewController {
         c.selectedSegmentTintColor = .white
         return c
     }()
+    
+    // NEW: Hint Label
+    private let hintLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Click a task to edit details"
+        l.textColor = UIColor.white.withAlphaComponent(0.5)
+        l.font = .systemFont(ofSize: 12, weight: .regular)
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textAlignment = .center
+        return l
+    }()
 
     // Tasks list
     private let tasksContainer = UIScrollView()
@@ -38,14 +49,12 @@ final class ScheduleViewController: UIViewController {
 
     // Data Properties
     private var selectedDate: Date = Date()
-    private var currentKid: ChildModel? // Real Supabase Model
-    
-    // We store the fetched tasks here
+    private var currentKid: ChildModel?
     private var allTasksForDate: [ScheduleTaskModel] = []
+    private var displayedTasks: [ScheduleTaskModel] = []
 
     // Helpers
     private let calendar = Calendar.current
-    private let dateFormatterShort = DateFormatter()
     private let dayFormatter = DateFormatter()
     private let monthFormatter = DateFormatter()
 
@@ -54,8 +63,6 @@ final class ScheduleViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // Formatters
-        dateFormatterShort.dateFormat = "yyyy-MM-dd"
         dayFormatter.dateFormat = "d"
         monthFormatter.dateFormat = "MMM"
 
@@ -63,6 +70,7 @@ final class ScheduleViewController: UIViewController {
         setupHeader()
         setupDatesStrip()
         setupFilter()
+        setupHintLabel() // Add Hint Label to layout
         setupTasksList()
         
         // Header Actions
@@ -73,45 +81,32 @@ final class ScheduleViewController: UIViewController {
             self?.navigationController?.pushViewController(vc, animated: true)
         }
 
-        // Calendar Setup
         generateDatesForCurrentMonth()
         buildDateButtons()
-        
-        // Initial Load
         fetchKidsAndLoad()
         
-        // Listen for "Task Added" updates
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
-        
-        // Refresh if we have context
-        if let kid = currentKid {
-            fetchTasks(for: kid, date: selectedDate)
-        }
+        if let kid = currentKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
-        
-        // Ensure selected date is centered
         if let idx = indexOfDate(selectedDate), idx < dateButtons.count {
             centerDateButton(dateButtons[idx], animated: false)
         }
     }
     
     @objc private func handleDataChange() {
-        if let kid = currentKid {
-            fetchTasks(for: kid, date: selectedDate)
-        }
+        if let kid = currentKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
-    // MARK: - Data Logic (Supabase)
-    
+    // MARK: - Data Logic
     private func fetchKidsAndLoad() {
         _Concurrency.Task {
             do {
@@ -123,60 +118,51 @@ final class ScheduleViewController: UIViewController {
                         self.header.childButton.setTitle("No Kids", for: .normal)
                     }
                 }
-            } catch {
-                print("Error loading kids: \(error)")
-            }
+            } catch { print(error) }
         }
     }
     
     private func updateCurrentKid(_ kid: ChildModel) {
         self.currentKid = kid
         header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        // Load tasks for today/selected date
         select(date: selectedDate, animated: true)
     }
     
     private func fetchTasks(for kid: ChildModel, date: Date) {
-        _Concurrency.Task {
-            do {
-                // Call the service we created
-                let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
-                
-                await MainActor.run {
-                    self.allTasksForDate = tasks
-                    self.applyFilterAndRender()
+            _Concurrency.Task {
+                do {
+                    let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
+                    
+                    await MainActor.run {
+                        print("✅ Fetched \(tasks.count) tasks") // Check Console
+                        self.allTasksForDate = tasks
+                        self.applyFilterAndRender()
+                    }
+                } catch {
+                    print("❌ Error fetching schedule: \(error)")
+                    await MainActor.run {
+                        // Show Alert so you can see the error on screen
+                        let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "OK", style: .default))
+                        self.present(alert, animated: true)
+                    }
                 }
-            } catch {
-                print("Error fetching schedule: \(error)")
             }
         }
-    }
     
     // MARK: - Filtering & Rendering
-    
     @objc private func filterChanged(_ sender: UISegmentedControl) {
         applyFilterAndRender()
     }
     
     private func applyFilterAndRender() {
         let index = filterControl.selectedSegmentIndex
-        
-        let filteredTasks: [ScheduleTaskModel]
-        
         switch index {
-        case 1: // "To Do" Tab
-            // Show tasks that are NOT completed (submission is nil)
-            filteredTasks = allTasksForDate.filter { $0.submission_status == nil }
-            
-        case 2: // "Done" Tab
-            // Show tasks that are Pending OR Approved (Child has finished them)
-            filteredTasks = allTasksForDate.filter { $0.submission_status == "pending" || $0.submission_status == "approved" }
-            
-        default: // "All" Tab
-            filteredTasks = allTasksForDate
+        case 1: displayedTasks = allTasksForDate.filter { $0.submission_status == nil }
+        case 2: displayedTasks = allTasksForDate.filter { $0.submission_status == "pending" || $0.submission_status == "approved" }
+        default: displayedTasks = allTasksForDate
         }
-        
-        renderTasks(filteredTasks)
+        renderTasks(displayedTasks)
     }
 
     private func renderTasks(_ tasks: [ScheduleTaskModel]) {
@@ -184,17 +170,21 @@ final class ScheduleViewController: UIViewController {
         
         if tasks.isEmpty {
             emptyLabel.isHidden = false
+            hintLabel.isHidden = true
         } else {
             emptyLabel.isHidden = true
-            for t in tasks {
-                // Use the updated Card
+            hintLabel.isHidden = false
+            
+            for (index, t) in tasks.enumerated() {
                 let card = ScheduleTaskCard(task: t)
                 tasksStack.addArrangedSubview(card)
-                
                 card.heightAnchor.constraint(equalToConstant: 90).isActive = true
                 
-                // Optional: Add tap gesture to edit/delete later
-                card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+                // Add Tap Gesture for Edit
+                card.isUserInteractionEnabled = true
+                let tap = TaskTapGesture(target: self, action: #selector(cardTapped(_:)))
+                tap.taskIndex = index
+                card.addGestureRecognizer(tap)
             }
             
             let spacer = UIView()
@@ -203,18 +193,27 @@ final class ScheduleViewController: UIViewController {
         }
     }
     
-    @objc private func cardTapped() {
-        // Logic to open task details
+    class TaskTapGesture: UITapGestureRecognizer { var taskIndex: Int = 0 }
+    
+    // MARK: - OPEN EDIT SCREEN
+    @objc private func cardTapped(_ sender: TaskTapGesture) {
+        let task = displayedTasks[sender.taskIndex]
+        
+        let vc = TaskFormViewController()
+        vc.mode = .edit(task) // Enable Edit Mode
+        
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
     }
 
-    // MARK: - Kids Menu
+    // MARK: - Kids Menu & Date Logic (Standard)
     private func showKidsMenu() {
         _Concurrency.Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
                 await MainActor.run {
                     let uiKids = data.children.map { Kid(id: $0.id.uuidString, name: $0.name) }
-                    
                     let menu = FloatingKidsMenu(kids: uiKids)
                     menu.manager = FloatingMenuManager.shared
                     menu.onKidSelected = { [weak self] selectedUiKid in
@@ -228,17 +227,13 @@ final class ScheduleViewController: UIViewController {
         }
     }
 
-    // MARK: - Date Logic
-    
     private func generateDatesForCurrentMonth() {
         allDatesOfMonth.removeAll()
         let today = Date()
         guard let monthRange = calendar.range(of: .day, in: .month, for: today),
               let firstOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) else { return }
         for d in monthRange {
-            if let date = calendar.date(byAdding: .day, value: d - 1, to: firstOfMonth) {
-                allDatesOfMonth.append(date)
-            }
+            if let date = calendar.date(byAdding: .day, value: d - 1, to: firstOfMonth) { allDatesOfMonth.append(date) }
         }
     }
 
@@ -250,7 +245,6 @@ final class ScheduleViewController: UIViewController {
             dateButtons.append(button)
             datesStack.addArrangedSubview(button)
         }
-        // Spacers to center first/last items
         let leftSpacer = UIView(); leftSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
         datesStack.insertArrangedSubview(leftSpacer, at: 0)
         let rightSpacer = UIView(); rightSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
@@ -270,9 +264,7 @@ final class ScheduleViewController: UIViewController {
         let weekday = date.weekdayShort()
         
         let label = UILabel()
-        label.numberOfLines = 0
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 0; label.textAlignment = .center; label.translatesAutoresizingMaskIntoConstraints = false
         let attr = NSMutableAttributedString()
         attr.append(NSAttributedString(string: "\(month)\n", attributes: [.font: UIFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: UIColor.white.withAlphaComponent(0.8)]))
         attr.append(NSAttributedString(string: "\(day)\n", attributes: [.font: UIFont.systemFont(ofSize: 20, weight: .bold), .foregroundColor: UIColor.white]))
@@ -297,22 +289,13 @@ final class ScheduleViewController: UIViewController {
 
     private func select(date: Date, animated: Bool) {
         selectedDate = date
-        
-        // Update UI State
         for (i, btn) in dateButtons.enumerated() {
             if i < allDatesOfMonth.count && calendar.isDate(allDatesOfMonth[i], inSameDayAs: date) {
                 btn.backgroundColor = UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1)
-            } else {
-                btn.backgroundColor = UIColor(white: 1, alpha: 0.03)
-            }
+            } else { btn.backgroundColor = UIColor(white: 1, alpha: 0.03) }
         }
-        
         if let idx = indexOfDate(date) { centerDateButton(dateButtons[idx], animated: animated) }
-        
-        // Trigger Fetch
-        if let kid = currentKid {
-            fetchTasks(for: kid, date: date)
-        }
+        if let kid = currentKid { fetchTasks(for: kid, date: date) }
     }
 
     private func centerDateButton(_ button: UIButton, animated: Bool) {
@@ -336,17 +319,14 @@ final class ScheduleViewController: UIViewController {
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
             UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
-        gradient.startPoint = CGPoint(x: 0.5, y: 0)
-        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        gradient.startPoint = CGPoint(x: 0.5, y: 0); gradient.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
     }
 
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        header.showNotificationButton(true)
-        header.showProfileButton(true)
-        header.showPlusButton(false)
+        header.showNotificationButton(true); header.showProfileButton(true); header.showPlusButton(false)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -357,14 +337,9 @@ final class ScheduleViewController: UIViewController {
     }
 
     private func setupDatesStrip() {
-        datesScroll.showsHorizontalScrollIndicator = false
-        datesScroll.translatesAutoresizingMaskIntoConstraints = false
+        datesScroll.showsHorizontalScrollIndicator = false; datesScroll.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(datesScroll)
-
-        datesStack.axis = .horizontal
-        datesStack.alignment = .center
-        datesStack.spacing = 12
-        datesStack.translatesAutoresizingMaskIntoConstraints = false
+        datesStack.axis = .horizontal; datesStack.alignment = .center; datesStack.spacing = 12; datesStack.translatesAutoresizingMaskIntoConstraints = false
         datesScroll.addSubview(datesStack)
 
         NSLayoutConstraint.activate([
@@ -383,8 +358,7 @@ final class ScheduleViewController: UIViewController {
 
     private func setupFilter() {
         view.addSubview(filterControl)
-        filterControl.addTarget(self, action: #selector(filterChanged(_:)), for: .valueChanged) // ✅ ACTION ADDED
-        
+        filterControl.addTarget(self, action: #selector(filterChanged(_:)), for: .valueChanged)
         NSLayoutConstraint.activate([
             filterControl.topAnchor.constraint(equalTo: datesScroll.bottomAnchor, constant: 14),
             filterControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
@@ -395,25 +369,29 @@ final class ScheduleViewController: UIViewController {
         filterControl.selectedSegmentTintColor = UIColor.white.withAlphaComponent(0.20)
         filterControl.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.75), .font: UIFont.systemFont(ofSize: 15, weight: .medium)], for: .normal)
         filterControl.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)], for: .selected)
-        filterControl.layer.cornerRadius = 19
-        filterControl.clipsToBounds = true
+        filterControl.layer.cornerRadius = 19; filterControl.clipsToBounds = true
+    }
+    
+    private func setupHintLabel() {
+        view.addSubview(hintLabel)
+        NSLayoutConstraint.activate([
+            hintLabel.topAnchor.constraint(equalTo: filterControl.bottomAnchor, constant: 8),
+            hintLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hintLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hintLabel.heightAnchor.constraint(equalToConstant: 16)
+        ])
     }
 
     private func setupTasksList() {
         tasksContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tasksContainer)
-
-        tasksStack.axis = .vertical
-        tasksStack.spacing = 12
-        tasksStack.alignment = .fill
-        tasksStack.translatesAutoresizingMaskIntoConstraints = false
+        tasksStack.axis = .vertical; tasksStack.spacing = 12; tasksStack.alignment = .fill; tasksStack.translatesAutoresizingMaskIntoConstraints = false
         tasksContainer.addSubview(tasksStack)
-
-        view.addSubview(emptyLabel)
-        emptyLabel.isHidden = true
+        view.addSubview(emptyLabel); emptyLabel.isHidden = true
 
         NSLayoutConstraint.activate([
-            tasksContainer.topAnchor.constraint(equalTo: filterControl.bottomAnchor, constant: 14),
+            // Layout relative to Hint Label now
+            tasksContainer.topAnchor.constraint(equalTo: hintLabel.bottomAnchor, constant: 8),
             tasksContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
             tasksContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),
             tasksContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
@@ -432,11 +410,9 @@ final class ScheduleViewController: UIViewController {
     deinit { NotificationCenter.default.removeObserver(self) }
 }
 
-// Helper
 private extension Date {
     func weekdayShort() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "E"
+        let f = DateFormatter(); f.dateFormat = "E"
         return f.string(from: self)
     }
 }

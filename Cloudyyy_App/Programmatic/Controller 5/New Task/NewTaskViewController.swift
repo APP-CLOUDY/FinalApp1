@@ -225,7 +225,6 @@ class NewTaskViewController: UIViewController {
     // MARK: - Actions
     private func setupActions() {
         dateRow.onTap = { [weak self] in self?.openDatePicker() }
-        // Note: List row is now handled by setupStaticMenus(), so we don't need onTap logic for it anymore.
     }
     
     private func openDatePicker() {
@@ -268,14 +267,17 @@ class NewTaskViewController: UIViewController {
         }
         
         // 2. Prep Data
-        let points = 10
+        let points = pointsRow.countValue // ✅ Using countValue from your PointsRow
         let priority = priorityRow.detailText ?? "Medium"
         let frequency = frequencyRow.detailText ?? "Once"
         
-        // 3. UI Loading
+        // ✅ 3. Get Approval Status
+        let approval = approvalRow.isOn
+        
+        // 4. UI Loading
         navigationItem.rightBarButtonItem?.isEnabled = false
         
-        // 4. API Call
+        // 5. API Call
         _Concurrency.Task {
             do {
                 let taskId = try await TaskService.shared.createTask(
@@ -284,9 +286,9 @@ class NewTaskViewController: UIViewController {
                     points: points,
                     priority: priority,
                     frequency: frequency,
-                    // Send the Array of selected IDs
                     assignTo: Array(assignedSelections),
-                    dueDate: selectedDate
+                    dueDate: selectedDate,
+                    approvalRequired: approval // ✅ FIXED: Added this parameter
                 )
                 
                 print("Task Created! ID: \(taskId)")
