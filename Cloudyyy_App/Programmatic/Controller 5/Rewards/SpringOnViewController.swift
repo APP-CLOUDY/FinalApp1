@@ -5,8 +5,6 @@ final class SpringOnViewController: UIViewController {
     // MARK: - Properties
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
-    
-    // Data
     private var activeItems: [RewardDetailItem] = []
     private var completedItems: [RewardDetailItem] = []
     private var currentBalance: Int = 0
@@ -38,12 +36,12 @@ final class SpringOnViewController: UIViewController {
     private let categories = ["All", "Outdoor", "Events", "Trips", "Classes"]
     private var selectedCategoryIndex = 0
 
-    // 2. Active Experiences (Horizontal Scroll)
+    // 2. Active Experiences
     private let activeLabel = SectionLabel(text: "Upcoming Adventures")
     private let activeScroll = UIScrollView()
     private let activeStack = UIStackView()
 
-    // 3. Past Experiences (History)
+    // 3. Past Experiences
     private let completedLabel = SectionLabel(text: "Memories")
     private let completedStack = UIStackView()
 
@@ -77,7 +75,7 @@ final class SpringOnViewController: UIViewController {
         // Fetch Kids, then load data
         fetchKidsAndLoad()
         
-        // Listen for updates (e.g. newly created reward)
+        // Listen for updates
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
     
@@ -136,16 +134,17 @@ final class SpringOnViewController: UIViewController {
                 await MainActor.run {
                     self.currentBalance = stats.total_stars
                     
-                    // Map Backend Model -> UI Model
                     self.activeItems = lists.active.map { item in
                         RewardDetailItem(
                             id: item.id.uuidString,
                             title: item.title,
                             subtitle: item.description ?? "Experience",
                             points: item.points,
-                            // ✅ MAPPING THE IMAGE URL HERE
                             imageName: item.image_url,
-                            isActive: true
+                            isActive: true,
+                            // ✅ Map new fields
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
@@ -155,9 +154,10 @@ final class SpringOnViewController: UIViewController {
                             title: item.title,
                             subtitle: item.description ?? "Redeemed",
                             points: item.points,
-                            // ✅ MAPPING THE IMAGE URL HERE
                             imageName: item.image_url,
-                            isActive: false
+                            isActive: false,
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
@@ -174,11 +174,17 @@ final class SpringOnViewController: UIViewController {
     private func populateActive(_ arr: [RewardDetailItem]) {
         activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        for item in arr {
-            // Uses ExperienceCard defined below
+        for (index, item) in arr.enumerated() {
+            // Uses ExperienceCard
             let card = ExperienceCard(item: item, currentBalance: currentBalance)
             card.widthAnchor.constraint(equalToConstant: 200).isActive = true
-            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+            
+            // ✅ Add Tap to Edit
+            card.isUserInteractionEnabled = true
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleCardTap(_:)))
+            card.tag = index
+            card.addGestureRecognizer(tap)
+            
             activeStack.addArrangedSubview(card)
         }
         
@@ -194,7 +200,7 @@ final class SpringOnViewController: UIViewController {
         completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         for item in arr {
-            // Uses RewardSmallCards (make sure RewardSmallCards class is available in project)
+            // Uses RewardSmallCards
             let row = RewardSmallCards(item: item)
             row.heightAnchor.constraint(equalToConstant: 70).isActive = true
             completedStack.addArrangedSubview(row)
@@ -202,12 +208,34 @@ final class SpringOnViewController: UIViewController {
     }
 
     // MARK: - Actions
-    @objc private func openNewReward() {
-        navigationController?.pushViewController(NewRewardViewController(), animated: true)
+    @objc private func handleCardTap(_ sender: UITapGestureRecognizer) {
+        guard let index = sender.view?.tag, index < activeItems.count else { return }
+        let item = activeItems[index]
+        
+        // Convert to Model
+        guard let uuid = UUID(uuidString: item.id) else { return }
+        
+        // ✅ Pass all details
+        let model = RewardItemModel(
+            id: uuid,
+            title: item.title,
+            description: item.subtitle,
+            points: item.points,
+            image_url: item.imageName,
+            claim_limit: item.claimLimit,
+            reward_sub_type: item.subType
+        )
+        
+        // Open Edit Screen
+        let vc = NewRewardViewController()
+        vc.mode = .edit(model, category: "Spring On") // Fixed Category
+        navigationController?.pushViewController(vc, animated: true)
     }
-    
-    @objc private func cardTapped() {
-        // Open Detail logic
+
+    @objc private func openNewReward() {
+        let vc = NewRewardViewController()
+        vc.mode = .create
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private func showKidsMenu() {
@@ -271,7 +299,7 @@ final class SpringOnViewController: UIViewController {
     private func setupContentLayout() {
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(searchBar)
-        
+
         categoryScroll.showsHorizontalScrollIndicator = false
         categoryScroll.translatesAutoresizingMaskIntoConstraints = false
         categoryStack.axis = .horizontal
@@ -290,7 +318,7 @@ final class SpringOnViewController: UIViewController {
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
-
+        
         [activeLabel, activeScroll, completedLabel, completedStack, bottomSpacer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview($0)
@@ -301,7 +329,7 @@ final class SpringOnViewController: UIViewController {
             searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             searchBar.heightAnchor.constraint(equalToConstant: 44),
-            
+
             categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
             categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -502,3 +530,52 @@ final class ExperienceCard: UIView {
     
     required init?(coder: NSCoder) { fatalError() }
 }
+
+// ======================================================
+// MARK: - Reward Small Card (History)
+// ======================================================
+//final class RewardSmallCards: UIView {
+//    
+//    var onTap: (() -> Void)?
+//    
+//    init(item: RewardDetailItem) {
+//        super.init(frame: .zero)
+//        backgroundColor = UIColor.white.withAlphaComponent(0.05)
+//        layer.cornerRadius = 12
+//        
+//        let title = UILabel()
+//        title.text = item.title
+//        title.font = .systemFont(ofSize: 15, weight: .medium)
+//        title.textColor = UIColor.white.withAlphaComponent(0.6)
+//        
+//        let cost = UILabel()
+//        cost.text = "Redeemed for \(item.points) ⭐️"
+//        cost.font = .systemFont(ofSize: 12)
+//        cost.textColor = UIColor.white.withAlphaComponent(0.4)
+//        
+//        let stack = UIStackView(arrangedSubviews: [title, cost])
+//        stack.axis = .vertical
+//        stack.spacing = 4
+//        stack.translatesAutoresizingMaskIntoConstraints = false
+//        
+//        addSubview(stack)
+//        
+//        let icon = UIImageView(image: UIImage(systemName: "checkmark.circle"))
+//        icon.tintColor = .systemGreen
+//        icon.translatesAutoresizingMaskIntoConstraints = false
+//        addSubview(icon)
+//        
+//        NSLayoutConstraint.activate([
+//            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+//            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+//            
+//            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+//            icon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16)
+//        ])
+//        
+//        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
+//    }
+//    
+//    @objc private func tapped() { onTap?() }
+//    required init?(coder: NSCoder) { fatalError() }
+//}

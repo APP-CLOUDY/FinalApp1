@@ -1,5 +1,12 @@
 import UIKit
 
+// ✅ Define the 'Kid' model here (or ensure it's in another file)
+struct Kid {
+    let id: String
+    let name: String
+}
+
+
 final class FloatingKidsMenu: UIView {
 
     // MARK: - Manager Reference (needed to auto-close)
@@ -56,11 +63,13 @@ final class FloatingKidsMenu: UIView {
             btn.contentHorizontalAlignment = .leading
             btn.heightAnchor.constraint(equalToConstant: 42).isActive = true
 
-            btn.addAction(UIAction(handler: { [weak self] _ in
-                guard let self else { return }
+            // Swift 5.6+ Action syntax
+            let action = UIAction { [weak self] _ in
+                guard let self = self else { return }
                 self.onKidSelected?(kid)
                 self.dismiss(animated: true)
-            }), for: .touchUpInside)
+            }
+            btn.addAction(action, for: .touchUpInside)
 
             stack.addArrangedSubview(btn)
         }
@@ -75,9 +84,7 @@ final class FloatingKidsMenu: UIView {
 
         // Close any existing dropdown FIRST
         manager?.closeMenu()
-
         manager?.register(menu: self)
-
 
         parent.addSubview(self)
         parent.bringSubviewToFront(self)
@@ -95,19 +102,23 @@ final class FloatingKidsMenu: UIView {
 
         // Menu size
         let menuWidth: CGFloat = 180
-        let menuHeight: CGFloat = CGFloat(kids.count * 46 + 24)
+        let menuHeight: CGFloat = CGFloat(kids.count * 48 + 24) // Adjusted height calculation
 
         let anchorFrame = anchor.convert(anchor.bounds, to: parent)
         let safeTop = parent.safeAreaInsets.top
         let safeBottom = parent.safeAreaInsets.bottom
 
         let spaceAbove = anchorFrame.minY - safeTop
-        let spaceBelow = parent.bounds.height - anchorFrame.maxY - safeBottom
+        // let spaceBelow = parent.bounds.height - anchorFrame.maxY - safeBottom // Unused currently
 
-        let shouldShowAbove = spaceBelow < menuHeight && spaceAbove > menuHeight
+        // Simple logic: Show below unless really tight (can be improved)
+        let shouldShowAbove = spaceAbove > menuHeight + 50 && (parent.bounds.height - anchorFrame.maxY) < menuHeight
 
         blur.translatesAutoresizingMaskIntoConstraints = false
 
+        // Remove old constraints on blur if reusing views (though we recreate self)
+        blur.removeConstraints(blur.constraints)
+        
         if shouldShowAbove {
             NSLayoutConstraint.activate([
                 blur.widthAnchor.constraint(equalToConstant: menuWidth),
@@ -161,4 +172,3 @@ final class FloatingKidsMenu: UIView {
         )
     }
 }
-

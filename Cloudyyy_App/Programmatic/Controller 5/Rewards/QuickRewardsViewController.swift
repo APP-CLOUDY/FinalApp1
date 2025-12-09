@@ -1,5 +1,18 @@
 import UIKit
 
+// MARK: - Local Model for List Items
+struct RewardDetailItem {
+    let id: String
+    let title: String
+    let subtitle: String
+    let points: Int
+    let imageName: String?
+    let isActive: Bool
+    // ✅ Added to support Edit Mode
+    let claimLimit: String?
+    let subType: String?
+}
+
 final class QuickRewardsViewController: UIViewController {
 
     // MARK: - Properties
@@ -137,25 +150,32 @@ final class QuickRewardsViewController: UIViewController {
                 await MainActor.run {
                     self.currentBalance = stats.total_stars
                     
+                    // Map Active Items
                     self.activeItems = lists.active.map { item in
                         RewardDetailItem(
                             id: item.id.uuidString,
                             title: item.title,
                             subtitle: item.description ?? "Quick Treat",
                             points: item.points,
-                            imageName: "",
-                            isActive: true
+                            imageName: item.image_url,
+                            isActive: true,
+                            // ✅ Map new fields
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
+                    // Map History Items
                     self.historyItems = lists.history.map { item in
                         RewardDetailItem(
                             id: item.id.uuidString,
                             title: item.title,
                             subtitle: item.description ?? "Redeemed",
                             points: item.points,
-                            imageName: "",
-                            isActive: false
+                            imageName: item.image_url,
+                            isActive: false,
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
@@ -172,11 +192,17 @@ final class QuickRewardsViewController: UIViewController {
     private func populateActive(_ list: [RewardDetailItem]) {
         activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        for item in list {
+        for (index, item) in list.enumerated() {
             // Use RewardLargeCards
             let card = RewardLargeCards(item: item, currentBalance: currentBalance)
             card.widthAnchor.constraint(equalToConstant: 160).isActive = true
-            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+            
+            // ✅ Add Tap Gesture for Editing
+            card.isUserInteractionEnabled = true
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleCardTap(_:)))
+            card.tag = index
+            card.addGestureRecognizer(tap)
+            
             activeStack.addArrangedSubview(card)
         }
         
@@ -192,7 +218,6 @@ final class QuickRewardsViewController: UIViewController {
         historyStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         for item in list {
-            // FIX: Use RewardSmallCards (plural) now defined at the bottom of this file
             let row = RewardSmallCards(item: item)
             row.heightAnchor.constraint(equalToConstant: 70).isActive = true
             historyStack.addArrangedSubview(row)
@@ -200,12 +225,34 @@ final class QuickRewardsViewController: UIViewController {
     }
 
     // MARK: - Actions
-    @objc private func cardTapped(_ sender: UITapGestureRecognizer) {
-        print("Card tapped")
+    @objc private func handleCardTap(_ sender: UITapGestureRecognizer) {
+        guard let index = sender.view?.tag, index < activeItems.count else { return }
+        let item = activeItems[index]
+        
+        // Convert to Service Model
+        guard let uuid = UUID(uuidString: item.id) else { return }
+        
+        // ✅ Pass 'subType' here so the dropdown shows the correct value!
+        let model = RewardItemModel(
+            id: uuid,
+            title: item.title,
+            description: item.subtitle,
+            points: item.points,
+            image_url: item.imageName,
+            claim_limit: item.claimLimit,
+            reward_sub_type: item.subType // Passed!
+        )
+        
+        // Navigate to Edit Screen
+        let vc = NewRewardViewController()
+        vc.mode = .edit(model, category: "Quick Rewards") // Fixed category for this screen
+        navigationController?.pushViewController(vc, animated: true)
     }
     
     @objc private func openNewReward() {
-        navigationController?.pushViewController(NewRewardViewController(), animated: true)
+        let vc = NewRewardViewController()
+        vc.mode = .create
+        navigationController?.pushViewController(vc, animated: true)
     }
     
     private func showKidsMenu() {

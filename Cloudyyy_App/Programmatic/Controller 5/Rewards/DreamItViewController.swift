@@ -21,7 +21,7 @@ final class DreamItViewController: UIViewController {
         let b = UIButton(type: .system)
         b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         b.tintColor = .white
-        b.backgroundColor = UIColor.black.withAlphaComponent(0.3) // Slight background for visibility
+        b.backgroundColor = UIColor.black.withAlphaComponent(0.3)
         b.layer.cornerRadius = 16
         b.translatesAutoresizingMaskIntoConstraints = false
         b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
@@ -142,8 +142,11 @@ final class DreamItViewController: UIViewController {
                             title: item.title,
                             subtitle: item.description ?? "Dream Reward",
                             points: item.points,
-                            imageName: "",
-                            isActive: true
+                            imageName: item.image_url,
+                            isActive: true,
+                            // ✅ Map new fields
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
@@ -153,8 +156,10 @@ final class DreamItViewController: UIViewController {
                             title: item.title,
                             subtitle: item.description ?? "Redeemed",
                             points: item.points,
-                            imageName: "",
-                            isActive: false
+                            imageName: item.image_url,
+                            isActive: false,
+                            claimLimit: item.claim_limit,
+                            subType: item.reward_sub_type
                         )
                     }
                     
@@ -171,11 +176,17 @@ final class DreamItViewController: UIViewController {
     private func populateActive(_ arr: [RewardDetailItem]) {
         activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        for item in arr {
+        for (index, item) in arr.enumerated() {
             // Uses DreamCard (Gamified for Big Goals)
             let card = DreamCard(item: item, currentBalance: currentBalance)
             card.widthAnchor.constraint(equalToConstant: 200).isActive = true
-            card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
+            
+            // ✅ Add Tap to Edit
+            card.isUserInteractionEnabled = true
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleCardTap(_:)))
+            card.tag = index
+            card.addGestureRecognizer(tap)
+            
             activeStack.addArrangedSubview(card)
         }
         
@@ -191,7 +202,7 @@ final class DreamItViewController: UIViewController {
         completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         for item in arr {
-            // Uses RewardSmallCards (plural)
+            // Uses RewardSmallCards
             let row = RewardSmallCards(item: item)
             row.heightAnchor.constraint(equalToConstant: 70).isActive = true
             completedStack.addArrangedSubview(row)
@@ -199,12 +210,34 @@ final class DreamItViewController: UIViewController {
     }
 
     // MARK: - Actions
-    @objc private func openNewReward() {
-        navigationController?.pushViewController(NewRewardViewController(), animated: true)
+    @objc private func handleCardTap(_ sender: UITapGestureRecognizer) {
+        guard let index = sender.view?.tag, index < activeItems.count else { return }
+        let item = activeItems[index]
+        
+        // Convert to Model
+        guard let uuid = UUID(uuidString: item.id) else { return }
+        
+        // ✅ Pass all details
+        let model = RewardItemModel(
+            id: uuid,
+            title: item.title,
+            description: item.subtitle,
+            points: item.points,
+            image_url: item.imageName,
+            claim_limit: item.claimLimit,
+            reward_sub_type: item.subType
+        )
+        
+        // Open Edit Screen
+        let vc = NewRewardViewController()
+        vc.mode = .edit(model, category: "Dream it") // Fixed Category
+        navigationController?.pushViewController(vc, animated: true)
     }
-    
-    @objc private func cardTapped() {
-        // Detail view logic here
+
+    @objc private func openNewReward() {
+        let vc = NewRewardViewController()
+        vc.mode = .create
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private func showKidsMenu() {
@@ -268,7 +301,7 @@ final class DreamItViewController: UIViewController {
     private func setupContentLayout() {
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(searchBar)
-        
+
         categoryScroll.showsHorizontalScrollIndicator = false
         categoryScroll.translatesAutoresizingMaskIntoConstraints = false
         categoryStack.axis = .horizontal
@@ -287,7 +320,7 @@ final class DreamItViewController: UIViewController {
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
-
+        
         [activeLabel, activeScroll, completedLabel, completedStack, bottomSpacer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview($0)
@@ -298,7 +331,7 @@ final class DreamItViewController: UIViewController {
             searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             searchBar.heightAnchor.constraint(equalToConstant: 44),
-            
+
             categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
             categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
