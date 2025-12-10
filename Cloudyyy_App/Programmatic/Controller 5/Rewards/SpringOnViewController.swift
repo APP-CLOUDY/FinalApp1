@@ -10,11 +10,34 @@ final class SpringOnViewController: UIViewController {
     private var currentBalance: Int = 0
 
     // MARK: - UI Components
-    private let header = HomeHeaderView(title: "Spring On")
+    
+    // 1. Header (Pass empty string to hide default title)
+    private let header = HomeHeaderView(title: "")
     private let gradient = CAGradientLayer()
     private let searchBar = SimpleSearchBar()
 
-    // BACK BUTTON
+    // 2. Custom Title Label
+    private let screenTitleLabel: UILabel = {
+        let l = UILabel()
+        l.text = "Spring On"
+        l.font = UIFont.systemFont(ofSize: 28, weight: .bold)
+        l.textColor = .white
+        l.translatesAutoresizingMaskIntoConstraints = false
+        return l
+    }()
+    
+    // 3. Custom Child Button (Aligned with Title)
+    private let customChildButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("Child ▾", for: .normal)
+        btn.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        btn.setTitleColor(.white, for: .normal)
+        btn.contentHorizontalAlignment = .left
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
+    // 4. Back Button
     private lazy var backButton: UIButton = {
         let b = UIButton(type: .system)
         b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
@@ -30,21 +53,19 @@ final class SpringOnViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let content = UIView()
 
-    // 1. Categories
+    // Categories
     private let categoryScroll = UIScrollView()
     private let categoryStack = UIStackView()
     private let categories = ["All", "Outdoor", "Events", "Trips", "Classes"]
     private var selectedCategoryIndex = 0
 
-    // 2. Active Experiences
+    // Sections
     private let activeLabel = SectionLabel(text: "Upcoming Adventures")
     private let activeScroll = UIScrollView()
     private let activeStack = UIStackView()
 
-    // 3. Past Experiences
     private let completedLabel = SectionLabel(text: "Memories")
     private let completedStack = UIStackView()
-
     private let bottomSpacer = UIView()
 
     // MARK: - Lifecycle
@@ -54,28 +75,22 @@ final class SpringOnViewController: UIViewController {
 
         setupGradient()
         setupHeader()
+        
+        // ✅ Hide default header child button
+        header.childButton.isHidden = true
+        
+        setupCustomNavigation() // Back + Title + Child Button
         setupScroll()
         setupContentLayout()
         setupCategoryChips()
         
-        // Add Back Button
-        view.addSubview(backButton)
-        NSLayoutConstraint.activate([
-            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32)
-        ])
-        view.bringSubviewToFront(backButton)
-        
-        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        // Actions
+        customChildButton.addTarget(self, action: #selector(didTapChildMenu), for: .touchUpInside)
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewReward() }
 
-        // Fetch Kids, then load data
         fetchKidsAndLoad()
         
-        // Listen for updates
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
     }
     
@@ -98,9 +113,12 @@ final class SpringOnViewController: UIViewController {
             reloadForKid(kid)
         }
     }
-
-    // MARK: - Data Logic (Supabase)
     
+    @objc private func didTapChildMenu() {
+        showKidsMenu()
+    }
+
+    // MARK: - Data Logic
     private func fetchKidsAndLoad() {
         _Concurrency.Task {
             do {
@@ -109,7 +127,7 @@ final class SpringOnViewController: UIViewController {
                     self.kids = data.children
                     if let first = self.kids.first {
                         self.selectedKid = first
-                        self.header.childButton.setTitle("\(first.name) ▾", for: .normal)
+                        self.customChildButton.setTitle("\(first.name) ▾", for: .normal)
                         self.reloadForKid(first)
                     }
                 }
@@ -121,14 +139,11 @@ final class SpringOnViewController: UIViewController {
 
     private func reloadForKid(_ kid: ChildModel) {
         self.selectedKid = kid
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+        self.customChildButton.setTitle("\(kid.name) ▾", for: .normal)
         
         _Concurrency.Task {
             do {
-                // 1. Get Balance
                 let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
-                
-                // 2. Get Rewards List (Category: "Spring On")
                 let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Spring On")
                 
                 await MainActor.run {
@@ -142,7 +157,6 @@ final class SpringOnViewController: UIViewController {
                             points: item.points,
                             imageName: item.image_url,
                             isActive: true,
-                            // ✅ Map new fields
                             claimLimit: item.claim_limit,
                             subType: item.reward_sub_type
                         )
@@ -175,11 +189,10 @@ final class SpringOnViewController: UIViewController {
         activeStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         for (index, item) in arr.enumerated() {
-            // Uses ExperienceCard
             let card = ExperienceCard(item: item, currentBalance: currentBalance)
             card.widthAnchor.constraint(equalToConstant: 200).isActive = true
             
-            // ✅ Add Tap to Edit
+            // Edit Tap
             card.isUserInteractionEnabled = true
             let tap = UITapGestureRecognizer(target: self, action: #selector(handleCardTap(_:)))
             card.tag = index
@@ -198,9 +211,7 @@ final class SpringOnViewController: UIViewController {
 
     private func populateCompleted(_ arr: [RewardDetailItem]) {
         completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
         for item in arr {
-            // Uses RewardSmallCards
             let row = RewardSmallCards(item: item)
             row.heightAnchor.constraint(equalToConstant: 70).isActive = true
             completedStack.addArrangedSubview(row)
@@ -211,30 +222,23 @@ final class SpringOnViewController: UIViewController {
     @objc private func handleCardTap(_ sender: UITapGestureRecognizer) {
         guard let index = sender.view?.tag, index < activeItems.count else { return }
         let item = activeItems[index]
-        
-        // Convert to Model
         guard let uuid = UUID(uuidString: item.id) else { return }
         
-        // ✅ Pass all details
         let model = RewardItemModel(
-            id: uuid,
-            title: item.title,
-            description: item.subtitle,
-            points: item.points,
-            image_url: item.imageName,
-            claim_limit: item.claimLimit,
-            reward_sub_type: item.subType
+            id: uuid, title: item.title, description: item.subtitle, points: item.points, image_url: item.imageName,
+            claim_limit: item.claimLimit, reward_sub_type: item.subType
         )
         
-        // Open Edit Screen
         let vc = NewRewardViewController()
-        vc.mode = .edit(model, category: "Spring On") // Fixed Category
+        vc.mode = .edit(model, category: "Spring On")
+        vc.hidesBottomBarWhenPushed = true // ✅ Hides bottom bar
         navigationController?.pushViewController(vc, animated: true)
     }
 
     @objc private func openNewReward() {
         let vc = NewRewardViewController()
         vc.mode = .create
+        vc.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -248,7 +252,7 @@ final class SpringOnViewController: UIViewController {
                 self?.reloadForKid(realKid)
             }
         }
-        menu.show(in: view, anchor: header.childButton)
+        menu.show(in: view, anchor: customChildButton) // ✅ Anchor to Custom Button
     }
     
     // MARK: - Visuals & Layout
@@ -274,6 +278,34 @@ final class SpringOnViewController: UIViewController {
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: 98)
         ])
+    }
+
+    // ✅ FIXED: Custom Title, Back Button, and Child Button Alignment
+    private func setupCustomNavigation() {
+        view.addSubview(backButton)
+        view.addSubview(screenTitleLabel)
+        view.addSubview(customChildButton)
+        
+        NSLayoutConstraint.activate([
+            // 1. Back Button
+            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            backButton.widthAnchor.constraint(equalToConstant: 36),
+            backButton.heightAnchor.constraint(equalToConstant: 36),
+            
+            // 2. Title Label (Pinned right next to Back Button)
+            screenTitleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            screenTitleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
+            
+            // 3. Custom Child Button (Pinned below Title, aligned to Title's leading edge)
+            customChildButton.topAnchor.constraint(equalTo: screenTitleLabel.bottomAnchor, constant: 2),
+            customChildButton.leadingAnchor.constraint(equalTo: screenTitleLabel.leadingAnchor),
+            customChildButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        
+        view.bringSubviewToFront(backButton)
+        view.bringSubviewToFront(screenTitleLabel)
+        view.bringSubviewToFront(customChildButton)
     }
 
     private func setupScroll() {
@@ -405,35 +437,31 @@ final class ExperienceCard: UIView {
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private let progressLabel = UILabel()
     private let iconView = UILabel()
-    
-    // ✅ New Image Views
     private let bgImageView = UIImageView()
     private let dimOverlay = UIView()
     
     init(item: RewardDetailItem, currentBalance: Int) {
         super.init(frame: .zero)
         
-        // 1. Background Setup
         backgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1)
         layer.cornerRadius = 24
         clipsToBounds = true
         
-        // 2. Background Image
+        // Background Image
         bgImageView.contentMode = .scaleAspectFill
         bgImageView.clipsToBounds = true
         bgImageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bgImageView)
         
-        // 3. Dark Overlay (so text is visible on top of images)
+        // Dark Overlay
         dimOverlay.backgroundColor = UIColor.black.withAlphaComponent(0.4)
         dimOverlay.translatesAutoresizingMaskIntoConstraints = false
         dimOverlay.isHidden = true
         addSubview(dimOverlay)
         
-        // 4. Load Image Logic
+        // Load Image Logic
         if let urlString = item.imageName, let url = URL(string: urlString) {
             dimOverlay.isHidden = false
-            // Async Image Loading
             DispatchQueue.global().async {
                 if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
                     DispatchQueue.main.async {
@@ -443,20 +471,20 @@ final class ExperienceCard: UIView {
             }
         }
         
-        // 5. Fallback Icon (Hide if we have an image)
+        // Icon
         iconView.text = "🎟️"
         if item.title.contains("Zoo") { iconView.text = "🦁" }
         if item.title.contains("Camping") { iconView.text = "⛺️" }
         iconView.font = .systemFont(ofSize: 100)
         iconView.alpha = 0.05
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        // Logic to hide icon if image exists
+        
         if let urlString = item.imageName, !urlString.isEmpty {
             iconView.isHidden = true
         }
         addSubview(iconView)
         
-        // 6. Title
+        // Title
         titleLabel.text = item.title
         titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
         titleLabel.textColor = .white
@@ -464,14 +492,14 @@ final class ExperienceCard: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         
-        // 7. Cost
+        // Cost
         costLabel.text = "\(item.points) ⭐️"
         costLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        costLabel.textColor = UIColor.white.withAlphaComponent(0.9) // Brighter text
+        costLabel.textColor = UIColor.white.withAlphaComponent(0.9)
         costLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(costLabel)
         
-        // 8. Progress Bar
+        // Progress Bar
         let totalCost = Float(item.points > 0 ? item.points : 1)
         let progress = Float(currentBalance) / totalCost
         
@@ -483,7 +511,7 @@ final class ExperienceCard: UIView {
         progressView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(progressView)
         
-        // 9. Progress Text
+        // Progress Text
         if currentBalance >= item.points {
             progressLabel.text = "Let's Go! 🚀"
             progressLabel.textColor = .systemGreen
@@ -530,52 +558,3 @@ final class ExperienceCard: UIView {
     
     required init?(coder: NSCoder) { fatalError() }
 }
-
-// ======================================================
-// MARK: - Reward Small Card (History)
-// ======================================================
-//final class RewardSmallCards: UIView {
-//    
-//    var onTap: (() -> Void)?
-//    
-//    init(item: RewardDetailItem) {
-//        super.init(frame: .zero)
-//        backgroundColor = UIColor.white.withAlphaComponent(0.05)
-//        layer.cornerRadius = 12
-//        
-//        let title = UILabel()
-//        title.text = item.title
-//        title.font = .systemFont(ofSize: 15, weight: .medium)
-//        title.textColor = UIColor.white.withAlphaComponent(0.6)
-//        
-//        let cost = UILabel()
-//        cost.text = "Redeemed for \(item.points) ⭐️"
-//        cost.font = .systemFont(ofSize: 12)
-//        cost.textColor = UIColor.white.withAlphaComponent(0.4)
-//        
-//        let stack = UIStackView(arrangedSubviews: [title, cost])
-//        stack.axis = .vertical
-//        stack.spacing = 4
-//        stack.translatesAutoresizingMaskIntoConstraints = false
-//        
-//        addSubview(stack)
-//        
-//        let icon = UIImageView(image: UIImage(systemName: "checkmark.circle"))
-//        icon.tintColor = .systemGreen
-//        icon.translatesAutoresizingMaskIntoConstraints = false
-//        addSubview(icon)
-//        
-//        NSLayoutConstraint.activate([
-//            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
-//            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-//            
-//            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-//            icon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16)
-//        ])
-//        
-//        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
-//    }
-//    
-//    @objc private func tapped() { onTap?() }
-//    required init?(coder: NSCoder) { fatalError() }
-//}

@@ -118,6 +118,7 @@ final class NewRewardViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // ✅ Force Hide System Navigation Bar so only our Custom Header shows
         navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
@@ -135,7 +136,7 @@ final class NewRewardViewController: UIViewController {
             applySegment(animated: false)
             
         case .edit(let item, let category):
-            // 1. Hide Segment
+            // 1. Hide Segment (Locked Category)
             segment.isHidden = true
             
             // 2. Set Category manually
@@ -263,6 +264,10 @@ final class NewRewardViewController: UIViewController {
     private func setupScroll() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        // ✅ Ensure scroll interaction works well with keyboard
+        scrollView.keyboardDismissMode = .interactive
+        scrollView.alwaysBounceVertical = true
+        
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: customHeaderView.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
@@ -362,9 +367,26 @@ final class NewRewardViewController: UIViewController {
         let alert = UIAlertController(title: "Delete Reward?", message: "This action cannot be undone.", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
+            
+            // Disable button to prevent double taps
+            self.deleteButton.isEnabled = false
+            self.deleteButton.setTitle("Deleting...", for: .normal)
+            
             _Concurrency.Task {
-                try? await RewardService.shared.deleteReward(rewardId: item.id)
-                await MainActor.run { self.navigationController?.popViewController(animated: true) }
+                do {
+                    // ✅ Pass the image URL to the service for cleanup
+                    try await RewardService.shared.deleteReward(rewardId: item.id, imageUrl: item.image_url)
+                    
+                    await MainActor.run {
+                        self.navigationController?.popViewController(animated: true)
+                    }
+                } catch {
+                    print("Delete failed: \(error)")
+                    await MainActor.run {
+                        self.deleteButton.isEnabled = true
+                        self.deleteButton.setTitle("Delete Reward", for: .normal)
+                    }
+                }
             }
         }))
         present(alert, animated: true)

@@ -23,17 +23,14 @@ extension Color {
     static let bgGradientStart = Color(red: 15/255, green: 18/255, blue: 24/255)
     static let bgGradientEnd = Color(red: 36/255, green: 55/255, blue: 99/255)
     
-    // UI Element Colors
+    // UI Colors
     static let chatLightBg = Color(red: 0.82, green: 0.84, blue: 0.88)
-    
-    // Specific Card Background
-    static let missionCardBg = Color(red: 0.22, green: 0.24, blue: 0.32)
-    
+    static let missionCardBg = Color(red: 0.22, green: 0.24, blue: 0.32) // Specific Dark Card
     static let darkButtonNavy = Color(red: 0.11, green: 0.20, blue: 0.35)
     static let buttonStroke = Color(red: 0.3, green: 0.4, blue: 0.6)
     static let accentPurple = Color(red: 0.45, green: 0.35, blue: 0.95)
     
-    // Bubble Colors
+    // Bubble Neon Colors
     static let neonPink = Color(red: 1.0, green: 0.6, blue: 0.7)
     static let neonBlue = Color(red: 0.4, green: 0.65, blue: 1.0)
     static let neonGreen = Color(red: 0.4, green: 0.8, blue: 0.6)
@@ -60,7 +57,6 @@ struct CloudyFlowView: View {
     // Tracks which bubble is animating away
     @State private var dissolvingMissionID: UUID? = nil
     
-    // Use the same missions as before
     let missions: [Mission] = [
         Mission(title: "News", time: "6:00 pm", color: .neonPink, size: 90, x: -100, y: -40),
         Mission(title: "Home\nwork", time: "6:30 pm", color: .neonBlue, size: 85, x: -60, y: 85),
@@ -85,7 +81,7 @@ struct CloudyFlowView: View {
             .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Header moved up to match ChildHomeViewController
+                // CORRECTED HEADER
                 header
                 
                 Group {
@@ -100,6 +96,7 @@ struct CloudyFlowView: View {
                             completedMissionIDs: $completedMissionIDs,
                             dissolvingMissionID: $dissolvingMissionID
                         )
+                        .transition(.opacity)
                     case .missionDetail(let mission):
                         MissionDetailView(
                             currentState: $currentState,
@@ -109,71 +106,69 @@ struct CloudyFlowView: View {
                         .transition(.slide)
                     }
                 }
-                .frame(maxWidth: .infinity)
                 
-                Spacer(minLength: 8)
-                
+                Spacer()
                 inputBar
             }
-            // dismiss keyboard similar to UIKit simultaneous gesture
+            // Dismiss keyboard logic
             .simultaneousGesture(DragGesture().onChanged({ _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }))
         }
     }
     
-    // MARK: - Header (now positioned up like ChildHomeViewController)
+    // MARK: - Header (Navigation Style)
     var header: some View {
-        VStack(spacing: 6) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Larger greeting to match ChildHome
-                    Text("Hello Child.")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    Text("We hope you have a Great day !!")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.white.opacity(0.9))
-                }
-                .padding(.leading, 20)
+        VStack(spacing: 0) {
+            ZStack {
+                // 1. Title Centered
+                Text("Cloudyy")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
                 
-                Spacer()
-                
-                HStack(spacing: 12) {
+                // 2. Buttons Pinned to Edges
+                HStack {
+                    // Back Button
                     Button(action: {
-                        // Bell action if needed
+                        withAnimation {
+                            if case .missionDetail = currentState {
+                                currentState = .missionCluster
+                            } else if currentState == .missionCluster {
+                                currentState = .chatWelcome
+                            }
+                        }
                     }) {
-                        Image(systemName: "bell")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(currentState == .chatWelcome ? .clear : .blue)
                     }
+                    .disabled(currentState == .chatWelcome)
                     
-                    Button(action: {
-                        // Profile tapped
-                    }) {
+                    Spacer()
+                    
+                    // Profile Icon
+                    Button(action: {}) {
                         Image(systemName: "person.circle")
-                            .font(.system(size: 28))
+                            .font(.system(size: 26))
                             .foregroundColor(.white)
                     }
                 }
-                .padding(.trailing, 20)
             }
-            .padding(.top, 16) // move header up (safe-area-like spacing)
-            .padding(.bottom, 4)
+            .frame(height: 44) // Standard iOS Nav Bar Height
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
             
-            // Thin separator line like ChildHome
+            // 3. Separator Line
             Rectangle()
                 .fill(Color.white.opacity(0.15))
                 .frame(height: 0.5)
-                .edgesIgnoringSafeArea(.horizontal)
         }
-        .background(Color.clear)
+        .padding(.top, 10)
     }
     
     // MARK: - Input Bar
     var inputBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 15) {
             HStack {
                 TextField("", text: $textInput)
                     .placeholder(when: textInput.isEmpty) {
@@ -184,11 +179,8 @@ struct CloudyFlowView: View {
             .padding(14)
             .background(Color.white)
             .cornerRadius(25)
-            .frame(maxWidth: .infinity)
             
-            Button(action: {
-                // send action
-            }) {
+            Button(action: {}) {
                 ZStack {
                     Circle()
                         .fill(Color.accentPurple)
@@ -200,88 +192,81 @@ struct CloudyFlowView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal)
         .padding(.top, 10)
-        .padding(.bottom, max(20, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 20))
-        .background(Color.clear)
+        .padding(.bottom, 20)
     }
 }
 
-// MARK: - 3. Screens (unchanged)
+// MARK: - 3. Screens
 
 struct WelcomeView: View {
     @Binding var currentState: AppState
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 22) {
-                // Keep mascot alignment similar to ChildHome: centered with offset
-                Image("cloudCharacter")
+            VStack(spacing: 25) {
+                Image("cloudyy_logo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 150)
                     .shadow(color: .white.opacity(0.15), radius: 15)
-                    .padding(.top, 20)
-                    .padding(.leading, 20)
+                    .padding(.top, 40)
                 
-                // Content container width similar to Home card width (0.9 screen)
-                VStack(spacing: 16) {
-                    ChatBubbleContainer {
-                        HStack(spacing: 12) {
+                ChatBubbleContainer {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 18))
+                        Text("Hi, Lets Complete all Mission")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.black.opacity(0.7))
+                    }
+                }
+                
+                ChatBubbleContainer {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "sparkles")
                                 .foregroundColor(.purple)
                                 .font(.system(size: 18))
-                            Text("Hi, Lets Complete all Mission")
+                            Text("I got you some missions for you today.\nWant to see them ??")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.black.opacity(0.7))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineSpacing(4)
                         }
-                    }
-                    
-                    ChatBubbleContainer {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "sparkles")
-                                    .foregroundColor(.purple)
-                                    .font(.system(size: 18))
-                                Text("I got you some missions for you today.\nWant to see them ??")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.black.opacity(0.7))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .lineSpacing(4)
+                        
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                withAnimation(.spring()) { currentState = .missionCluster }
+                            }) {
+                                Text("Yes, show me!")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 14)
+                                    .padding(.horizontal, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.darkButtonNavy)
+                                    .cornerRadius(14)
                             }
                             
-                            HStack(spacing: 12) {
-                                Button(action: {
-                                    withAnimation(.spring()) { currentState = .missionCluster }
-                                }) {
-                                    Text("Yes, show me!")
-                                        .font(.system(size: 15, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(.vertical, 14)
-                                        .padding(.horizontal, 16)
-                                        .frame(maxWidth: .infinity)
-                                        .background(Color.darkButtonNavy)
-                                        .cornerRadius(14)
-                                }
-                                
-                                Button(action: {}) {
-                                    Text("Maybe later")
-                                        .font(.system(size: 15, weight: .regular))
-                                        .foregroundColor(.white.opacity(0.8))
-                                        .padding(.vertical, 14)
-                                        .padding(.horizontal, 16)
-                                        .frame(maxWidth: .infinity)
-                                        .background(Color.darkButtonNavy.opacity(0.6))
-                                        .cornerRadius(14)
-                                }
+                            Button(action: {}) {
+                                Text("Maybe later")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .padding(.vertical, 14)
+                                    .padding(.horizontal, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.darkButtonNavy.opacity(0.6))
+                                    .cornerRadius(14)
                             }
                         }
                     }
                 }
-                .padding(.horizontal, 20)
-                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
         }
     }
 }
@@ -294,7 +279,7 @@ struct MissionClusterView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 ChatBubbleContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 12) {
@@ -314,16 +299,15 @@ struct MissionClusterView: View {
                 Text("Which mission should we do next")
                     .font(.system(size: 19, weight: .bold))
                     .foregroundColor(.white)
-                    .padding(.leading, 20)
-                    .padding(.top, 14)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 35)
                 
                 ZStack {
-                    // Cloud basket positioned similar to ChildHome decorations
                     Image("cloudBasket")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 170)
-                        .offset(x: -70, y: -110)
+                        .offset(x: -80, y: -120)
                     
                     ForEach(missions) { mission in
                         if !completedMissionIDs.contains(mission.id) {
@@ -343,16 +327,14 @@ struct MissionClusterView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 420)
-                .padding(.horizontal, 8)
+                .frame(height: 450)
             }
-            .padding(.top, 8)
-            .padding(.bottom, 20)
+            .padding(.top, 20)
         }
     }
 }
 
-// MARK: - DETAIL VIEW (UNCHANGED)
+// MARK: - DETAIL VIEW
 struct MissionDetailView: View {
     @Binding var currentState: AppState
     let mission: Mission
@@ -360,7 +342,7 @@ struct MissionDetailView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 25) {
                 
                 ChatBubbleContainer {
                     HStack {
@@ -372,13 +354,14 @@ struct MissionDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 
+                // 1. "Mission" as a Header (Topic)
                 Text("Mission")
                     .font(.title3.bold())
                     .foregroundColor(.white)
-                    .padding(.leading, 20)
-                    .padding(.bottom, -8)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, -15)
                 
-                // Card (aligned inside content width)
+                // 2. The Card (Content Only)
                 HStack(alignment: .top) {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(mission.color)
@@ -405,11 +388,11 @@ struct MissionDetailView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .background(Color.missionCardBg)
+                .background(Color.missionCardBg) // Specific dark grey-blue
                 .cornerRadius(16)
                 .padding(.horizontal, 20)
                 
-                // Cloud + bubble aligned similar to ChildHome
+                // 3. Cloud & Speech Bubble with Tail
                 ZStack(alignment: .bottomTrailing) {
                     Image("cloudUmbrella")
                         .resizable()
@@ -437,16 +420,16 @@ struct MissionDetailView: View {
                     .offset(x: -95, y: -100)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.top, 20)
+                .padding(.top, 50)
                 .padding(.trailing, 20)
                 
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     Button(action: handleDone) {
                         Text("Done!")
                             .font(.headline.bold())
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 16)
                             .background(Color.darkButtonNavy)
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.buttonStroke, lineWidth: 1))
                             .cornerRadius(16)
@@ -457,7 +440,7 @@ struct MissionDetailView: View {
                             .font(.headline.bold())
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 16)
                             .background(Color.darkButtonNavy)
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.buttonStroke, lineWidth: 1))
                             .cornerRadius(16)
@@ -466,7 +449,7 @@ struct MissionDetailView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }
-            .padding(.top, 10)
+            .padding(.top, 20)
         }
     }
     
@@ -480,20 +463,21 @@ struct MissionDetailView: View {
 
 // MARK: - 4. Effects & Helpers
 
+// Transparent Glass Bubble
 struct GlassyBubble: View {
     let mission: Mission
     
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.black.opacity(0.3))
+                .fill(Color.black.opacity(0.3)) // Dark tint, transparent
             Circle()
                 .stroke(mission.color.opacity(0.6), lineWidth: 1.0)
             VStack(spacing: 4) {
                 Text(mission.title)
                     .font(.system(size: mission.size > 100 ? 15 : 12, weight: .semibold))
                     .multilineTextAlignment(.center)
-                    .foregroundColor(mission.color)
+                    .foregroundColor(mission.color) // Neon text
                     .padding(.horizontal, 4)
                 Text(mission.time)
                     .font(.system(size: 10, weight: .regular))
@@ -550,7 +534,6 @@ struct ChatBubbleContainer<Content: View>: View {
             .padding(18)
             .background(Color.chatLightBg)
             .cornerRadius(24)
-            .frame(maxWidth: .infinity)
     }
 }
 

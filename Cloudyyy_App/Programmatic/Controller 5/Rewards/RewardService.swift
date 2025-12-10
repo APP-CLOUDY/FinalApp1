@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 import UIKit
 
-// MARK: - 1. Request Models
+// MARK: - 1. Request Models (Defined Globally & Non-isolated)
 
 struct CreateRewardParams: Encodable, Sendable {
     let title_input: String
@@ -12,7 +12,7 @@ struct CreateRewardParams: Encodable, Sendable {
     let child_ids_input: [UUID]
     let image_url_input: String?
     let claim_limit_input: String?
-    let sub_type_input: String? // ✅ Added
+    let sub_type_input: String?
 
     enum CodingKeys: String, CodingKey {
         case title_input, description_input, points_input, category_input, child_ids_input, image_url_input, claim_limit_input, sub_type_input
@@ -40,7 +40,7 @@ struct UpdateRewardParams: Encodable, Sendable {
     let image_url_input: String?
     let claim_limit_input: String?
     let child_ids_input: [UUID]
-    let sub_type_input: String? // ✅ Added
+    let sub_type_input: String?
     
     enum CodingKeys: String, CodingKey {
         case reward_id_input, title_input, description_input, points_input, category_input, image_url_input, claim_limit_input, child_ids_input, sub_type_input
@@ -60,7 +60,6 @@ struct UpdateRewardParams: Encodable, Sendable {
     }
 }
 
-// ... Delete/Assign Params remain same ...
 struct DeleteRewardParams: Encodable, Sendable {
     let reward_id_input: UUID
     enum CodingKeys: String, CodingKey { case reward_id_input }
@@ -103,17 +102,20 @@ struct RewardItemModel: Decodable, Sendable {
     let description: String?
     let points: Int
     let image_url: String?
-    let claim_limit: String?       // ✅ Added
-    let reward_sub_type: String?   // ✅ Added
+    let claim_limit: String?
+    let reward_sub_type: String?
 }
 
 // MARK: - 3. Service Class
 
 final class RewardService: Sendable {
     static let shared = RewardService()
-    private var client: SupabaseClient { SupabaseManager.shared.client }
     
-    // Fetch Logic
+    private var client: SupabaseClient {
+        return SupabaseManager.shared.client
+    }
+    
+    // MARK: - Fetch Logic
     func fetchRewardStats(for childId: UUID) async throws -> RewardStats {
         let params = ["child_id_input": childId.uuidString]
         return try await client.database.rpc("get_child_reward_stats", params: params).execute().value
@@ -129,44 +131,77 @@ final class RewardService: Sendable {
         return try await client.rpc("get_reward_assignments", params: params).execute().value
     }
     
-    // Upload
+    // MARK: - Storage Logic
+    
     private func uploadImage(_ image: UIImage) async throws -> String {
-        guard let data = image.jpegData(compressionQuality: 0.5) else { throw NSError(domain: "Err", code: -1, userInfo: nil) }
+        guard let data = image.jpegData(compressionQuality: 0.5) else {
+            throw NSError(domain: "ImageError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid image"])
+        }
         let fileName = "\(UUID().uuidString).jpg"
         let options = FileOptions(contentType: "image/jpeg")
+        
+        // Upload
         _ = try await client.storage.from("rewards").upload(fileName, data: data, options: options)
-        return try client.storage.from("rewards").getPublicURL(path: fileName).absoluteString
+        
+        // ✅ FIX: Added 'try' here because getPublicURL can throw in newer SDK versions
+        let url = try client.storage.from("rewards").getPublicURL(path: fileName)
+        return url.absoluteString
     }
     
-    // Create
+    private func deleteImageFromStorage(url: String) async {
+        guard let fileName = url.components(separatedBy: "/").last else { return }
+        do {
+            _ = try await client.storage.from("rewards").remove(paths: [fileName])
+            print("🗑️ Deleted orphaned image: \(fileName)")
+        } catch {
+            print("⚠️ Failed to delete image: \(error)")
+        }
+    }
+    
+    // MARK: - CRUD
+    
     func createReward(title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, claimLimit: String?, subType: String?) async throws -> UUID {
+        
         var imageUrl: String? = nil
-        if let img = image { imageUrl = try? await uploadImage(img) }
+        if let img = image {
+            imageUrl = try? await uploadImage(img)
+        }
         
         let params = CreateRewardParams(
-            title_input: title, description_input: description, points_input: points, category_input: category, child_ids_input: children, image_url_input: imageUrl, claim_limit_input: claimLimit,
-            sub_type_input: subType // ✅ Passed
+            title_input: title, description_input: description, points_input: points, category_input: category, child_ids_input: children, image_url_input: imageUrl, claim_limit_input: claimLimit, sub_type_input: subType
         )
+        
         let response: RewardResponse = try await client.database.rpc("create_new_reward", params: params).execute().value
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
         return response.reward_id
     }
     
-    // Update
     func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?) async throws {
+        
         var finalImageUrl = existingImageUrl
-        if let img = image { finalImageUrl = try? await uploadImage(img) }
+        
+        if let img = image {
+            // Upload new
+            finalImageUrl = try? await uploadImage(img)
+            // Cleanup old
+            if finalImageUrl != nil, let oldUrl = existingImageUrl {
+                await deleteImageFromStorage(url: oldUrl)
+            }
+        }
         
         let params = UpdateRewardParams(
-            reward_id_input: rewardId, title_input: title, description_input: description, points_input: points, category_input: category, image_url_input: finalImageUrl, claim_limit_input: claimLimit, child_ids_input: children,
-            sub_type_input: subType // ✅ Passed
+            reward_id_input: rewardId, title_input: title, description_input: description, points_input: points, category_input: category, image_url_input: finalImageUrl, claim_limit_input: claimLimit, child_ids_input: children, sub_type_input: subType
         )
+        
         try await client.rpc("update_existing_reward", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
     }
     
-    // Delete
-    func deleteReward(rewardId: UUID) async throws {
+    func deleteReward(rewardId: UUID, imageUrl: String? = nil) async throws {
+        if let url = imageUrl {
+            await deleteImageFromStorage(url: url)
+        }
+        
         let params = DeleteRewardParams(reward_id_input: rewardId)
         try await client.rpc("delete_reward_by_id", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
