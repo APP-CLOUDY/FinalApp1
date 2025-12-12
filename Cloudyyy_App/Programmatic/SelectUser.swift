@@ -363,7 +363,7 @@ final class SelectUserViewController: UIViewController {
     }
 
     private func parentSelected() {
-        let vc = Homelogin()
+        let vc = Login()
         navigationController?.pushViewController(vc, animated: true)
     }
 
