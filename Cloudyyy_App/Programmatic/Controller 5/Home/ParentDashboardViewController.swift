@@ -35,16 +35,19 @@ extension Color {
         private var weeklyPoints: [HomeChartDataPoint] = []
         private var monthlyPoints: [HomeChartDataPoint] = []
         
-        // MARK: - UI Elements
+
+    // MARK: - UI Elements
         private let gradient = CAGradientLayer()
         private let header = HomeHeaderView(title: "Home")
-        private let overviewCard = OverviewCardView()
+        private let overviewCard = OverviewCardGlassView()
         private let pendingLabel = UILabel()
         private let allocatedLabel = UILabel()
         private let segment = UISegmentedControl(items: ["Weekly", "Monthly"])
         private let contentScroll = UIScrollView()
         private let content = UIView()
         private var chartHostingController: UIHostingController<AnyView>?
+        
+        
         
         // MARK: - Lifecycle
         override func viewDidLoad() {
@@ -55,6 +58,7 @@ extension Color {
             setupHeader()
             setupContentLayout()
             
+          
             header.onChildTapped = { [weak self] in self?.showKidsMenu() }
             header.onProfileTapped = { [weak self] in
                 let vc = ParentProfileViewController()
@@ -71,6 +75,14 @@ extension Color {
                 name: NSNotification.Name("DataChanged"),
                 object: nil
             )
+            
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleSelectedKidChanged(_:)),
+                name: .selectedKidChanged,
+                object: nil
+            )
+
         }
         
         deinit {
@@ -106,12 +118,17 @@ extension Color {
             _Concurrency.Task {
                 do {
                     let dashboardData = try await FamilyService.shared.fetchDashboard()
+
                     await MainActor.run {
                         self.kids = dashboardData.children
-                        if let first = self.kids.first {
-                            self.selectKid(first)
-                        } else {
-                            self.header.childButton.setTitle("No Kids", for: .normal)
+
+                        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                        header.setKids(uiKids)
+
+                        if let first = kids.first {
+                            let uiKid = Kid(id: first.id.uuidString, name: first.name)
+                            header.setSelectedKid(uiKid)
+                            selectKid(first)
                         }
                     }
                 } catch {
@@ -119,13 +136,18 @@ extension Color {
                 }
             }
         }
-        
+
         private func selectKid(_ kid: ChildModel) {
             self.selectedKid = kid
-            header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+
+            // Convert to UI model
+            let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
+            header.setSelectedKid(uiKid)
+
             fetchStats(for: kid)
             fetchCharts(for: kid)
         }
+
         
         private func fetchStats(for kid: ChildModel) {
             _Concurrency.Task {
@@ -196,11 +218,10 @@ extension Color {
             let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
             let menu = FloatingKidsMenu(kids: uiKids)
             menu.manager = FloatingMenuManager.shared
-            menu.onKidSelected = { [weak self] selectedUiKid in
-                if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                    self?.selectKid(realKid)
-                }
+            menu.onKidSelected = { selectedUiKid in
+                SelectedKidStore.shared.updateKid(selectedUiKid)
             }
+
             menu.show(in: view, anchor: header.childButton)
         }
         
@@ -410,6 +431,17 @@ extension Color {
             ])
             return blur
         }
+        
+        
+        @objc private func handleSelectedKidChanged(_ notification: Notification) {
+            guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+            
+            // Convert UI → real model
+            if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+                selectKid(realKid)     // 🔥 UPDATES stats + charts + header
+            }
+        }
+
     }
     
     // MARK: - FIXED CHART VIEW (With Manual Legend)
@@ -479,18 +511,8 @@ extension Color {
             }
             .environment(\.colorScheme, .dark)
         }
+        
+        
+        
+        
     }
-    
-    // MARK: - Placeholders
-    //class ApprovalViewController: UIViewController {
-    //    override func viewDidLoad() {
-    //        super.viewDidLoad()
-    //        view.backgroundColor = .systemBackground
-    //        title = "Approvals"
-    //        let lbl = UILabel()
-    //        lbl.text = "Approvals Placeholder"
-    //        lbl.center = view.center
-    //        view.addSubview(lbl)
-    //    }
-    //}
-

@@ -14,52 +14,13 @@ final class DreamItViewController: UIViewController {
     // MARK: - UI Components
     
     // 1. Header (Pass empty string to hide default title)
-    private let header = HomeHeaderView(title: "")
+    // use the header with the screen title
+    private let header = HomeHeaderView(title: "Dream It")
     private let gradient = CAGradientLayer()
-    private let searchBar = SimpleSearchBar()
-
-    // 2. Custom Title Label
-    private let screenTitleLabel: UILabel = {
-        let l = UILabel()
-        l.text = "Dream It"
-        l.font = UIFont.systemFont(ofSize: 28, weight: .bold)
-        l.textColor = .white
-        l.translatesAutoresizingMaskIntoConstraints = false
-        return l
-    }()
-    
-    // 3. Custom Child Button (To align with Title)
-    private let customChildButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("Child ▾", for: .normal)
-        btn.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium) // Adjusted font size
-        btn.setTitleColor(.white, for: .normal)
-        btn.contentHorizontalAlignment = .left // Align text to left
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
-    }()
-
-    // 4. Back Button
-    private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        b.tintColor = .white
-        b.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        b.layer.cornerRadius = 16
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
-        return b
-    }()
 
     // Scroll Layout
     private let scrollView = UIScrollView()
     private let content = UIView()
-
-    // Categories
-    private let categoryScroll = UIScrollView()
-    private let categoryStack = UIStackView()
-    private let categories = ["All", "Gadgets", "Toys", "Experiences", "Bicycles"]
-    private var selectedCategoryIndex = 0
 
     // Sections
     private let activeLabel = SectionLabel(text: "My Dream List")
@@ -76,25 +37,31 @@ final class DreamItViewController: UIViewController {
         view.backgroundColor = .clear
 
         setupGradient()
+
+        // Add & layout header first (so other views can anchor to header.bottomAnchor)
         setupHeader()
-        
-        // ✅ Hide default header child button so we can use our aligned one
-        header.childButton.isHidden = true
-        
-        setupCustomNavigation() // Sets up Back, Title, AND Child Button
+
+        // Header appearance + callbacks (one place, no duplicates)
+        header.showNotificationButton(false)
+        header.showProfileButton(false)
+        header.showPlusButton(true)    // if you want the plus visible on Dream It
+        header.showBackButton(true)    // enable chevron-only back button
+
+        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onBackTapped  = { [weak self] in self?.navigationController?.popViewController(animated: true) }
+        header.onPlusTapped  = { [weak self] in self?.openNewReward() }
+
+        // Scroll + content come after header (they use header.bottomAnchor)
         setupScroll()
         setupContentLayout()
-        setupCategoryChips()
-        
-        // Actions
-        customChildButton.addTarget(self, action: #selector(didTapChildMenu), for: .touchUpInside)
-        header.showPlusButton(true)
-        header.onPlusTapped = { [weak self] in self?.openNewReward() }
-
+        // Load data
         fetchKidsAndLoad()
-        
+
+        // Observers
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleSelectedKidChanged(_:)), name: .selectedKidChanged, object: nil)
     }
+
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -106,13 +73,10 @@ final class DreamItViewController: UIViewController {
         gradient.frame = view.bounds
     }
     
-    @objc private func handleBack() {
-        navigationController?.popViewController(animated: true)
-    }
     
     @objc private func handleDataChange() {
         if let kid = selectedKid {
-            reloadForKid(kid)
+            reloadForKidRewards(kid)
         }
     }
     
@@ -126,29 +90,52 @@ final class DreamItViewController: UIViewController {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
                 await MainActor.run {
-                    self.kids = data.children
-                    if let first = self.kids.first {
-                        self.selectedKid = first
-                        // ✅ Update our Custom Button
-                        self.customChildButton.setTitle("\(first.name) ▾", for: .normal)
-                        self.reloadForKid(first)
+                    
+                    self.kids = data.children                     // ← assign real data
+                    let uiKids = self.kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                    self.header.setKids(uiKids)
+
+                    if let saved = SelectedKidStore.shared.selectedKid,
+                       let realKid = kids.first(where: { $0.id.uuidString == saved.id }) {
+                        
+                        self.selectKid(realKid)
+                        return
+                    }
+
+                    // Else pick first
+                    if let first = kids.first {
+                        self.selectKid(first)
                     }
                 }
             } catch {
-                print("Error fetching kids: \(error)")
+                print(error)
             }
         }
+        
+        
     }
 
-    private func reloadForKid(_ kid: ChildModel) {
+    
+    private func selectKid(_ kid: ChildModel) {
         self.selectedKid = kid
-        // ✅ Update Custom Button
-        self.customChildButton.setTitle("\(kid.name) ▾", for: .normal)
-        
+
+        // update header dropdown
+        self.header.setSelectedKid(Kid(id: kid.id.uuidString, name: kid.name))
+
+        // broadcast globally (keeps other controllers in sync)
+        SelectedKidStore.shared.updateKid(Kid(id: kid.id.uuidString, name: kid.name))
+
+        // load rewards for kid
+        reloadForKidRewards(kid)
+    }
+
+
+    private func reloadForKidRewards(_ kid: ChildModel) {
         _Concurrency.Task {
             do {
                 let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
                 let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Dream it")
+                
                 
                 await MainActor.run {
                     self.currentBalance = stats.total_stars
@@ -246,17 +233,22 @@ final class DreamItViewController: UIViewController {
 
     private func showKidsMenu() {
         guard !kids.isEmpty else { return }
+
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { [weak self] selectedUiKid in
-            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                self?.reloadForKid(realKid)
-            }
+
+        // NEW: Global update
+        menu.onKidSelected = { selectedUiKid in
+            SelectedKidStore.shared.updateKid(selectedUiKid)
         }
-        // ✅ Anchor to our Custom Button
-        menu.show(in: view, anchor: customChildButton)
+
+        menu.show(in: view, anchor: header.childButton)
+
+
     }
+
     
     // MARK: - Visuals & Layout
     private func setupGradient() {
@@ -279,37 +271,8 @@ final class DreamItViewController: UIViewController {
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 98)
+            header.heightAnchor.constraint(equalToConstant: 110)
         ])
-    }
-
-    // ✅ FIXED: Custom Title, Back Button, and Child Button Alignment
-    private func setupCustomNavigation() {
-        view.addSubview(backButton)
-        view.addSubview(screenTitleLabel)
-        view.addSubview(customChildButton)
-        
-        NSLayoutConstraint.activate([
-            // 1. Back Button
-            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            backButton.widthAnchor.constraint(equalToConstant: 36),
-            backButton.heightAnchor.constraint(equalToConstant: 36),
-            
-            // 2. Title Label (Pinned right next to Back Button)
-            screenTitleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            screenTitleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
-            
-            // 3. Custom Child Button (Pinned below Title, aligned to Title's leading edge)
-            customChildButton.topAnchor.constraint(equalTo: screenTitleLabel.bottomAnchor, constant: 2),
-            customChildButton.leadingAnchor.constraint(equalTo: screenTitleLabel.leadingAnchor),
-            customChildButton.heightAnchor.constraint(equalToConstant: 24)
-        ])
-        
-        // Ensure they appear above the header background
-        backButton.layer.zPosition = 100
-        screenTitleLabel.layer.zPosition = 100
-        customChildButton.layer.zPosition = 100
     }
 
     private func setupScroll() {
@@ -333,16 +296,8 @@ final class DreamItViewController: UIViewController {
     }
 
     private func setupContentLayout() {
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(searchBar)
-
-        categoryScroll.showsHorizontalScrollIndicator = false
-        categoryScroll.translatesAutoresizingMaskIntoConstraints = false
-        categoryStack.axis = .horizontal
-        categoryStack.spacing = 10
-        categoryStack.translatesAutoresizingMaskIntoConstraints = false
-        categoryScroll.addSubview(categoryStack)
-        content.addSubview(categoryScroll)
+        // Do NOT add searchBar or categoryScroll here (removed)
+        // We'll add the active and completed sections directly.
 
         activeScroll.showsHorizontalScrollIndicator = false
         activeScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -350,32 +305,21 @@ final class DreamItViewController: UIViewController {
         activeStack.spacing = 16
         activeStack.translatesAutoresizingMaskIntoConstraints = false
         activeScroll.addSubview(activeStack)
+        content.addSubview(activeScroll)
 
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
-        
+
+        // Add labels & stacks
         [activeLabel, activeScroll, completedLabel, completedStack, bottomSpacer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
-            searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
-            searchBar.heightAnchor.constraint(equalToConstant: 44),
-
-            categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
-            categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            categoryScroll.heightAnchor.constraint(equalToConstant: 36),
-            
-            categoryStack.leadingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.leadingAnchor),
-            categoryStack.trailingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.trailingAnchor, constant: -20),
-            categoryStack.heightAnchor.constraint(equalTo: categoryScroll.frameLayoutGuide.heightAnchor),
-
-            activeLabel.topAnchor.constraint(equalTo: categoryScroll.bottomAnchor, constant: 24),
+            // Put activeLabel at top of content (was previously below search bar)
+            activeLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
@@ -402,33 +346,14 @@ final class DreamItViewController: UIViewController {
         ])
     }
     
-    private func setupCategoryChips() {
-        categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        
-        for (index, title) in categories.enumerated() {
-            let btn = UIButton(type: .system)
-            btn.setTitle(title, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
-            btn.contentEdgeInsets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
-            btn.layer.cornerRadius = 18
-            btn.tag = index
-            btn.addTarget(self, action: #selector(categoryTapped(_:)), for: .touchUpInside)
-            
-            if index == selectedCategoryIndex {
-                btn.backgroundColor = .white
-                btn.setTitleColor(.black, for: .normal)
-            } else {
-                btn.backgroundColor = UIColor.white.withAlphaComponent(0.1)
-                btn.setTitleColor(.white, for: .normal)
-            }
-            categoryStack.addArrangedSubview(btn)
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            selectKid(realKid)
         }
     }
-    
-    @objc private func categoryTapped(_ sender: UIButton) {
-        selectedCategoryIndex = sender.tag
-        setupCategoryChips()
-    }
+
 }
 
 // ======================================================

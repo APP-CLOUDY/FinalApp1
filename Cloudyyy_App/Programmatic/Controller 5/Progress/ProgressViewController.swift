@@ -45,6 +45,8 @@ final class ProgressViewController: UIViewController {
     private let effortsStack = UIStackView()
     private let bottomSpacer = UIView()
     
+    
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -61,6 +63,14 @@ final class ProgressViewController: UIViewController {
         
         // Auto-refresh on changes
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSelectedKidChanged(_:)),
+            name: .selectedKidChanged,
+            object: nil
+        )
+
     }
     
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -90,23 +100,39 @@ final class ProgressViewController: UIViewController {
         _Concurrency.Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
+
                 await MainActor.run {
                     self.kids = data.children
+
+                    // Convert to UI Kids
+                    let uiKids = self.kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+
+                    // ⬇️ TELL HEADER ABOUT KIDS
+                    self.header.setKids(uiKids)
+
                     if let first = self.kids.first {
                         self.selectKid(first)
                     } else {
                         self.header.childButton.setTitle("No Kids", for: .normal)
                     }
                 }
-            } catch { print("Error fetching kids: \(error)") }
+
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
         }
     }
-    
+
     private func selectKid(_ kid: ChildModel) {
         selectedKid = kid
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+
+        // Notify header
+        let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
+        header.setSelectedKid(uiKid)
+
         reloadForKid(kid)
     }
+
     
     private func reloadForKid(_ kid: ChildModel) {
         _Concurrency.Task {
@@ -165,11 +191,10 @@ final class ProgressViewController: UIViewController {
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { [weak self] selectedUiKid in
-            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                self?.selectKid(realKid)
-            }
+        menu.onKidSelected = { selectedUiKid in
+            SelectedKidStore.shared.updateKid(selectedUiKid)
         }
+
         menu.show(in: view, anchor: header.childButton)
     }
     
@@ -191,7 +216,7 @@ final class ProgressViewController: UIViewController {
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 110)
+            header.heightAnchor.constraint(equalToConstant: 98)
         ])
     }
     
@@ -258,6 +283,16 @@ final class ProgressViewController: UIViewController {
             bottomSpacer.heightAnchor.constraint(equalToConstant: 80)
         ])
     }
+    
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+
+        // Convert UI → real model
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            selectKid(realKid)    // 🔥 Updates header + reloads API + updates UI
+        }
+    }
+
 }
 
 // ======================================================
@@ -524,6 +559,8 @@ private final class AchievementCardView: UIView {
     }
     
     required init?(coder: NSCoder) { fatalError() }
+    
+    
 }
 
 // MARK: - 4. Effort Row
@@ -582,4 +619,7 @@ private final class EffortRow: UIView {
     }
     
     required init?(coder: NSCoder) { fatalError() }
+    
+    
+    
 }

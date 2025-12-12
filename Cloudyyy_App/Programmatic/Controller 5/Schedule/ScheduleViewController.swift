@@ -49,7 +49,6 @@ final class ScheduleViewController: UIViewController {
 
     // Data Properties
     private var selectedDate: Date = Date()
-    private var currentKid: ChildModel?
     private var allTasksForDate: [ScheduleTaskModel] = []
     private var displayedTasks: [ScheduleTaskModel] = []
 
@@ -58,6 +57,13 @@ final class ScheduleViewController: UIViewController {
     private let dayFormatter = DateFormatter()
     private let monthFormatter = DateFormatter()
 
+    
+    private var kids: [ChildModel] = []
+    private var selectedKid: ChildModel?
+
+    
+   
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -86,12 +92,20 @@ final class ScheduleViewController: UIViewController {
         fetchKidsAndLoad()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSelectedKidChanged(_:)),
+            name: .selectedKidChanged,
+            object: nil
+        )
+
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
-        if let kid = currentKid { fetchTasks(for: kid, date: selectedDate) }
+        if let kid = selectedKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
     override func viewDidLayoutSubviews() {
@@ -103,7 +117,7 @@ final class ScheduleViewController: UIViewController {
     }
     
     @objc private func handleDataChange() {
-        if let kid = currentKid { fetchTasks(for: kid, date: selectedDate) }
+        if let kid = selectedKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
     // MARK: - Data Logic
@@ -111,22 +125,43 @@ final class ScheduleViewController: UIViewController {
         _Concurrency.Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
+
                 await MainActor.run {
-                    if let first = data.children.first {
-                        self.updateCurrentKid(first)
+                    self.kids = data.children
+
+                    let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                    header.setKids(uiKids)
+
+                    if let first = kids.first {
+                        selectKid(first)
                     } else {
-                        self.header.childButton.setTitle("No Kids", for: .normal)
+                        header.childButton.setTitle("No Kids", for: .normal)
                     }
                 }
-            } catch { print(error) }
+            } catch {
+                print("Error fetching kids: \(error)")
+            }
         }
     }
     
-    private func updateCurrentKid(_ kid: ChildModel) {
-        self.currentKid = kid
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
-        select(date: selectedDate, animated: true)
+    
+    private func selectKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        
+        let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
+        header.setSelectedKid(uiKid)
+
+        fetchTasks(for: kid, date: selectedDate)
     }
+
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            selectKid(realKid)
+        }
+    }
+    
     
     private func fetchTasks(for kid: ChildModel, date: Date) {
             _Concurrency.Task {
@@ -209,23 +244,21 @@ final class ScheduleViewController: UIViewController {
 
     // MARK: - Kids Menu & Date Logic (Standard)
     private func showKidsMenu() {
-        _Concurrency.Task {
-            do {
-                let data = try await FamilyService.shared.fetchDashboard()
-                await MainActor.run {
-                    let uiKids = data.children.map { Kid(id: $0.id.uuidString, name: $0.name) }
-                    let menu = FloatingKidsMenu(kids: uiKids)
-                    menu.manager = FloatingMenuManager.shared
-                    menu.onKidSelected = { [weak self] selectedUiKid in
-                        if let realKid = data.children.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                            self?.updateCurrentKid(realKid)
-                        }
-                    }
-                    menu.show(in: self.view, anchor: self.header.childButton)
-                }
-            } catch { print(error) }
+        guard !kids.isEmpty else { return }
+
+        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+
+        menu.onKidSelected = { selectedUiKid in
+            SelectedKidStore.shared.updateKid(selectedUiKid)
         }
+
+
+        menu.show(in: self.view, anchor: header.childButton)
     }
+
 
     private func generateDatesForCurrentMonth() {
         allDatesOfMonth.removeAll()
@@ -295,7 +328,7 @@ final class ScheduleViewController: UIViewController {
             } else { btn.backgroundColor = UIColor(white: 1, alpha: 0.03) }
         }
         if let idx = indexOfDate(date) { centerDateButton(dateButtons[idx], animated: animated) }
-        if let kid = currentKid { fetchTasks(for: kid, date: date) }
+        if let kid = selectedKid { fetchTasks(for: kid, date: date) }
     }
 
     private func centerDateButton(_ button: UIButton, animated: Bool) {
@@ -412,7 +445,8 @@ final class ScheduleViewController: UIViewController {
 
 private extension Date {
     func weekdayShort() -> String {
-        let f = DateFormatter(); f.dateFormat = "E"
+        let f = DateFormatter()
+        f.dateFormat = "E"
         return f.string(from: self)
     }
 }

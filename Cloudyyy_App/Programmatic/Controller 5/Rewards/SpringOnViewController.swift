@@ -5,6 +5,7 @@ final class SpringOnViewController: UIViewController {
     // MARK: - Properties
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
+    
     private var activeItems: [RewardDetailItem] = []
     private var completedItems: [RewardDetailItem] = []
     private var currentBalance: Int = 0
@@ -12,52 +13,11 @@ final class SpringOnViewController: UIViewController {
     // MARK: - UI Components
     
     // 1. Header (Pass empty string to hide default title)
-    private let header = HomeHeaderView(title: "")
+    private let header = HomeHeaderView(title: "Spring On")
     private let gradient = CAGradientLayer()
-    private let searchBar = SimpleSearchBar()
-
-    // 2. Custom Title Label
-    private let screenTitleLabel: UILabel = {
-        let l = UILabel()
-        l.text = "Spring On"
-        l.font = UIFont.systemFont(ofSize: 28, weight: .bold)
-        l.textColor = .white
-        l.translatesAutoresizingMaskIntoConstraints = false
-        return l
-    }()
-    
-    // 3. Custom Child Button (Aligned with Title)
-    private let customChildButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("Child ▾", for: .normal)
-        btn.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        btn.setTitleColor(.white, for: .normal)
-        btn.contentHorizontalAlignment = .left
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
-    }()
-
-    // 4. Back Button
-    private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        b.tintColor = .white
-        b.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        b.layer.cornerRadius = 16
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
-        return b
-    }()
-
     // Scroll Layout
     private let scrollView = UIScrollView()
     private let content = UIView()
-
-    // Categories
-    private let categoryScroll = UIScrollView()
-    private let categoryStack = UIStackView()
-    private let categories = ["All", "Outdoor", "Events", "Trips", "Classes"]
-    private var selectedCategoryIndex = 0
 
     // Sections
     private let activeLabel = SectionLabel(text: "Upcoming Adventures")
@@ -76,22 +36,35 @@ final class SpringOnViewController: UIViewController {
         setupGradient()
         setupHeader()
         
-        // ✅ Hide default header child button
-        header.childButton.isHidden = true
-        
-        setupCustomNavigation() // Back + Title + Child Button
+        // Use built-in header (title + dropdown + chevron)
+        header.showNotificationButton(false)
+        header.showProfileButton(false)
+        header.showPlusButton(true)      // optional
+        header.showBackButton(true)      // show chevron-in-circle back button
+
+        // Hook up header callbacks
+        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onBackTapped  = { [weak self] in self?.navigationController?.popViewController(animated: true) }
+        header.onPlusTapped  = { [weak self] in self?.openNewReward() }
+
+       
         setupScroll()
         setupContentLayout()
-        setupCategoryChips()
         
-        // Actions
-        customChildButton.addTarget(self, action: #selector(didTapChildMenu), for: .touchUpInside)
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewReward() }
 
         fetchKidsAndLoad()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSelectedKidChanged(_:)),
+            name: .selectedKidChanged,
+            object: nil
+        )
+
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -125,21 +98,34 @@ final class SpringOnViewController: UIViewController {
                 let data = try await FamilyService.shared.fetchDashboard()
                 await MainActor.run {
                     self.kids = data.children
-                    if let first = self.kids.first {
-                        self.selectedKid = first
-                        self.customChildButton.setTitle("\(first.name) ▾", for: .normal)
-                        self.reloadForKid(first)
+                    let uiKids = self.kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                    self.header.setKids(uiKids)   // <-- IMPORTANT
+
+                    // restore saved selected kid or pick first
+                    if let saved = SelectedKidStore.shared.selectedKid,
+                       let realKid = self.kids.first(where: { $0.id.uuidString == saved.id }) {
+                        self.selectKid(realKid)
+                    } else if let first = self.kids.first {
+                        self.selectKid(first)
                     }
                 }
+
             } catch {
                 print("Error fetching kids: \(error)")
             }
         }
     }
 
+    private func selectKid(_ kid: ChildModel) {
+        self.selectedKid = kid
+        self.header.setSelectedKid(Kid(id: kid.id.uuidString, name: kid.name)) // <-- sync header
+        SelectedKidStore.shared.updateKid(Kid(id: kid.id.uuidString, name: kid.name))
+        reloadForKid(kid)
+    }
+
     private func reloadForKid(_ kid: ChildModel) {
         self.selectedKid = kid
-        self.customChildButton.setTitle("\(kid.name) ▾", for: .normal)
+        self.header.setSelectedKid(Kid(id: kid.id.uuidString, name: kid.name))
         
         _Concurrency.Task {
             do {
@@ -247,12 +233,10 @@ final class SpringOnViewController: UIViewController {
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { [weak self] selectedUiKid in
-            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                self?.reloadForKid(realKid)
-            }
+        menu.onKidSelected = { selectedUiKid in
+            SelectedKidStore.shared.updateKid(selectedUiKid)
         }
-        menu.show(in: view, anchor: customChildButton) // ✅ Anchor to Custom Button
+        menu.show(in: view, anchor: header.childButton)
     }
     
     // MARK: - Visuals & Layout
@@ -276,38 +260,11 @@ final class SpringOnViewController: UIViewController {
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 98)
+            header.heightAnchor.constraint(equalToConstant: 110)
         ])
     }
 
-    // ✅ FIXED: Custom Title, Back Button, and Child Button Alignment
-    private func setupCustomNavigation() {
-        view.addSubview(backButton)
-        view.addSubview(screenTitleLabel)
-        view.addSubview(customChildButton)
-        
-        NSLayoutConstraint.activate([
-            // 1. Back Button
-            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            backButton.widthAnchor.constraint(equalToConstant: 36),
-            backButton.heightAnchor.constraint(equalToConstant: 36),
-            
-            // 2. Title Label (Pinned right next to Back Button)
-            screenTitleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            screenTitleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
-            
-            // 3. Custom Child Button (Pinned below Title, aligned to Title's leading edge)
-            customChildButton.topAnchor.constraint(equalTo: screenTitleLabel.bottomAnchor, constant: 2),
-            customChildButton.leadingAnchor.constraint(equalTo: screenTitleLabel.leadingAnchor),
-            customChildButton.heightAnchor.constraint(equalToConstant: 24)
-        ])
-        
-        view.bringSubviewToFront(backButton)
-        view.bringSubviewToFront(screenTitleLabel)
-        view.bringSubviewToFront(customChildButton)
-    }
-
+   
     private func setupScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -329,16 +286,8 @@ final class SpringOnViewController: UIViewController {
     }
 
     private func setupContentLayout() {
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(searchBar)
-
-        categoryScroll.showsHorizontalScrollIndicator = false
-        categoryScroll.translatesAutoresizingMaskIntoConstraints = false
-        categoryStack.axis = .horizontal
-        categoryStack.spacing = 10
-        categoryStack.translatesAutoresizingMaskIntoConstraints = false
-        categoryScroll.addSubview(categoryStack)
-        content.addSubview(categoryScroll)
+        // Do NOT add searchBar or categoryScroll here (removed)
+        // We'll add the active and completed sections directly.
 
         activeScroll.showsHorizontalScrollIndicator = false
         activeScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -346,32 +295,21 @@ final class SpringOnViewController: UIViewController {
         activeStack.spacing = 16
         activeStack.translatesAutoresizingMaskIntoConstraints = false
         activeScroll.addSubview(activeStack)
+        content.addSubview(activeScroll)
 
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
-        
+
+        // Add labels & stacks
         [activeLabel, activeScroll, completedLabel, completedStack, bottomSpacer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
-            searchBar.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            searchBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
-            searchBar.heightAnchor.constraint(equalToConstant: 44),
-
-            categoryScroll.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 16),
-            categoryScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            categoryScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            categoryScroll.heightAnchor.constraint(equalToConstant: 36),
-            
-            categoryStack.leadingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.leadingAnchor),
-            categoryStack.trailingAnchor.constraint(equalTo: categoryScroll.contentLayoutGuide.trailingAnchor, constant: -20),
-            categoryStack.heightAnchor.constraint(equalTo: categoryScroll.frameLayoutGuide.heightAnchor),
-
-            activeLabel.topAnchor.constraint(equalTo: categoryScroll.bottomAnchor, constant: 24),
+            // Put activeLabel at top of content (was previously below search bar)
+            activeLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
@@ -398,33 +336,19 @@ final class SpringOnViewController: UIViewController {
         ])
     }
     
-    private func setupCategoryChips() {
-        categoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        
-        for (index, title) in categories.enumerated() {
-            let btn = UIButton(type: .system)
-            btn.setTitle(title, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
-            btn.contentEdgeInsets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
-            btn.layer.cornerRadius = 18
-            btn.tag = index
-            btn.addTarget(self, action: #selector(categoryTapped(_:)), for: .touchUpInside)
-            
-            if index == selectedCategoryIndex {
-                btn.backgroundColor = .white
-                btn.setTitleColor(.black, for: .normal)
-            } else {
-                btn.backgroundColor = UIColor.white.withAlphaComponent(0.1)
-                btn.setTitleColor(.white, for: .normal)
-            }
-            categoryStack.addArrangedSubview(btn)
+    
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            reloadForKid(realKid)
         }
     }
-    
-    @objc private func categoryTapped(_ sender: UIButton) {
-        selectedCategoryIndex = sender.tag
-        setupCategoryChips()
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
+
+
 }
 
 // ======================================================

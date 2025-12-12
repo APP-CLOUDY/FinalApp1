@@ -18,10 +18,13 @@ class RewardCardView: UIView {
 // MARK: - Styled TextField (FIXED)
 // ===========================================================
 
-class StyledTextField: RewardCardView {
+// Reminders-style single-line Title field
+final class StyledTextField: UIView {
+    private let container = UIView()
     private let tf = UITextField()
+    private let bottomSeparator = UIView()
 
-    // ✅ FIX: Added setter to allow assigning values (for Edit mode)
+    // same API as before
     var textValue: String {
         get { tf.text ?? "" }
         set { tf.text = newValue }
@@ -29,81 +32,147 @@ class StyledTextField: RewardCardView {
 
     init(placeholder: String) {
         super.init(frame: .zero)
-        tf.textColor = .white
-        tf.attributedPlaceholder = NSAttributedString(
-            string: placeholder,
-            attributes: [.foregroundColor: UIColor.white.withAlphaComponent(0.4)]
-        )
+        translatesAutoresizingMaskIntoConstraints = false
+
+        // Container uses system grouped background for that "cell" look
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .secondarySystemGroupedBackground
+        container.layer.cornerRadius = 8
+        container.layer.masksToBounds = true
+
+        // Text field styling — larger font to match Reminders "title"
         tf.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tf)
+        tf.borderStyle = .none
+        tf.placeholder = placeholder
+        tf.font = .systemFont(ofSize: 18, weight: .semibold)
+        tf.textColor = .label
+        tf.clearButtonMode = .whileEditing
+
+        // subtle bottom separator (optional, for even closer look)
+        bottomSeparator.translatesAutoresizingMaskIntoConstraints = false
+        bottomSeparator.backgroundColor = UIColor.separator.withAlphaComponent(0.6)
+
+        addSubview(container)
+        container.addSubview(tf)
+        container.addSubview(bottomSeparator)
+
         NSLayoutConstraint.activate([
-            tf.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            tf.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            tf.topAnchor.constraint(equalTo: topAnchor),
-            tf.bottomAnchor.constraint(equalTo: bottomAnchor)
+            // container fills the component
+            container.leadingAnchor.constraint(equalTo: leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: trailingAnchor),
+            container.topAnchor.constraint(equalTo: topAnchor),
+            container.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // tf inset inside container
+            tf.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
+            tf.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
+            tf.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            tf.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
+
+            // bottom separator
+            bottomSeparator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            bottomSeparator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            bottomSeparator.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            bottomSeparator.heightAnchor.constraint(equalToConstant: 0.5)
         ])
     }
-    required init?(coder: NSCoder) { fatalError() }
+
+    // outer view remains transparent so stack spacing is controlled externally
+    override var backgroundColor: UIColor? { get { .clear } set { /* ignore */ } }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
+
 
 // ===========================================================
 // MARK: - Styled TextView (FIXED)
 // ===========================================================
-
-class StyledTextView: RewardCardView, UITextViewDelegate {
+// Reminders-style multi-line notes with a placeholder label
+final class StyledTextView: UIView, UITextViewDelegate {
+    private let container = UIView()
     private let tv = UITextView()
-    private let placeholder: String
-    
-    // ✅ FIX: Added setter with placeholder logic (for Edit mode)
+    private let placeholderLabel = UILabel()
+
+    // same API as before but now uses a real placeholder label
     var textValue: String {
-        get {
-            // If text matches placeholder, return empty string to data model
-            return tv.text == placeholder ? "" : tv.text
-        }
+        get { tv.text == "" ? "" : tv.text }
         set {
-            if newValue.isEmpty {
-                tv.text = placeholder
-                tv.textColor = UIColor.white.withAlphaComponent(0.4)
-            } else {
-                tv.text = newValue
-                tv.textColor = .white
-            }
+            tv.text = newValue
+            placeholderLabel.isHidden = !tv.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            tv.textColor = newValue.isEmpty ? .secondaryLabel : .label
         }
     }
 
     init(placeholder: String) {
-        self.placeholder = placeholder
+        self.placeholderLabel.text = placeholder
         super.init(frame: .zero)
-        tv.delegate = self
-        tv.text = placeholder
-        tv.textColor = UIColor.white.withAlphaComponent(0.4)
-        tv.font = .systemFont(ofSize: 16)
-        tv.backgroundColor = .clear
+        translatesAutoresizingMaskIntoConstraints = false
+
+        // container mimics grouped inset
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .systemGroupedBackground
+        container.layer.cornerRadius = 10
+        container.layer.masksToBounds = true
+
+        // text view config
         tv.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tv)
+        tv.delegate = self
+        tv.backgroundColor = .clear
+        tv.font = .systemFont(ofSize: 16)
+        tv.textColor = .label
+        tv.isScrollEnabled = true
+        tv.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
+        tv.textContainer.lineFragmentPadding = 0
+
+        // placeholder label sits where the text starts
+        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+        placeholderLabel.textColor = .secondaryLabel
+        placeholderLabel.font = .systemFont(ofSize: 16)
+        placeholderLabel.numberOfLines = 0
+        placeholderLabel.isUserInteractionEnabled = false
+
+        addSubview(container)
+        container.addSubview(tv)
+        container.addSubview(placeholderLabel)
+
         NSLayoutConstraint.activate([
-            tv.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            tv.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            tv.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-            tv.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+            container.leadingAnchor.constraint(equalTo: leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: trailingAnchor),
+            container.topAnchor.constraint(equalTo: topAnchor),
+            container.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            tv.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            tv.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            tv.topAnchor.constraint(equalTo: container.topAnchor),
+            tv.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+
+            // placeholder positioned with insets
+            placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
+            placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14)
         ])
+
+        // start empty with placeholder visible
+        placeholderLabel.isHidden = false
+        tv.text = ""
+    }
+
+    // MARK: - UITextViewDelegate
+    func textViewDidChange(_ textView: UITextView) {
+        placeholderLabel.isHidden = !textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     func textViewDidBeginEditing(_ textView: UITextView) {
-        if textView.text == placeholder {
-            textView.text = ""
-            textView.textColor = .white
-        }
+        UIView.animate(withDuration: 0.12) { self.placeholderLabel.alpha = 0.0 }
     }
 
     func textViewDidEndEditing(_ textView: UITextView) {
-        if textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            textView.text = placeholder
-            textView.textColor = UIColor.white.withAlphaComponent(0.4)
-        }
+        let empty = textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        placeholderLabel.isHidden = !empty
+        UIView.animate(withDuration: 0.12) { self.placeholderLabel.alpha = empty ? 1.0 : 0.0 }
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
 // ===========================================================
@@ -200,16 +269,29 @@ class SelectRow: RewardCardView {
 // ===========================================================
 // MARK: - PointsRow
 // ===========================================================
-
-class PointsRow: RewardCardView {
+class PointsRow: RewardCardView, UITextFieldDelegate {
 
     private let title = UILabel()
     private let minus = UIButton(type: .system)
     private let plus = UIButton(type: .system)
-    private let valueLabel = UILabel()
+
+    // Replace valueLabel with a textField to allow typing
+    private let valueField: UITextField = {
+        let tf = UITextField()
+        tf.text = "10"
+        tf.textColor = .white
+        tf.font = .boldSystemFont(ofSize: 18)
+        tf.textAlignment = .center
+        tf.keyboardType = .numberPad
+        tf.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        tf.layer.cornerRadius = 8
+        tf.clipsToBounds = true
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        return tf
+    }()
 
     var countValue: Int = 0 {
-        didSet { valueLabel.text = "\(countValue)" }
+        didSet { valueField.text = "\(countValue)" }
     }
 
     override init(frame: CGRect) {
@@ -219,10 +301,6 @@ class PointsRow: RewardCardView {
         title.textColor = .white
         title.font = .systemFont(ofSize: 16)
 
-        valueLabel.text = "10"
-        valueLabel.textColor = .white
-        valueLabel.font = .boldSystemFont(ofSize: 18)
-
         minus.setImage(UIImage(systemName: "minus.circle"), for: .normal)
         plus.setImage(UIImage(systemName: "plus.circle"), for: .normal)
         minus.tintColor = .white
@@ -231,7 +309,9 @@ class PointsRow: RewardCardView {
         minus.addTarget(self, action: #selector(dec), for: .touchUpInside)
         plus.addTarget(self, action: #selector(inc), for: .touchUpInside)
 
-        let h = UIStackView(arrangedSubviews: [title, UIView(), minus, valueLabel, plus])
+        valueField.delegate = self
+
+        let h = UIStackView(arrangedSubviews: [title, UIView(), minus, valueField, plus])
         h.axis = .horizontal
         h.alignment = .center
         h.spacing = 10
@@ -242,15 +322,39 @@ class PointsRow: RewardCardView {
             h.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             h.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             h.topAnchor.constraint(equalTo: topAnchor),
-            h.bottomAnchor.constraint(equalTo: bottomAnchor)
+            h.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            valueField.widthAnchor.constraint(equalToConstant: 60),
+            valueField.heightAnchor.constraint(equalToConstant: 36)
         ])
     }
 
     @objc private func inc() { countValue += 5 }
     @objc private func dec() { countValue = max(0, countValue - 5) }
 
+    // MARK: - TextField Input Handling
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if let text = textField.text, let num = Int(text) {
+            countValue = num
+        } else {
+            countValue = 0
+        }
+    }
+
+    func textField(_ textField: UITextField,
+                   shouldChangeCharactersIn range: NSRange,
+                   replacementString string: String) -> Bool {
+
+        // allow deletion
+        if string.isEmpty { return true }
+
+        // allow only numbers
+        return string.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil
+    }
+
     required init?(coder: NSCoder) { fatalError() }
 }
+
 
 // ===========================================================
 // MARK: - UploadBoxCard

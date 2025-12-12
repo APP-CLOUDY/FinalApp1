@@ -11,6 +11,215 @@ import UIKit
 // -------------------------------------------------
 // MARK: - Shared UI Components (Visible to all controllers)
 // -------------------------------------------------
+final class CombinedTitleNotesView: UIView, UITextViewDelegate {
+
+    private let titleTF: UITextField = {
+        let tf = UITextField()
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.borderStyle = .none
+        tf.font = .systemFont(ofSize: 15, weight: .regular)
+        tf.textColor = .label
+        tf.clearButtonMode = .never
+        return tf
+    }()
+
+    private let notesTV: UITextView = {
+        let tv = UITextView()
+        tv.translatesAutoresizingMaskIntoConstraints = false
+        tv.backgroundColor = .clear
+        tv.font = .systemFont(ofSize: 15, weight: .regular)
+        tv.textColor = .label
+        tv.textContainerInset = UIEdgeInsets(top: 8, left: 12, bottom: 12, right: 12)
+        tv.textContainer.lineFragmentPadding = 0
+        tv.isScrollEnabled = false
+        return tv
+    }()
+
+    private let placeholderLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font = .systemFont(ofSize: 15, weight: .regular)
+        lbl.textColor = .placeholderText
+        lbl.numberOfLines = 0
+        return lbl
+    }()
+
+    private let container = UIView()
+    private let separator = UIView()
+
+    // Internal height constraint for the notes area that we update
+    private var notesHeightConstraint: NSLayoutConstraint!
+    private let notesMinHeight: CGFloat = 52
+
+    // External API
+    var titleText: String {
+        get { titleTF.text ?? "" }
+        set { titleTF.text = newValue }
+    }
+
+    var notesText: String {
+        get { notesTV.text == placeholderLabel.text ? "" : notesTV.text }
+        set {
+            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                notesTV.text = ""
+                placeholderLabel.isHidden = false
+                updateNotesHeight(animated: false)
+            } else {
+                notesTV.text = newValue
+                placeholderLabel.isHidden = true
+                updateNotesHeight(animated: false)
+            }
+        }
+    }
+
+    init(titlePlaceholder: String = "Title", notesPlaceholder: String = "Description (Optional)") {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        // Container: use white/background card like Reminders screenshot
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = UIColor.white.withAlphaComponent(0.06)
+        container.layer.cornerRadius = 12
+        container.layer.masksToBounds = true
+
+        // Separator line
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        
+        separator.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        // Placeholder label and textView delegate
+        placeholderLabel.text = notesPlaceholder                        // <- set the text
+        placeholderLabel.font = .systemFont(ofSize: 15, weight: .regular)
+        placeholderLabel.textColor = UIColor.white.withAlphaComponent(0.55)
+        placeholderLabel.alpha = 1
+        placeholderLabel.isHidden = false
+
+        // ensure typed notes are visible on dark card
+        notesTV.textColor = UIColor.white.withAlphaComponent(0.95)
+        notesTV.delegate = self
+
+        // make sure placeholder isn't covered by the text view
+        container.bringSubviewToFront(placeholderLabel)
+
+
+        // Title field placeholder attr + styling
+        titleTF.font = .systemFont(ofSize: 15, weight: .regular)
+        titleTF.textColor = UIColor.white.withAlphaComponent(0.95)
+
+        let titleAttr = NSAttributedString(
+            string: titlePlaceholder,
+            attributes: [
+                .foregroundColor: UIColor.white.withAlphaComponent(0.55), // brighter placeholder
+                .font: UIFont.systemFont(ofSize: 15, weight: .regular)
+            ]
+        )
+
+        titleTF.attributedPlaceholder = titleAttr
+
+        // Slightly tighter insets for notes to match screenshot
+        notesTV.textContainerInset = UIEdgeInsets(top: 8, left: 12, bottom: 12, right: 12)
+
+        // assemble
+        addSubview(container)
+        container.addSubview(titleTF)
+        container.addSubview(separator)
+        container.addSubview(notesTV)
+        container.addSubview(placeholderLabel)
+
+        // constraints
+        notesHeightConstraint = notesTV.heightAnchor.constraint(equalToConstant: notesMinHeight)
+        notesHeightConstraint.priority = .required
+
+        NSLayoutConstraint.activate([
+            // container pin
+            container.leadingAnchor.constraint(equalTo: leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: trailingAnchor),
+            container.topAnchor.constraint(equalTo: topAnchor),
+            container.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // title row
+            titleTF.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            titleTF.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            titleTF.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            titleTF.heightAnchor.constraint(equalToConstant: 40),
+
+            // separator: 1 physical pixel
+            separator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            separator.topAnchor.constraint(equalTo: titleTF.bottomAnchor, constant: 6),
+            separator.heightAnchor.constraint(equalToConstant: 1.0 / UIScreen.main.scale),
+
+            // notes area
+            notesTV.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            notesTV.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            notesTV.topAnchor.constraint(equalTo: separator.bottomAnchor),
+            notesTV.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+
+            // notes height constraint
+            notesHeightConstraint,
+
+            // placeholder label inside notes
+            placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            placeholderLabel.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 10),
+            placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
+        ])
+
+        // initial states
+        placeholderLabel.isHidden = false
+        notesTV.text = ""
+
+        // initial sizing after layout
+        DispatchQueue.main.async { self.updateNotesHeight(animated: false) }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - UITextViewDelegate
+    func textViewDidChange(_ textView: UITextView) {
+        let empty = textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        placeholderLabel.isHidden = !empty
+        updateNotesHeight(animated: true)
+    }
+
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        UIView.animate(withDuration: 0.12) { self.placeholderLabel.alpha = 0 }
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+        let empty = textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        placeholderLabel.isHidden = !empty
+        UIView.animate(withDuration: 0.12) { self.placeholderLabel.alpha = empty ? 1 : 0 }
+    }
+
+    // Update the notes area height according to content size
+    private func updateNotesHeight(animated: Bool) {
+        let targetWidth = notesTV.bounds.width > 0 ? notesTV.bounds.width : (container.bounds.width - 28)
+        let size = notesTV.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
+        let calculatedHeight = max(notesMinHeight, size.height)
+
+        let apply = {
+            self.notesHeightConstraint.constant = calculatedHeight
+            self.layoutIfNeeded()
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseInOut]) {
+                apply()
+                self.superview?.layoutIfNeeded()
+            }
+        } else {
+            apply()
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateNotesHeight(animated: false)
+    }
+}
+
+
 
 // Section Label
 final class SectionLabel: UIView {
@@ -172,42 +381,3 @@ final class RewardDetailViewController: UIViewController {
 
     required init?(coder: NSCoder) { fatalError() }
 }
-
-// Search Bar
-final class SimpleSearchBar: UIView {
-    let textField = UITextField()
-
-    init() {
-        super.init(frame: .zero)
-        layer.cornerRadius = 10
-        backgroundColor = UIColor(white: 1, alpha: 0.03)
-        translatesAutoresizingMaskIntoConstraints = false
-
-        let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
-        icon.tintColor = UIColor.white.withAlphaComponent(0.6)
-        icon.translatesAutoresizingMaskIntoConstraints = false
-
-        textField.placeholder = "Search"
-        textField.textColor = .white
-        textField.translatesAutoresizingMaskIntoConstraints = false
-
-        addSubview(icon)
-        addSubview(textField)
-
-        NSLayoutConstraint.activate([
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 18),
-            icon.heightAnchor.constraint(equalToConstant: 18),
-
-            textField.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
-            textField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            textField.topAnchor.constraint(equalTo: topAnchor),
-            textField.bottomAnchor.constraint(equalTo: bottomAnchor),
-            heightAnchor.constraint(equalToConstant: 44)
-        ])
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-}
-

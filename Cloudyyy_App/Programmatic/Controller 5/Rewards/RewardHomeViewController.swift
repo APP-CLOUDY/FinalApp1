@@ -67,6 +67,14 @@ final class RewardHomeViewController: UIViewController {
         
         // Load Real Data
         fetchKidsAndLoad()
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSelectedKidChanged(_:)),
+            name: .selectedKidChanged,
+            object: nil
+        )
+
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -95,27 +103,41 @@ final class RewardHomeViewController: UIViewController {
     private func fetchKidsAndLoad() {
         _Concurrency.Task {
             do {
-                let dashboardData = try await FamilyService.shared.fetchDashboard()
-                
+                let data = try await FamilyService.shared.fetchDashboard()
+
                 await MainActor.run {
-                    self.kids = dashboardData.children
-                    if let first = self.kids.first {
-                        self.selectKid(first)
-                    } else {
-                        self.header.childButton.setTitle("No Kids", for: .normal)
+                    self.kids = data.children
+
+                    let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                    header.setKids(uiKids)
+
+                    if let saved = SelectedKidStore.shared.selectedKid {
+                        if let realKid = kids.first(where: { $0.id.uuidString == saved.id }) {
+                            selectKid(realKid)
+                            return
+                        }
+                    }
+
+                    if let first = kids.first {
+                        selectKid(first)
                     }
                 }
             } catch {
-                print("Error fetching kids: \(error)")
+                print(error)
             }
         }
     }
+
     
     private func selectKid(_ kid: ChildModel) {
         self.selectedKid = kid
-        header.childButton.setTitle("\(kid.name) ▾", for: .normal)
+
+        let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
+        header.setSelectedKid(uiKid)     // 🔥 UPDATE HEADER + GLOBAL STORE
+
         fetchStats(for: kid)
     }
+
     
     private func fetchStats(for kid: ChildModel) {
         _Concurrency.Task {
@@ -136,16 +158,19 @@ final class RewardHomeViewController: UIViewController {
     
     private func showKidsMenu() {
         guard !kids.isEmpty else { return }
+
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { [weak self] selectedUiKid in
-            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                self?.selectKid(realKid)
-            }
+
+        menu.onKidSelected = { selectedUiKid in
+            SelectedKidStore.shared.updateKid(selectedUiKid)  // 🔥 Trigger global update
         }
+
         menu.show(in: view, anchor: header.childButton)
     }
+
 
     // MARK: - Gradient
     private func setupGradient() {
@@ -374,4 +399,13 @@ final class RewardHomeViewController: UIViewController {
     @objc private func openNewRewardPage() {
         navigationController?.pushViewController(NewRewardViewController(), animated: true)
     }
+    
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            selectKid(realKid)
+        }
+    }
+
 }
