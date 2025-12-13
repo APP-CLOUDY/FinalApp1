@@ -73,7 +73,7 @@ final class Addchildform: UIViewController {
         return l
     }()
 
-    // MARK: - Fields (Labels removed)
+    // MARK: - Fields
 
     private lazy var nameField = makeTextField(placeholder: "Enter child's name")
     private lazy var nickField = makeTextField(placeholder: "Nick Name (e.g. Chore Champion)")
@@ -149,7 +149,7 @@ final class Addchildform: UIViewController {
         ])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 24 // Increased default spacing since labels are gone
+        stack.spacing = 24
         stack.alignment = .fill
         stack.distribution = .fill
         
@@ -247,29 +247,39 @@ final class Addchildform: UIViewController {
     // MARK: - Date Picker
 
     private func setupDatePicker() {
-        let picker = UIDatePicker()
-        picker.datePickerMode = .date
-        if #available(iOS 13.4, *) { picker.preferredDatePickerStyle = .wheels }
-        picker.maximumDate = Date()
-        picker.addTarget(self, action: #selector(datePicked(_:)), for: .valueChanged)
+            // 1. Setup the Date Picker
+            let picker = UIDatePicker()
+            picker.datePickerMode = .date
+            if #available(iOS 13.4, *) { picker.preferredDatePickerStyle = .wheels }
+            picker.maximumDate = Date()
+            picker.addTarget(self, action: #selector(datePicked(_:)), for: .valueChanged)
 
-        dobField.inputView = picker
+            dobField.inputView = picker
 
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        toolbar.items = [
-            UIBarButtonItem.flexibleSpace(),
-            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissPicker))
-        ]
-        dobField.inputAccessoryView = toolbar
+            // 2. Setup Toolbar
+            let toolbar = UIToolbar()
+            toolbar.sizeToFit()
+            toolbar.items = [
+                UIBarButtonItem.flexibleSpace(),
+                UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissPicker))
+            ]
+            dobField.inputAccessoryView = toolbar
 
-        let cal = UIImageView(image: UIImage(systemName: "calendar"))
-        cal.tintColor = UIColor(white: 0.6, alpha: 1)
-        cal.contentMode = .center
-        cal.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
-        dobField.rightView = cal
-        dobField.rightViewMode = .always
-    }
+            // 3. FIX: Calendar Icon Alignment
+            let iconContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 50))
+            
+            let calIcon = UIImageView(image: UIImage(systemName: "calendar"))
+            calIcon.tintColor = UIColor(white: 0.5, alpha: 1) // Slightly darker gray for visibility
+            calIcon.contentMode = .scaleAspectFit
+            
+            // Center the icon 24x24 inside the container
+            calIcon.frame = CGRect(x: 10, y: 13, width: 24, height: 24)
+            
+            iconContainer.addSubview(calIcon)
+            
+            dobField.rightView = iconContainer
+            dobField.rightViewMode = .always
+        }
 
     @objc private func datePicked(_ sender: UIDatePicker) {
         self.selectedDate = sender.date
@@ -320,11 +330,21 @@ final class Addchildform: UIViewController {
         }
     }
 
+    // --- FIX START: Shake Logic & Button Giggle ---
     @objc private func doneTapped() {
         view.endEditing(true)
         
         guard let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            print("Name is empty")
+            // 1. Shake Name Field
+            shakeView(nameField)
+            
+            // 2. Shake Done Button (The "Giggle")
+            shakeView(doneButton)
+            
+            // 3. Haptic Feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+            
             return
         }
         
@@ -343,9 +363,9 @@ final class Addchildform: UIViewController {
                     dob: self.selectedDate,
                     gender: gender
                 )
-                
+              
                 print("Success! Child Added. Code: \(joinCode)")
-                
+              
                 await MainActor.run {
                     self.doneButton.isEnabled = true
                     self.doneButton.setTitle("Done", for: .normal)
@@ -360,22 +380,44 @@ final class Addchildform: UIViewController {
                     self.doneButton.isEnabled = true
                     self.doneButton.setTitle("Try Again", for: .normal)
                     self.doneButton.alpha = 1.0
+                    
+                    // Shake on error response too
+                    self.shakeView(self.doneButton)
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.error)
                 }
             }
         }
     }
+
+    // Helper to shake any view
+    private func shakeView(_ view: UIView) {
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.duration = 0.07
+        animation.repeatCount = 3
+        animation.autoreverses = true
+        animation.fromValue = NSValue(cgPoint: CGPoint(x: view.center.x - 8, y: view.center.y))
+        animation.toValue = NSValue(cgPoint: CGPoint(x: view.center.x + 8, y: view.center.y))
+        view.layer.add(animation, forKey: "position")
+    }
+    // --- FIX END ---
 
     // MARK: - Helpers
 
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.placeholder = placeholder
+        
+        tf.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+        )
+        
         tf.font = UIFont.systemFont(ofSize: 15)
         tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
         tf.layer.cornerRadius = 10
         tf.setLeftPaddingPoints(12)
-        tf.heightAnchor.constraint(equalToConstant: 50).isActive = true // Slightly taller for better touch target
+        tf.heightAnchor.constraint(equalToConstant: 50).isActive = true
         return tf
     }
 }

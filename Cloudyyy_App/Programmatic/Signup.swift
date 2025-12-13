@@ -77,34 +77,51 @@ final class Signup: UIViewController {
     private let card = CardView()
 
     // MARK: - Fields
-    private let nameField: CustomTextField = {
-        let f = CustomTextField(placeholder: "Name")
-        f.accessibilityLabel = "Full name"
-        return f
-    }()
-    
-    private let roleSegmented: UISegmentedControl = {
-        // Added "Guardian" as requested
-        let sc = UISegmentedControl(items: ["Mom", "Dad", "Guardian"])
-        sc.translatesAutoresizingMaskIntoConstraints = false
-        sc.selectedSegmentIndex = 0
-        return sc
-    }()
-    
-    private let emailField: CustomTextField = {
-        let f = CustomTextField(placeholder: "Email")
-        f.keyboardType = .emailAddress
-        f.autocapitalizationType = .none
-        f.accessibilityIdentifier = "emailField"
-        return f
-    }()
-    
-    private let passwordField: PasswordField = {
-        let p = PasswordField(placeholder: "Set Password")
-        p.disableAutoFill = true
-        p.accessibilityLabel = "Password"
-        return p
-    }()
+        private let nameField: CustomTextField = {
+            let f = CustomTextField(placeholder: "Name")
+            f.accessibilityLabel = "Full name"
+            
+            // FIX: Make placeholder visible
+            f.attributedPlaceholder = NSAttributedString(
+                string: "Name",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return f
+        }()
+        
+        private let roleSegmented: UISegmentedControl = {
+            let sc = UISegmentedControl(items: ["Mom", "Dad", "Guardian"])
+            sc.translatesAutoresizingMaskIntoConstraints = false
+            sc.selectedSegmentIndex = 0
+            return sc
+        }()
+        
+        private let emailField: CustomTextField = {
+            let f = CustomTextField(placeholder: "Email")
+            f.keyboardType = .emailAddress
+            f.autocapitalizationType = .none
+            f.accessibilityIdentifier = "emailField"
+            
+            // FIX: Make placeholder visible
+            f.attributedPlaceholder = NSAttributedString(
+                string: "Email",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return f
+        }()
+        
+        private let passwordField: PasswordField = {
+            let p = PasswordField(placeholder: "Set Password")
+            p.disableAutoFill = true
+            p.accessibilityLabel = "Password"
+            
+            // FIX: Make placeholder visible
+            p.attributedPlaceholder = NSAttributedString(
+                string: "Set Password",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return p
+        }()
 
     private let signUpButton = GradientButton(title: "Sign Up")
 
@@ -328,7 +345,8 @@ final class Signup: UIViewController {
         }
     }
 
-    // MARK: - Sign Up Logic
+    // In Signup.swift
+
     @objc private func didTapSignUp() {
         view.endEditing(true)
 
@@ -341,14 +359,23 @@ final class Signup: UIViewController {
             return
         }
 
-        let role = roleSegmented.titleForSegment(at: roleSegmented.selectedSegmentIndex)?.lowercased() ?? "mom"
+        // --- FIX START: Explicit Role Mapping ---
+        // We map the index directly to the database string value.
+        // Index 0 = "mom", Index 1 = "dad", Index 2 = "guardian"
+        let selectedRole: String
+        switch roleSegmented.selectedSegmentIndex {
+        case 0: selectedRole = "mom"
+        case 1: selectedRole = "dad"
+        case 2: selectedRole = "guardian"
+        default: selectedRole = "mom" // Fallback
+        }
+        // --- FIX END ---
         
         // DOB removed from UI, so we pass nil
         let dobISO: String? = nil
 
         setLoading(true)
 
-        // Use _Concurrency.Task to avoid name conflict with your 'Task' model
         _Concurrency.Task {
             do {
                 // 1) Sign up
@@ -357,7 +384,7 @@ final class Signup: UIViewController {
                     password: pass,
                     data: [
                         "first_name": .string(name),
-                        "role": .string(role)
+                        "role": .string(selectedRole) // Use the mapped role
                     ]
                 )
 
@@ -369,7 +396,7 @@ final class Signup: UIViewController {
                     id: userId,
                     first_name: name,
                     email: email,
-                    role: role,
+                    role: selectedRole, // Use the mapped role
                     date_of_birth: dobISO
                 )
 
@@ -381,8 +408,10 @@ final class Signup: UIViewController {
                 // 3) Navigate
                 await MainActor.run {
                     self.setLoading(false)
-                    let vc = FamilyName()
-                    self.navigationController?.pushViewController(vc, animated: true)
+                     
+                     let vc = FamilyName()
+                     self.navigationController?.pushViewController(vc, animated: true)
+                    print("Sign up successful as \(selectedRole)")
                 }
 
             } catch {
@@ -393,7 +422,7 @@ final class Signup: UIViewController {
             }
         }
     }
-
+    
     // MARK: - Helpers
     private func setLoading(_ loading: Bool) {
         DispatchQueue.main.async {

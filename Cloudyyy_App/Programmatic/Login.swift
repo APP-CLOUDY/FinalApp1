@@ -88,19 +88,31 @@ final class Login: UIViewController {
     }()
 
     // MARK: - Card Fields
-    private let emailField: CustomTextField = {
-        let t = CustomTextField(placeholder: "Email")
-        t.keyboardType = .emailAddress
-        t.autocapitalizationType = .none
-        return t
-    }()
+    // MARK: - Card Fields
+        private let emailField: CustomTextField = {
+            let t = CustomTextField(placeholder: "Email")
+            t.keyboardType = .emailAddress
+            t.autocapitalizationType = .none
+            
+            // FIX: Make placeholder text da rker and more visible
+            t.attributedPlaceholder = NSAttributedString(
+                string: "Email",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return t
+        }()
 
-    private let passwordField: PasswordField = {
-        let p = PasswordField(placeholder: "Password")
-        p.disableAutoFill = true
-        return p
-    }()
-
+        private let passwordField: PasswordField = {
+            let p = PasswordField(placeholder: "Password")
+            p.disableAutoFill = true
+            
+            // FIX: Make placeholder text darker and more visible
+            p.attributedPlaceholder = NSAttributedString(
+                string: "Password",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return p
+        }()
     private let rememberCheckbox: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false

@@ -7,7 +7,7 @@ import UIKit
 
 final class AddChild: UIViewController {
 
-    // MARK: - UI Elements (Identical to other screens)
+    // MARK: - UI Elements
 
     private let topContainer: UIView = {
         let v = UIView()
@@ -15,38 +15,24 @@ final class AddChild: UIViewController {
         return v
     }()
 
-    private let appTitleLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Cloudyyy"
-        l.font = UIFont.systemFont(ofSize: 56, weight: .black)
-        l.textColor = .white
-        l.textAlignment = .center
-        l.numberOfLines = 1
-        return l
+    // ADDED: Logo Image View
+    private let logoImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        // Ensure "app_logo" exists in your Assets catalog
+        iv.image = UIImage(named: "app_logo")
+        iv.contentMode = .scaleAspectFit
+        return iv
     }()
 
-    private let subtitleLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Organize tasks, Motivate Kids , Track Progress"
-        l.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        l.textColor = UIColor(white: 1.0, alpha: 0.95)
-        l.textAlignment = .center
-        l.numberOfLines = 2
-        return l
-    }()
+    // REMOVED: appTitleLabel
+    // REMOVED: subtitleLabel
     
     private let backButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 13.0, *) {
-            let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-            b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        } else {
-            b.setTitle("< Back", for: .normal)
-            b.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
-        }
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
         b.tintColor = .white
         b.heightAnchor.constraint(equalToConstant: 44).isActive = true
         b.widthAnchor.constraint(equalToConstant: 44).isActive = true
@@ -83,9 +69,10 @@ final class AddChild: UIViewController {
         return l
     }()
 
+    // The circular button design you wanted to keep
     private lazy var childButtonContainer = makeCircleButtonContainer(imageName: "child")
     
-    // MARK: - Rotation/Centering Fix
+    // MARK: - Spacers
     private let topSpacer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -138,20 +125,13 @@ final class AddChild: UIViewController {
         applyGradients()
     }
 
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        view.setNeedsLayout()
-        view.layoutIfNeeded()
-        applyGradients()
-    }
-
     // MARK: - Setup
     private func setupHierarchy() {
         view.addSubview(topContainer)
         view.addSubview(bottomCard)
 
-        topContainer.addSubview(appTitleLabel)
-        topContainer.addSubview(subtitleLabel)
+        // UPDATED: Added Logo, Removed Text
+        topContainer.addSubview(logoImageView)
         topContainer.addSubview(backButton)
 
         bottomCard.addSubview(bottomScrollView)
@@ -184,14 +164,12 @@ final class AddChild: UIViewController {
             backButton.topAnchor.constraint(equalTo: topContainer.safeAreaLayoutGuide.topAnchor, constant: 16)
         ])
 
+        // UPDATED: Logo Constraints (Centered)
         NSLayoutConstraint.activate([
-            appTitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
-            appTitleLabel.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor, constant: -10),
-
-            subtitleLabel.topAnchor.constraint(equalTo: appTitleLabel.bottomAnchor, constant: 8),
-            subtitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
-            subtitleLabel.leadingAnchor.constraint(equalTo: topContainer.leadingAnchor, constant: 30),
-            subtitleLabel.trailingAnchor.constraint(equalTo: topContainer.trailingAnchor, constant: -30)
+            logoImageView.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
+            logoImageView.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor),
+            logoImageView.widthAnchor.constraint(equalToConstant: 120), // Adjust size if needed
+            logoImageView.heightAnchor.constraint(equalToConstant: 120)
         ])
 
         let stackHeightConstraint = bottomStack.heightAnchor.constraint(equalTo: bottomScrollView.frameLayoutGuide.heightAnchor, constant: -40)
@@ -261,7 +239,7 @@ final class AddChild: UIViewController {
         view.layer.insertSublayer(viewG, at: 0)
         viewGradient = viewG
 
-        // Bottom card gradient (UPDATED to match your other screens)
+        // Bottom card gradient (Dark Style)
         let cardG = CAGradientLayer()
         cardG.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor, // Dark Obsidian
@@ -276,7 +254,7 @@ final class AddChild: UIViewController {
         CATransaction.commit()
     }
 
-    // MARK: - Button builder (Updated to remove text)
+    // MARK: - Button builder (Preserved Circular Design)
     private func makeCircleButtonContainer(imageName: String) -> UIView {
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
@@ -310,12 +288,9 @@ final class AddChild: UIViewController {
             imageView.tintColor = .white
         }
 
-        //Removed the label
-
         container.addSubview(ring)
         container.addSubview(circle)
         circle.addSubview(imageView)
-        //Removed label from container
 
         // constraints
         NSLayoutConstraint.activate([
@@ -340,14 +315,13 @@ final class AddChild: UIViewController {
             imageView.widthAnchor.constraint(equalTo: circle.widthAnchor, multiplier: 0.65),
             imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor),
 
-            // Pin bottom of container to bottom of the RING (which is larger than the circle)
+            // Pin bottom of container to bottom of the RING
             container.bottomAnchor.constraint(equalTo: ring.bottomAnchor)
         ])
 
         container.isUserInteractionEnabled = true
         let tap = UITapGestureRecognizer(target: self, action: #selector(circleTapped(_:)))
         container.addGestureRecognizer(tap)
-        // Removed accessibilityIdentifier based on title
 
         return container
     }

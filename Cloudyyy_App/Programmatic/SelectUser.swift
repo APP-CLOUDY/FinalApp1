@@ -368,7 +368,7 @@ final class SelectUserViewController: UIViewController {
     }
 
     private func childSelected() {
-         let vc = Homejoin()
+         let vc = JoinWithCode()
          navigationController?.pushViewController(vc, animated: true)
         print("Child selected")
     }

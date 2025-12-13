@@ -16,27 +16,18 @@ final class FamilyName: UIViewController {
         return v
     }()
     
-    private let appTitleLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Cloudyyy"
-        l.font = UIFont.systemFont(ofSize: 48, weight: .black)
-        l.textColor = .white
-        l.textAlignment = .center
-        l.numberOfLines = 1
-        return l
+    // ADDED: Logo Image View
+    private let logoImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        // Ensure "app_logo" exists in your Assets catalog
+        iv.image = UIImage(named: "app_logo")
+        iv.contentMode = .scaleAspectFit
+        return iv
     }()
     
-    private let subtitleLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Organize tasks, Motivate Kids, Track Progress"
-        l.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        l.textColor = UIColor(white: 1.0, alpha: 0.95)
-        l.textAlignment = .center
-        l.numberOfLines = 2
-        return l
-    }()
+    // REMOVED: appTitleLabel
+    // REMOVED: subtitleLabel
     
     private let backButton: UIButton = {
         let b = UIButton(type: .system)
@@ -289,8 +280,8 @@ final class FamilyName: UIViewController {
         view.addSubview(topContainer)
         view.addSubview(bottomCard)
         
-        topContainer.addSubview(appTitleLabel)
-        topContainer.addSubview(subtitleLabel)
+        // UPDATED: Add Logo instead of text labels
+        topContainer.addSubview(logoImageView)
         topContainer.addSubview(backButton)
         
         bottomCard.addSubview(bottomScrollView)
@@ -321,14 +312,11 @@ final class FamilyName: UIViewController {
             backButton.widthAnchor.constraint(equalToConstant: 44),
             backButton.heightAnchor.constraint(equalToConstant: 44),
             
-            // Top Content
-            appTitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
-            appTitleLabel.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor, constant: -20),
-            
-            subtitleLabel.topAnchor.constraint(equalTo: appTitleLabel.bottomAnchor, constant: 12),
-            subtitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
-            subtitleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: topContainer.leadingAnchor, constant: 28),
-            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: topContainer.trailingAnchor, constant: -28),
+            // UPDATED: Logo Constraints (Centered in Top Container)
+            logoImageView.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
+            logoImageView.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor),
+            logoImageView.widthAnchor.constraint(equalToConstant: 120), // Adjust size as needed
+            logoImageView.heightAnchor.constraint(equalToConstant: 120),
             
             // Bottom Scroll View
             bottomScrollView.topAnchor.constraint(equalTo: bottomCard.topAnchor, constant: 20),

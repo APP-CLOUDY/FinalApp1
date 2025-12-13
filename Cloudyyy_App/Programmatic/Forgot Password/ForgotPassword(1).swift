@@ -5,9 +5,9 @@
 
 import UIKit
 
-// MARK: - SHARED COMPONENTS (Include this to fix the "Cannot find" error)
+// MARK: - SHARED COMPONENTS
 
-// 1. Premium Gradient Button
+// 1. Premium Gradient Button (Unchanged)
 final class PremiumLoginButton: UIButton {
     private let gradientLayer = CAGradientLayer()
     
@@ -21,7 +21,7 @@ final class PremiumLoginButton: UIButton {
     }
     
     private func setupLayer() {
-        // Gradient: Left #0B67FF -> Right #3AA1FF
+        // Gradient: Blue Theme
         gradientLayer.colors = [
             UIColor(red: 11/255, green: 103/255, blue: 255/255, alpha: 1).cgColor,
             UIColor(red: 58/255, green: 161/255, blue: 255/255, alpha: 1).cgColor
@@ -31,7 +31,7 @@ final class PremiumLoginButton: UIButton {
         gradientLayer.cornerRadius = 18
         layer.insertSublayer(gradientLayer, at: 0)
         
-        // Shadow
+        // Shadow for depth
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.15
         layer.shadowOffset = CGSize(width: 0, height: 4)
@@ -55,26 +55,20 @@ final class PremiumLoginButton: UIButton {
     }
 }
 
-// 2. Base View Controller (Handles the Dark Gradient Background & Logo)
+// 2. Base View Controller (Handles Styling & Layout)
 class PremiumBaseViewController: UIViewController {
     
-    // Background
     private let backgroundContainer = UIView()
     private let gradientLayer = CAGradientLayer()
     
-    // Logo & Glow
     private let logoContainer = UIView()
     private let logoGlow = UIView()
     private let logoImageView = UIImageView()
     
-    // Header Title
     let headerTitleLabel = UILabel()
     let headerSubtitleLabel = UILabel()
     
-    // Back Button
     let backButton = UIButton(type: .system)
-    
-    // Card Container
     let cardView = UIView()
 
     override func viewDidLoad() {
@@ -115,7 +109,6 @@ class PremiumBaseViewController: UIViewController {
         logoGlow.translatesAutoresizingMaskIntoConstraints = false
         logoImageView.translatesAutoresizingMaskIntoConstraints = false
         
-        // Logo Styling
         logoImageView.image = UIImage(named: "app_logo")
         logoImageView.contentMode = .scaleAspectFit
         
@@ -144,7 +137,8 @@ class PremiumBaseViewController: UIViewController {
         // 5. Card
         view.addSubview(cardView)
         cardView.translatesAutoresizingMaskIntoConstraints = false
-        cardView.backgroundColor = UIColor(red: 250/255, green: 250/255, blue: 252/255, alpha: 0.97)
+        // Make the card slightly off-white so the white input fields stand out
+        cardView.backgroundColor = UIColor(red: 248/255, green: 249/255, blue: 253/255, alpha: 1)
         cardView.layer.cornerRadius = 30
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.1
@@ -188,7 +182,6 @@ class PremiumBaseViewController: UIViewController {
             cardView.topAnchor.constraint(equalTo: headerSubtitleLabel.bottomAnchor, constant: 32),
             cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            // Card height will be determined by its content in subclasses
         ])
     }
     
@@ -196,18 +189,29 @@ class PremiumBaseViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
     
-    // Helper to create consistent text fields
+    // --- THIS IS THE FUNCTION THAT CONTROLS TEXT FIELD LOOK ---
     func makeTextField(placeholder: String, icon: String? = nil) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.backgroundColor = UIColor(red: 242/255, green: 243/255, blue: 245/255, alpha: 1)
-        tf.layer.cornerRadius = 18
+        
+        // 1. Background White
+        tf.backgroundColor = .white
+        
+        // 2. Visible Outline (Grey Border)
+        tf.layer.borderWidth = 1.0
+        tf.layer.borderColor = UIColor.systemGray4.cgColor // Visible Light Grey
+        
+        // 3. Smooth Corner Radius
+        tf.layer.cornerRadius = 14
+        
         tf.font = .systemFont(ofSize: 16)
         tf.textColor = .black
         
-        let placeholderColor = UIColor(red: 184/255, green: 189/255, blue: 201/255, alpha: 1)
+        // Placeholder Styling
+        let placeholderColor = UIColor.systemGray
         tf.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: placeholderColor])
         
+        // Padding
         let pad = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 56))
         tf.leftView = pad
         tf.leftViewMode = .always
@@ -217,19 +221,10 @@ class PremiumBaseViewController: UIViewController {
     }
 }
 
-// MARK: - 1. FORGOT PASSWORD SCREEN (Enter Email)
+// MARK: - 1. FORGOT PASSWORD SCREEN
 final class ForgotPassword: PremiumBaseViewController {
-
-    private let emailLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Email Address"
-        l.font = .systemFont(ofSize: 14, weight: .semibold)
-        l.textColor = .secondaryLabel
-        return l
-    }()
     
-    private lazy var emailField = makeTextField(placeholder: "example@gmail.com")
+    private lazy var emailField = makeTextField(placeholder: "Enter your email address")
     
     private let sendButton: PremiumLoginButton = {
         let b = PremiumLoginButton(frame: .zero)
@@ -241,24 +236,19 @@ final class ForgotPassword: PremiumBaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Set Titles
         headerTitleLabel.text = "Forgot Password?"
-        headerSubtitleLabel.text = "Don't worry! It happens. Please enter the email associated with your account."
+        headerSubtitleLabel.text = "Please enter the email associated with your account."
         
         setupContent()
         sendButton.addTarget(self, action: #selector(didTapSend), for: .touchUpInside)
     }
     
     private func setupContent() {
-        cardView.addSubview(emailLabel)
         cardView.addSubview(emailField)
         cardView.addSubview(sendButton)
         
         NSLayoutConstraint.activate([
-            emailLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 32),
-            emailLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 24),
-            
-            emailField.topAnchor.constraint(equalTo: emailLabel.bottomAnchor, constant: 8),
+            emailField.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 32),
             emailField.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
             emailField.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
             
@@ -271,24 +261,25 @@ final class ForgotPassword: PremiumBaseViewController {
     }
     
     @objc private func didTapSend() {
-        // Navigate to Next Step
         let vc = VerifyOTP()
         vc.emailAddress = emailField.text
         navigationController?.pushViewController(vc, animated: true)
     }
 }
 
-// MARK: - 2. VERIFY OTP SCREEN
-final class VerifyOTP: PremiumBaseViewController {
+// MARK: - 2. VERIFY OTP SCREEN (5 Digit Layout)
+final class VerifyOTP: PremiumBaseViewController, UITextFieldDelegate {
     
     var emailAddress: String?
+    
+    private var otpFields: [UITextField] = []
     
     private let otpStack: UIStackView = {
         let s = UIStackView()
         s.translatesAutoresizingMaskIntoConstraints = false
         s.axis = .horizontal
         s.distribution = .fillEqually
-        s.spacing = 12
+        s.spacing = 10 // Smooth spacing for 5 items
         return s
     }()
     
@@ -308,6 +299,8 @@ final class VerifyOTP: PremiumBaseViewController {
         setupContent()
         setupOTPFields()
         verifyButton.addTarget(self, action: #selector(didTapVerify), for: .touchUpInside)
+        
+        otpFields.first?.becomeFirstResponder()
     }
     
     private func setupContent() {
@@ -316,8 +309,8 @@ final class VerifyOTP: PremiumBaseViewController {
         
         NSLayoutConstraint.activate([
             otpStack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 40),
-            otpStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
-            otpStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
+            otpStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            otpStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
             otpStack.heightAnchor.constraint(equalToConstant: 60),
             
             verifyButton.topAnchor.constraint(equalTo: otpStack.bottomAnchor, constant: 32),
@@ -329,19 +322,67 @@ final class VerifyOTP: PremiumBaseViewController {
     }
     
     private func setupOTPFields() {
-        for _ in 0..<4 {
+        // --- 5 SPACES AS REQUESTED ---
+        for index in 0..<5 {
             let tf = UITextField()
-            tf.backgroundColor = UIColor(red: 242/255, green: 243/255, blue: 245/255, alpha: 1)
-            tf.layer.cornerRadius = 12
+            
+            // STYLE: White BG with Grey Outline
+            tf.backgroundColor = .white
+            tf.layer.borderWidth = 1.0
+            tf.layer.borderColor = UIColor.systemGray4.cgColor
+            tf.layer.cornerRadius = 14
+            
             tf.textAlignment = .center
             tf.font = .systemFont(ofSize: 24, weight: .bold)
             tf.textColor = .black
             tf.keyboardType = .numberPad
+            tf.tintColor = .systemBlue
+            
+            tf.tag = index
+            tf.delegate = self
+            tf.addTarget(self, action: #selector(textDidChange(_:)), for: .editingChanged)
+            
             otpStack.addArrangedSubview(tf)
+            otpFields.append(tf)
         }
     }
     
+    // Auto-advance logic for 5 digits
+    @objc private func textDidChange(_ textField: UITextField) {
+        let text = textField.text
+        
+        if text?.count == 1 {
+            switch textField.tag {
+            case 0: otpFields[1].becomeFirstResponder()
+            case 1: otpFields[2].becomeFirstResponder()
+            case 2: otpFields[3].becomeFirstResponder()
+            case 3: otpFields[4].becomeFirstResponder()
+            case 4: otpFields[4].resignFirstResponder() // Done
+            default: break
+            }
+        } else if let text = text, text.count > 1 {
+            textField.text = String(text.prefix(1))
+        }
+    }
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if string.isEmpty {
+            if textField.text?.isEmpty == true {
+                switch textField.tag {
+                case 1: otpFields[0].becomeFirstResponder()
+                case 2: otpFields[1].becomeFirstResponder()
+                case 3: otpFields[2].becomeFirstResponder()
+                case 4: otpFields[3].becomeFirstResponder()
+                default: break
+                }
+            }
+        }
+        return true
+    }
+    
     @objc private func didTapVerify() {
+        let code = otpFields.compactMap { $0.text }.joined()
+        print("Verifying Code: \(code)")
         let vc = ResetPassword()
         navigationController?.pushViewController(vc, animated: true)
     }
@@ -350,26 +391,8 @@ final class VerifyOTP: PremiumBaseViewController {
 // MARK: - 3. RESET PASSWORD SCREEN
 final class ResetPassword: PremiumBaseViewController {
     
-    private let newPassLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "New Password"
-        l.font = .systemFont(ofSize: 14, weight: .semibold)
-        l.textColor = .secondaryLabel
-        return l
-    }()
-    
-    private let confirmPassLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Confirm Password"
-        l.font = .systemFont(ofSize: 14, weight: .semibold)
-        l.textColor = .secondaryLabel
-        return l
-    }()
-    
-    private lazy var newPassField = makeTextField(placeholder: "Enter new password")
-    private lazy var confirmPassField = makeTextField(placeholder: "Re-enter password")
+    private lazy var newPassField = makeTextField(placeholder: "New Password")
+    private lazy var confirmPassField = makeTextField(placeholder: "Confirm Password")
     
     private let updateButton: PremiumLoginButton = {
         let b = PremiumLoginButton(frame: .zero)
@@ -392,24 +415,16 @@ final class ResetPassword: PremiumBaseViewController {
     }
     
     private func setupContent() {
-        cardView.addSubview(newPassLabel)
         cardView.addSubview(newPassField)
-        cardView.addSubview(confirmPassLabel)
         cardView.addSubview(confirmPassField)
         cardView.addSubview(updateButton)
         
         NSLayoutConstraint.activate([
-            newPassLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 32),
-            newPassLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 24),
-            
-            newPassField.topAnchor.constraint(equalTo: newPassLabel.bottomAnchor, constant: 8),
+            newPassField.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 32),
             newPassField.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
             newPassField.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
             
-            confirmPassLabel.topAnchor.constraint(equalTo: newPassField.bottomAnchor, constant: 20),
-            confirmPassLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 24),
-            
-            confirmPassField.topAnchor.constraint(equalTo: confirmPassLabel.bottomAnchor, constant: 8),
+            confirmPassField.topAnchor.constraint(equalTo: newPassField.bottomAnchor, constant: 16),
             confirmPassField.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
             confirmPassField.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
             
@@ -422,7 +437,6 @@ final class ResetPassword: PremiumBaseViewController {
     }
     
     @objc private func didTapUpdate() {
-        // Simulate Success & Return to Login
         navigationController?.popToRootViewController(animated: true)
     }
 }

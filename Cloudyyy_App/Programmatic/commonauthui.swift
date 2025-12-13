@@ -88,9 +88,7 @@ public final class GradientHeaderView: UIView {
         addSubview(smallInfoLabel)
         addSubview(actionButton)
 
-        // moved appTitle down a bit for visual composition
         NSLayoutConstraint.activate([
-            // <<< MODIFIED: Aligned to safeAreaLayoutGuide to respect notches/insets >>>
             appTitleLabel.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 24),
             appTitleLabel.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 44),
 
@@ -130,7 +128,7 @@ public final class CardView: UIView {
     }
 }
 
-// MARK: - CustomTextField (non-final so subclasses can inherit)
+// MARK: - CustomTextField
 public class CustomTextField: UITextField {
     public init(placeholder: String) {
         super.init(frame: .zero)
@@ -140,9 +138,15 @@ public class CustomTextField: UITextField {
         layer.borderWidth = 1
         layer.borderColor = UIColor(white: 0.89, alpha: 1).cgColor
         font = .systemFont(ofSize: 15)
+        
+        // Default placeholder color fix
+        attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+        )
+        
         leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
         leftViewMode = .always
-        self.placeholder = placeholder
         autocorrectionType = .no
         spellCheckingType = .no
         autocapitalizationType = .none
@@ -206,12 +210,10 @@ public class DateTextField: CustomTextField {
     }
 }
 
-// MARK: - PasswordField (with disableAutoFill option)
+// MARK: - PasswordField (FIXED)
 public class PasswordField: CustomTextField {
-    private let toggleButton = UIButton(type: .system)
+    private let toggleButton = UIButton(type: .custom)
 
-    /// If true, sets textContentType = .oneTimeCode (disables password autofill UI).
-    /// Default false (we use .password by default).
     public var disableAutoFill: Bool = false {
         didSet {
             if #available(iOS 12.0, *) {
@@ -241,46 +243,70 @@ public class PasswordField: CustomTextField {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    // --- FIX START: Correct centering logic ---
     private func configureToggle() {
-        let containerWidth: CGFloat = 44
-        let container = UIView(frame: CGRect(x: 0, y: 0, width: containerWidth, height: 44))
-        toggleButton.frame = CGRect(x: 6, y: 4, width: 34, height: 34)
-        toggleButton.setImage(UIImage(systemName: "eye.slash"), for: .normal)
-        toggleButton.tintColor = .darkGray
+        // 1. Container width for touch area, height matches text field (52)
+        let containerWidth: CGFloat = 48
+        let height: CGFloat = 52
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: containerWidth, height: height))
+        
+        // 2. Button Size (Standard touch target)
+        let buttonSize: CGFloat = 44
+        
+        // 3. Center vertically: (ContainerHeight - ButtonHeight) / 2
+        // y = (52 - 44) / 2 = 4
+        toggleButton.frame = CGRect(
+            x: (containerWidth - buttonSize) / 2,
+            y: (height - buttonSize) / 2,
+            width: buttonSize,
+            height: buttonSize
+        )
+        
+        // 4. Configuration for a crisp, properly sized icon
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        toggleButton.setImage(UIImage(systemName: "eye.slash", withConfiguration: config), for: .normal)
+        
+        toggleButton.tintColor = .systemGray
         toggleButton.addTarget(self, action: #selector(toggleSecureEntry), for: .touchUpInside)
+        
         container.addSubview(toggleButton)
 
         rightView = container
         rightViewMode = .always
 
+        // Ensure left padding exists
         if leftView == nil {
-            leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
+            leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
             leftViewMode = .always
         }
     }
 
     @objc private func toggleSecureEntry() {
         let wasFirstResponder = isFirstResponder
-        var selectedRange: UITextRange?
-        if wasFirstResponder {
-            selectedRange = selectedTextRange
-        }
-
-        let currentText = text
+        
+        // Preserve selection cursor logic
+        let previousRange = selectedTextRange
 
         isSecureTextEntry.toggle()
-        text = currentText
+        
+        // Force layout update to prevent font jump
+        if let existingText = text {
+            text = nil
+            text = existingText
+        }
 
         if wasFirstResponder {
             becomeFirstResponder()
-            if let sel = selectedRange {
-                selectedTextRange = sel
+            if let r = previousRange {
+                selectedTextRange = r
             }
         }
 
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         let name = isSecureTextEntry ? "eye.slash" : "eye"
-        toggleButton.setImage(UIImage(systemName: name), for: .normal)
+        toggleButton.setImage(UIImage(systemName: name, withConfiguration: config), for: .normal)
     }
+    // --- FIX END ---
 }
 
 // MARK: - GradientButton
@@ -302,7 +328,6 @@ public final class GradientButton: UIButton {
         gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
         layer.insertSublayer(gradientLayer, at: 0)
 
-        // subtle shadow
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.08
         layer.shadowRadius = 8
@@ -318,15 +343,13 @@ public final class GradientButton: UIButton {
     }
 }
 
-// MARK: - GlassButton (frosted glass with visible border + icon)
+// MARK: - GlassButton
 public final class GlassButton: UIButton {
     private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let overlay = UIView()
     private let iconView = UIImageView()
     private let contentStack = UIStackView()
 
-    /// title: the button title
-    /// icon: optional image to show at the left
     public init(title: String, icon: UIImage? = nil) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
@@ -334,7 +357,6 @@ public final class GlassButton: UIButton {
         layer.cornerRadius = 14
         clipsToBounds = true
 
-        // Blur background (kept for style)
         blurView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(blurView)
         NSLayoutConstraint.activate([
@@ -344,7 +366,6 @@ public final class GlassButton: UIButton {
             blurView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        // Slight overlay so text/icon is readable on white card
         overlay.backgroundColor = UIColor(white: 1, alpha: 0.90)
         overlay.translatesAutoresizingMaskIntoConstraints = false
         addSubview(overlay)
@@ -355,11 +376,9 @@ public final class GlassButton: UIButton {
             overlay.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        // Border
         layer.borderWidth = 1
         layer.borderColor = UIColor(white: 0.88, alpha: 1).cgColor
 
-        // Icon
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.contentMode = .scaleAspectFit
         iconView.tintColor = .label
@@ -420,12 +439,11 @@ public func makeRoleSegmentedControl(items: [String] = ["Mom", "Dad"]) -> UISegm
     return sc
 }
 
-// MARK: - UIImage helper
+// MARK: - Helpers
 public extension UIImage {
     func asTemplate() -> UIImage { withRenderingMode(.alwaysTemplate) }
 }
 
-// MARK: - DateFormatter helper
 public extension DateFormatter {
     static func cloudyyyFormatter() -> DateFormatter {
         let f = DateFormatter()
