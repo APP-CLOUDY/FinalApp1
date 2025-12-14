@@ -19,13 +19,10 @@ enum AppState: Equatable {
 
 // MARK: - Theme Configuration
 extension Color {
-    // Background Gradient
     static let bgGradientStart = Color(red: 15/255, green: 18/255, blue: 24/255)
     static let bgGradientEnd = Color(red: 36/255, green: 55/255, blue: 99/255)
-    
-    // UI Colors
     static let chatLightBg = Color(red: 0.82, green: 0.84, blue: 0.88)
-    static let missionCardBg = Color(red: 0.22, green: 0.24, blue: 0.32) // Specific Dark Card
+    static let missionCardBg = Color(red: 0.22, green: 0.24, blue: 0.32)
     static let darkButtonNavy = Color(red: 0.11, green: 0.20, blue: 0.35)
     static let buttonStroke = Color(red: 0.3, green: 0.4, blue: 0.6)
     static let accentPurple = Color(red: 0.45, green: 0.35, blue: 0.95)
@@ -34,17 +31,24 @@ extension Color {
     static let neonPink = Color(red: 1.0, green: 0.6, blue: 0.7)
     static let neonBlue = Color(red: 0.4, green: 0.65, blue: 1.0)
     static let neonGreen = Color(red: 0.4, green: 0.8, blue: 0.6)
+    static let neonYellow = Color(red: 1.0, green: 0.9, blue: 0.4)
 }
 
-// MARK: - Data Model
+// MARK: - Data Model (UI Representation)
 struct Mission: Identifiable, Equatable {
-    let id = UUID()
+    let id: UUID // Maps to Backend ID
     let title: String
     let time: String
+    
+    // UI Properties (Randomized)
     let color: Color
     let size: CGFloat
     let x: CGFloat
     let y: CGFloat
+    
+    static func == (lhs: Mission, rhs: Mission) -> Bool {
+        return lhs.id == rhs.id
+    }
 }
 
 // MARK: - 2. Main Flow Controller View
@@ -57,18 +61,9 @@ struct CloudyFlowView: View {
     // Tracks which bubble is animating away
     @State private var dissolvingMissionID: UUID? = nil
     
-    let missions: [Mission] = [
-        Mission(title: "News", time: "6:00 pm", color: .neonPink, size: 90, x: -100, y: -40),
-        Mission(title: "Home\nwork", time: "6:30 pm", color: .neonBlue, size: 85, x: -60, y: 85),
-        Mission(title: "Play", time: "6:30 pm", color: .neonPink, size: 90, x: -100, y: 210),
-        Mission(title: "Brush", time: "5:30 am", color: .neonGreen, size: 80, x: 20, y: 20),
-        Mission(title: "Do Dishes", time: "10:30 pm", color: .neonGreen, size: 90, x: 10, y: 220),
-        Mission(title: "Mop", time: "6:30 pm", color: .neonBlue, size: 65, x: 90, y: 270),
-        Mission(title: "Clean", time: "6:30 pm", color: .neonBlue, size: 65, x: 80, y: -50),
-        Mission(title: "Jog", time: "6:30 pm", color: .neonBlue, size: 65, x: 100, y: 55),
-        Mission(title: "Shop", time: "7:30 am", color: .neonGreen, size: 75, x: 140, y: -10),
-        Mission(title: "Water Your Plants", time: "8:30 pm", color: .neonPink, size: 130, x: 120, y: 160)
-    ]
+    // ✅ CHANGED: State variable instead of constant, populated from Backend
+    @State private var missions: [Mission] = []
+    @State private var isLoading: Bool = false
     
     var body: some View {
         ZStack {
@@ -81,7 +76,6 @@ struct CloudyFlowView: View {
             .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // CORRECTED HEADER
                 header
                 
                 Group {
@@ -92,9 +86,10 @@ struct CloudyFlowView: View {
                     case .missionCluster:
                         MissionClusterView(
                             currentState: $currentState,
-                            missions: missions,
+                            missions: missions, // Passes dynamic data
                             completedMissionIDs: $completedMissionIDs,
-                            dissolvingMissionID: $dissolvingMissionID
+                            dissolvingMissionID: $dissolvingMissionID,
+                            isLoading: isLoading
                         )
                         .transition(.opacity)
                     case .missionDetail(let mission):
@@ -110,25 +105,77 @@ struct CloudyFlowView: View {
                 Spacer()
                 inputBar
             }
-            // Dismiss keyboard logic
             .simultaneousGesture(DragGesture().onChanged({ _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }))
         }
+        // ✅ NEW: Load data when view appears
+        .task {
+            await loadBackendMissions()
+        }
     }
     
-    // MARK: - Header (Navigation Style)
+    // MARK: - Data Fetching Logic
+    private func loadBackendMissions() async {
+        guard missions.isEmpty else { return } // Don't reload if we have data
+        
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            // 1. Fetch from your existing Service (Assuming ChildHomeService exists from previous context)
+            // Use today's date
+            let tasks = try await ChildHomeService.shared.fetchSchedule(date: Date())
+            
+            // 2. Map Backend Data to UI Model with Randomization
+            // Filter out 'approved' tasks so we only show pending ones in the bubbles
+            let pendingTasks = tasks.filter { $0.submission_status != "approved" }
+            
+            // 3. Create UI Missions
+            self.missions = pendingTasks.enumerated().map { index, task in
+                
+                // Randomize Size (75 to 110)
+                let randomSize = CGFloat.random(in: 75...110)
+                
+                // Randomize Color
+                let colors: [Color] = [.neonPink, .neonBlue, .neonGreen, .neonYellow]
+                let randomColor = colors.randomElement() ?? .neonBlue
+                
+                // Randomize Position (Scatter Logic)
+                // We use the index to ensure they don't all clump in the center, but add randomness
+                // Spread X between -150 and 150
+                // Spread Y between -50 and 250
+                let randomX = CGFloat.random(in: -140...140)
+                
+                // To prevent total overlap, we spread Y slightly based on index, then jitter it
+                let baseY = CGFloat(index * 35) - 50 // Stagger downwards
+                let jitterY = CGFloat.random(in: -30...30)
+                
+                return Mission(
+                    id: task.id, // Use real Backend ID
+                    title: task.title,
+                    time: task.frequency, // Or format task.due_date if available
+                    color: randomColor,
+                    size: randomSize,
+                    x: randomX,
+                    y: baseY + jitterY
+                )
+            }
+            
+        } catch {
+            print("Failed to load missions for chatbot: \(error)")
+        }
+    }
+    
+    // MARK: - Header
     var header: some View {
         VStack(spacing: 0) {
             ZStack {
-                // 1. Title Centered
                 Text("Cloudyy")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.white)
                 
-                // 2. Buttons Pinned to Edges
                 HStack {
-                    // Back Button
                     Button(action: {
                         withAnimation {
                             if case .missionDetail = currentState {
@@ -140,13 +187,12 @@ struct CloudyFlowView: View {
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(currentState == .chatWelcome ? .clear : .blue)
+                            .foregroundColor(currentState == .chatWelcome ? .clear : .white)
                     }
                     .disabled(currentState == .chatWelcome)
                     
                     Spacer()
                     
-                    // Profile Icon
                     Button(action: {}) {
                         Image(systemName: "person.circle")
                             .font(.system(size: 26))
@@ -154,11 +200,10 @@ struct CloudyFlowView: View {
                     }
                 }
             }
-            .frame(height: 44) // Standard iOS Nav Bar Height
+            .frame(height: 44)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
             
-            // 3. Separator Line
             Rectangle()
                 .fill(Color.white.opacity(0.15))
                 .frame(height: 0.5)
@@ -206,7 +251,7 @@ struct WelcomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
-                Image("cloudyy_logo")
+                Image("cloudyy_logo") // Ensure this asset exists
                     .resizable()
                     .scaledToFit()
                     .frame(width: 150)
@@ -276,58 +321,78 @@ struct MissionClusterView: View {
     let missions: [Mission]
     @Binding var completedMissionIDs: Set<UUID>
     @Binding var dissolvingMissionID: UUID?
+    let isLoading: Bool
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                
+                // Assistant Bubble
                 ChatBubbleContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "sparkles").foregroundColor(.purple)
-                            Text("I got you some missions for you today.\nWant to see them ??")
+                            Text("Here are your tasks for today!")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.black.opacity(0.7))
-                        }
-                        HStack {
-                             Text("Yes, show me!").font(.caption.bold()).foregroundColor(.white).padding(10).background(Color.darkButtonNavy).cornerRadius(10)
-                             Text("Maybe later").font(.caption).foregroundColor(.white.opacity(0.7)).padding(10).background(Color.darkButtonNavy.opacity(0.5)).cornerRadius(10)
                         }
                     }
                 }
                 .padding(.horizontal, 20)
                 
-                Text("Which mission should we do next")
+                Text("Tap a bubble to start")
                     .font(.system(size: 19, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
-                    .padding(.top, 35)
+                    .padding(.top, 15)
                 
-                ZStack {
-                    Image("cloudBasket")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 170)
-                        .offset(x: -80, y: -120)
-                    
-                    ForEach(missions) { mission in
-                        if !completedMissionIDs.contains(mission.id) {
-                            if mission.id == dissolvingMissionID {
-                                DissolvingBubble(mission: mission) {
-                                    completedMissionIDs.insert(mission.id)
-                                    dissolvingMissionID = nil
-                                }
-                                .offset(x: mission.x, y: mission.y)
-                            } else {
-                                FloatingMissionItem(mission: mission)
-                                    .onTapGesture {
-                                        withAnimation(.easeOut) { currentState = .missionDetail(mission) }
+                if isLoading {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        Spacer()
+                    }
+                    .padding(.top, 50)
+                } else if missions.isEmpty {
+                    Text("No missions found for today!\nRelax & Enjoy ☁️")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 50)
+                } else {
+                    // Floating Bubbles Area
+                    ZStack {
+                        // Background Prop
+                        Image("cloudBasket") // Ensure asset exists
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 170)
+                            .offset(x: -80, y: -120)
+                            .opacity(0.5)
+                        
+                        ForEach(missions) { mission in
+                            if !completedMissionIDs.contains(mission.id) {
+                                if mission.id == dissolvingMissionID {
+                                    DissolvingBubble(mission: mission) {
+                                        completedMissionIDs.insert(mission.id)
+                                        dissolvingMissionID = nil
                                     }
+                                    .offset(x: mission.x, y: mission.y)
+                                } else {
+                                    FloatingMissionItem(mission: mission)
+                                        .onTapGesture {
+                                            withAnimation(.easeOut) { currentState = .missionDetail(mission) }
+                                        }
+                                }
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity)
+                    // Ensure height accommodates the vertical scatter
+                    .frame(height: 500)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 450)
             }
             .padding(.top, 20)
         }
@@ -354,14 +419,13 @@ struct MissionDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // 1. "Mission" as a Header (Topic)
                 Text("Mission")
                     .font(.title3.bold())
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.bottom, -15)
                 
-                // 2. The Card (Content Only)
+                // Mission Info Card
                 HStack(alignment: .top) {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(mission.color)
@@ -388,13 +452,13 @@ struct MissionDetailView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .background(Color.missionCardBg) // Specific dark grey-blue
+                .background(Color.missionCardBg)
                 .cornerRadius(16)
                 .padding(.horizontal, 20)
                 
-                // 3. Cloud & Speech Bubble with Tail
+                // Cloud & Speech Bubble with Tail
                 ZStack(alignment: .bottomTrailing) {
-                    Image("cloudUmbrella")
+                    Image("cloudUmbrella") // Ensure asset exists
                         .resizable()
                         .scaledToFit()
                         .frame(width: 170)
@@ -461,27 +525,29 @@ struct MissionDetailView: View {
     }
 }
 
-// MARK: - 4. Effects & Helpers
+// MARK: - 4. Effects & Helpers (Bubbles)
 
-// Transparent Glass Bubble
 struct GlassyBubble: View {
     let mission: Mission
     
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.black.opacity(0.3)) // Dark tint, transparent
+                .fill(Color.black.opacity(0.3))
             Circle()
                 .stroke(mission.color.opacity(0.6), lineWidth: 1.0)
             VStack(spacing: 4) {
                 Text(mission.title)
                     .font(.system(size: mission.size > 100 ? 15 : 12, weight: .semibold))
                     .multilineTextAlignment(.center)
-                    .foregroundColor(mission.color) // Neon text
+                    .foregroundColor(mission.color)
                     .padding(.horizontal, 4)
-                Text(mission.time)
-                    .font(.system(size: 10, weight: .regular))
-                    .foregroundColor(.white.opacity(0.6))
+                
+                if !mission.time.isEmpty {
+                    Text(mission.time)
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundColor(.white.opacity(0.6))
+                }
             }
         }
         .frame(width: mission.size, height: mission.size)
@@ -512,8 +578,10 @@ struct FloatingMissionItem: View {
     
     var body: some View {
         GlassyBubble(mission: mission)
+            // Initial position + Floating animation offset
             .offset(x: mission.x + xOffset, y: mission.y + yOffset)
             .onAppear {
+                // Random floating movement
                 withAnimation(.easeInOut(duration: Double.random(in: 3...6)).repeatForever(autoreverses: true)) {
                     xOffset = CGFloat.random(in: -10...10)
                 }
@@ -542,12 +610,12 @@ extension View {
         when shouldShow: Bool,
         alignment: Alignment = .leading,
         @ViewBuilder placeholder: () -> Content) -> some View {
-
-        ZStack(alignment: alignment) {
-            placeholder().opacity(shouldShow ? 1 : 0)
-            self
+            
+            ZStack(alignment: alignment) {
+                placeholder().opacity(shouldShow ? 1 : 0)
+                self
+            }
         }
-    }
 }
 
 struct CloudyFlowView_Previews: PreviewProvider {
@@ -555,4 +623,3 @@ struct CloudyFlowView_Previews: PreviewProvider {
         CloudyFlowView()
     }
 }
-
