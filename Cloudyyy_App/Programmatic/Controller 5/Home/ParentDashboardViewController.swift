@@ -402,8 +402,15 @@ extension Color {
             titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
             let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
-            chevron.tintColor = .white.withAlphaComponent(0.45)
+            chevron.tintColor = UIColor.white.withAlphaComponent(0.45)
+            chevron.contentMode = .scaleAspectFit
             chevron.translatesAutoresizingMaskIntoConstraints = false
+
+            NSLayoutConstraint.activate([
+                chevron.widthAnchor.constraint(equalToConstant: 12),
+                chevron.heightAnchor.constraint(equalToConstant: 12)
+            ])
+
 
             let bottomRow = UIStackView(arrangedSubviews: [titleLabel, chevron])
             bottomRow.axis = .horizontal
