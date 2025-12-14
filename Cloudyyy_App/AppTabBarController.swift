@@ -24,10 +24,12 @@ final class UserSession {
 
 // MARK: - Main Tab Bar Controller
 
-final class AppTabBarController: UITabBarController {
+final class AppTabBarController: UITabBarController, UITabBarControllerDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        delegate = self   // ✅ REQUIRED to intercept Add tab
 
         // ❗ DO NOT configure tab bar appearance here
         // Appearance is locked globally in SceneDelegate
@@ -173,4 +175,29 @@ private extension AppTabBarController {
     }
 }
 
+// MARK: - Tab Bar Delegate (Intercept Add)
+
+extension AppTabBarController {
+
+    func tabBarController(
+        _ tabBarController: UITabBarController,
+        shouldSelect viewController: UIViewController
+    ) -> Bool {
+
+        // 🔴 Intercept Add tab (tag = 2)
+        if viewController.tabBarItem.tag == 2 {
+            openNewTask()
+            return false   // ⛔ Prevent switching to dummy tab
+        }
+
+        return true
+    }
+
+    private func openNewTask() {
+        let vc = NewTaskViewController()
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
+    }
+}
 

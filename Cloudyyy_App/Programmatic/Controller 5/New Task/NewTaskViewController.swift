@@ -107,6 +107,10 @@ class NewTaskViewController: UIViewController {
     private func setupScrollView() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        // ✅ IMPORTANT
+        scrollView.backgroundColor = .clear
+
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
@@ -116,6 +120,10 @@ class NewTaskViewController: UIViewController {
 
         scrollView.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        // ✅ IMPORTANT
+        contentView.backgroundColor = .clear
+
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
@@ -124,6 +132,7 @@ class NewTaskViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
     }
+
 
     private func setupStack() {
         contentView.addSubview(stack)

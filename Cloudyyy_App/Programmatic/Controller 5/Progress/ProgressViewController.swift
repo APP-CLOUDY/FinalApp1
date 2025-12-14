@@ -348,6 +348,7 @@ final class ProgressViewController: UIViewController {
 
 }
 
+
 // ======================================================
 // MARK: - 1. Stats Card
 // ======================================================
@@ -357,8 +358,8 @@ private final class StatsCardView: UIView {
     private let glass = GlassView(style: .card, cornerRadius: 24)
 
     // MARK: - UI
-    private let arcView = HomeProgressArcView()
-
+    private let arcView = ProgressSemiCircleView()
+    
     private let percentageLabel: UILabel = {
         let l = UILabel()
         l.font = .systemFont(ofSize: 42, weight: .bold)
@@ -622,7 +623,6 @@ private final class EffortRow: UIView {
     }
     
     required init?(coder: NSCoder) { fatalError() }
-    
     
     
 }
