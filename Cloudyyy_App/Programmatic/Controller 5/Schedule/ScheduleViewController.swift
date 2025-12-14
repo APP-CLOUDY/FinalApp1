@@ -14,7 +14,7 @@ final class ScheduleViewController: UIViewController {
 
     // Filters
     private let filterControl: UISegmentedControl = {
-        let c = UISegmentedControl(items: ["All", "To Do", "Done"])
+        let c = UISegmentedControl(items: ["All", "Completed", "Not Done"])
         c.selectedSegmentIndex = 0
         c.translatesAutoresizingMaskIntoConstraints = false
         c.selectedSegmentTintColor = .white

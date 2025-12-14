@@ -244,14 +244,15 @@ class FamilyViewController: UIViewController {
     }
     
     @objc private func handleDone() {
-            // 1. Initialize your Main Tab Bar Controller
-            // This assumes you have a class named 'CustomTabBarController' in your project
-            let mainTabBar = CustomTabBarController()
-            
-            // 2. Swap the root view controller
-            // This replaces the entire navigation stack, so the user cannot click "Back" to return to the setup flow.
-            navigationController?.setViewControllers([mainTabBar], animated: true)
-        }
+        guard
+            let scene = UIApplication.shared.connectedScenes.first,
+            let sceneDelegate = scene.delegate as? SceneDelegate
+        else { return }
+
+        sceneDelegate.switchToMainApp(role: .parent)
+    }
+
+
 
     // MARK: - UI Setup
     

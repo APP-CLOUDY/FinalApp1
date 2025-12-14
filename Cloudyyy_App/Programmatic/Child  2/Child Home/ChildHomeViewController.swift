@@ -381,6 +381,7 @@ final class ChildHomeViewController: UIViewController {
     @objc private func mascotTapped() {
         self.tabBarController?.selectedIndex = 3
     }
+
     
     @objc private func profileButtonTapped() {
         print("Navigating to Profile")

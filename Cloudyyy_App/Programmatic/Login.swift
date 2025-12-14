@@ -343,17 +343,15 @@ final class Login: UIViewController {
                 // 4) Navigate to Main App on success
                 await MainActor.run {
                     self.setLoading(false)
-                    
-                    let mainTabBarController = CustomTabBarController()
-                    // If you want to replace the root so they can't "back" to login:
-                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate,
-                       let window = sceneDelegate.window {
-                        window.rootViewController = mainTabBarController
-                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
-                    } else {
-                        // Fallback navigation
-                        self.navigationController?.pushViewController(mainTabBarController, animated: true)
-                    }
+
+                    let role: UserRole = profile.role == "child" ? .child : .parent
+
+                    guard
+                        let scene = UIApplication.shared.connectedScenes.first,
+                        let sceneDelegate = scene.delegate as? SceneDelegate
+                    else { return }
+
+                    sceneDelegate.switchToMainApp(role: role)
                 }
             } catch {
                 await MainActor.run {

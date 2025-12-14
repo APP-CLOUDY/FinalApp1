@@ -230,16 +230,14 @@ final class JoinWithCode: UIViewController {
     }
     
     private func navigateToChildHome() {
-        // Change this to your actual Child Tab Bar Controller class
-        let vc = ChildTabBarController()
-        
-        if let window = view.window {
-            window.rootViewController = vc
-            UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
-        } else {
-            navigationController?.setViewControllers([vc], animated: true)
-        }
+        guard
+            let scene = UIApplication.shared.connectedScenes.first,
+            let sceneDelegate = scene.delegate as? SceneDelegate
+        else { return }
+
+        sceneDelegate.switchToMainApp(role: .child)
     }
+
     
     // MARK: - Keyboard & Helpers
     @objc private func kbWillShow(_ n: Notification) {

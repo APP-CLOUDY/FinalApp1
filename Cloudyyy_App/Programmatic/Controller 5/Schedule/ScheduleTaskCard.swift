@@ -2,111 +2,119 @@ import UIKit
 
 final class ScheduleTaskCard: UIView {
 
+    // MARK: - UI
     private let leadingStripe = UIView()
-    private let container = UIView()
-    
-    // Labels
+    private let glass = GlassView(style: .row, cornerRadius: 16)
+
     private let titleLabel = UILabel()
     private let timeLabel = UILabel()
-    
-    // Bottom Category Row
+
     private let categoryIcon = UIImageView()
     private let categoryLabel = UILabel()
     private let categoryStack = UIStackView()
 
-    // UPDATED: Init with Real Model
+    // MARK: - Init
     init(task: ScheduleTaskModel) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        
-        // 1. Card Styling (Solid Dark Grey)
-        backgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1)
-        layer.cornerRadius = 12
+        setupUI(task: task)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    // MARK: - Setup
+    private func setupUI(task: ScheduleTaskModel) {
+
+        layer.cornerRadius = 16
         clipsToBounds = true
 
-        // 2. Left Stripe
+        // Stripe
         leadingStripe.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leadingStripe)
 
-        // 3. Container
-        container.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(container)
+        // Glass
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glass)
 
-        // 4. Title
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Title
         titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
         titleLabel.textColor = .white
         titleLabel.text = task.title
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // 5. Time / Frequency
-        timeLabel.translatesAutoresizingMaskIntoConstraints = false
-        timeLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        // Time / Frequency
+        timeLabel.font = .systemFont(ofSize: 13)
         timeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
-        // Show frequency or points since we don't always have specific time
         timeLabel.text = "\(task.points) Points • \(task.frequency)"
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // 6. Category (Placeholder icon for now)
+        // Category
         categoryIcon.image = UIImage(systemName: "folder")
         categoryIcon.tintColor = UIColor.white.withAlphaComponent(0.5)
-        categoryIcon.contentMode = .scaleAspectFit
         categoryIcon.translatesAutoresizingMaskIntoConstraints = false
         categoryIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
         categoryIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
-        
-        categoryLabel.text = "Task" // Default
+
+        categoryLabel.text = "Task"
         categoryLabel.font = .systemFont(ofSize: 12, weight: .medium)
         categoryLabel.textColor = UIColor.white.withAlphaComponent(0.5)
-        
+
         categoryStack.axis = .horizontal
         categoryStack.spacing = 6
         categoryStack.alignment = .center
         categoryStack.translatesAutoresizingMaskIntoConstraints = false
         categoryStack.addArrangedSubview(categoryIcon)
         categoryStack.addArrangedSubview(categoryLabel)
-        
-        container.addSubview(titleLabel)
-        container.addSubview(timeLabel)
-        container.addSubview(categoryStack)
 
-        // 7. Layout Constraints
+        glass.addSubview(titleLabel)
+        glass.addSubview(timeLabel)
+        glass.addSubview(categoryStack)
+
         NSLayoutConstraint.activate([
+            // Stripe
             leadingStripe.leadingAnchor.constraint(equalTo: leadingAnchor),
             leadingStripe.topAnchor.constraint(equalTo: topAnchor),
             leadingStripe.bottomAnchor.constraint(equalTo: bottomAnchor),
             leadingStripe.widthAnchor.constraint(equalToConstant: 6),
 
-            container.leadingAnchor.constraint(equalTo: leadingStripe.trailingAnchor),
-            container.trailingAnchor.constraint(equalTo: trailingAnchor),
-            container.topAnchor.constraint(equalTo: topAnchor),
-            container.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Glass
+            glass.leadingAnchor.constraint(equalTo: leadingStripe.trailingAnchor),
+            glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glass.topAnchor.constraint(equalTo: topAnchor),
+            glass.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
-            titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+            // Content
+            titleLabel.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -12),
+            titleLabel.topAnchor.constraint(equalTo: glass.topAnchor, constant: 14),
 
             timeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             timeLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
 
             categoryStack.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             categoryStack.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 10),
-            categoryStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14)
+            categoryStack.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -14)
         ])
 
-        // 8. Color Logic based on Real Status
-        let status = task.submission_status ?? "todo" // Default if nil
-        
+        applyStatusColor(task)
+    }
+
+    // MARK: - Status Color
+    private func applyStatusColor(_ task: ScheduleTaskModel) {
+        let status = task.submission_status ?? "todo"
+
         let softRed = UIColor(red: 255/255, green: 99/255, blue: 71/255, alpha: 1)
         let softYellow = UIColor(red: 255/255, green: 217/255, blue: 61/255, alpha: 1)
         let softGreen = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)
 
-        if status == "approved" {
+        switch status {
+        case "approved":
             leadingStripe.backgroundColor = softGreen
-        } else if status == "pending" {
+        case "pending":
             leadingStripe.backgroundColor = softYellow
-        } else {
-            leadingStripe.backgroundColor = softRed // Not done yet
+        default:
+            leadingStripe.backgroundColor = softRed
         }
     }
-
-    required init?(coder: NSCoder) { fatalError() }
 }
+

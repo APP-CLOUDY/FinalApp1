@@ -44,6 +44,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"Programmatic/Child  2/Child Auth/AppTabBarController.swift",
 			);
 			target = 6FF3D3632EBB34820022B8BC /* Cloudyyy_App */;
 		};

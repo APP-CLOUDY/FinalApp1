@@ -27,16 +27,39 @@ final class CustomClaimLimitViewController: UITableViewController {
     var onSave: ((String) -> Void)?
 
     // State
-    private var frequency: RepeatFrequency = .daily
-    private var interval: Int = 1
-    private var selectedWeekdays: Set<Weekday> = []
-    private var selectedMonthDay: Int = 1
-    private var selectedMonth: Int = Calendar.current.component(.month, from: Date())
+    private var frequency: RepeatFrequency = .daily {
+        didSet {
+            clampInterval()
+            updatePreview()
+        }
+    }
+    private var interval: Int = 1 {
+        didSet { updatePreview() }
+    }
+    private var selectedWeekdays = Set<Weekday>() {
+        didSet { updatePreview() }
+    }
+    private var selectedMonthDay: Int = 1 {
+        didSet { updatePreview() }
+    }
+    private var selectedMonth: Int = Calendar.current.component(.month, from: Date()) {
+        didSet { updatePreview() }
+    }
 
     // Gradient
     private let gradient = CAGradientLayer()
 
-    // MARK: - Init (Inset grouped like Reminders)
+    // Preview
+    private let previewLabel: UILabel = {
+        let l = UILabel()
+        l.font = .systemFont(ofSize: 14, weight: .medium)
+        l.textColor = UIColor.white.withAlphaComponent(0.8)
+        l.numberOfLines = 2
+        l.textAlignment = .center
+        return l
+    }()
+
+    // MARK: - Init
 
     init() {
         super.init(style: .insetGrouped)
@@ -52,20 +75,11 @@ final class CustomClaimLimitViewController: UITableViewController {
         super.viewDidLoad()
 
         title = "Custom"
-
         setupGradient()
         setupNavigation()
         setupTable()
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(false, animated: animated)
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        navigationController?.setNavigationBarHidden(true, animated: animated)
+        setupPreviewFooter()
+        updatePreview()
     }
 
     override func viewDidLayoutSubviews() {
@@ -108,6 +122,46 @@ final class CustomClaimLimitViewController: UITableViewController {
         tableView.rowHeight = 56
     }
 
+    // MARK: - Preview Footer
+
+    private func setupPreviewFooter() {
+        let container = UIView()
+        container.backgroundColor = UIColor.systemGray6.withAlphaComponent(0.15)
+        container.layer.cornerRadius = 14
+
+        container.addSubview(previewLabel)
+        previewLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            previewLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            previewLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            previewLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            previewLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+        ])
+
+        container.frame = CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 60)
+        tableView.tableFooterView = container
+    }
+
+    private func updatePreview() {
+        previewLabel.text = "🔁 " + buildResultString()
+    }
+
+    // MARK: - Interval Logic (Human-Friendly)
+
+    private func maxInterval(for frequency: RepeatFrequency) -> Int {
+        switch frequency {
+        case .daily:   return 7
+        case .weekly:  return 4
+        case .monthly: return 6
+        case .yearly:  return 5
+        }
+    }
+
+    private func clampInterval() {
+        interval = min(interval, maxInterval(for: frequency))
+    }
+
     // MARK: - Actions
 
     @objc private func backTapped() {
@@ -122,30 +176,19 @@ final class CustomClaimLimitViewController: UITableViewController {
     // MARK: - Sections
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        switch frequency {
-        case .daily:
-            return 2
-        case .weekly, .monthly, .yearly:
-            return 3
-        }
+        frequency == .daily ? 2 : 3
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
-        case 0:
-            return RepeatFrequency.allCases.count
-        case 1:
-            return 1
+        case 0: return RepeatFrequency.allCases.count
+        case 1: return 1
         case 2:
             switch frequency {
-            case .weekly:
-                return Weekday.allCases.count
-            case .monthly:
-                return 31
-            case .yearly:
-                return 12
-            default:
-                return 0
+            case .weekly:  return Weekday.allCases.count
+            case .monthly: return 31
+            case .yearly:  return 12
+            default: return 0
             }
         default:
             return 0
@@ -163,31 +206,22 @@ final class CustomClaimLimitViewController: UITableViewController {
         cell.backgroundColor = UIColor.systemGray6.withAlphaComponent(0.12)
         cell.layer.cornerRadius = 14
         cell.layer.masksToBounds = true
-        cell.contentView.backgroundColor = .clear
-
         cell.textLabel?.textColor = .white
         cell.detailTextLabel?.textColor = .systemBlue
         cell.selectionStyle = .none
 
         switch indexPath.section {
 
-        // Frequency
         case 0:
             let freq = RepeatFrequency.allCases[indexPath.row]
             cell.textLabel?.text = freq.rawValue
             cell.accessoryType = freq == frequency ? .checkmark : .none
-            cell.tintColor = .systemBlue
 
-        // Every
         case 1:
             cell.textLabel?.text = "Every"
-            cell.detailTextLabel?.text =
-                interval == 1
-                ? frequency.rawValue.dropLast().capitalized
-                : "\(interval) \(frequency.rawValue.lowercased())"
-            cell.accessoryType = .disclosureIndicator
+            cell.detailTextLabel?.text = "\(interval)"
+            cell.accessoryView = stepperView()
 
-        // Details
         case 2:
             configureDetailCell(cell, indexPath: indexPath)
 
@@ -198,6 +232,21 @@ final class CustomClaimLimitViewController: UITableViewController {
         return cell
     }
 
+    private func stepperView() -> UIView {
+        let minus = UIButton(type: .system)
+        let plus = UIButton(type: .system)
+
+        minus.setTitle("−", for: .normal)
+        plus.setTitle("+", for: .normal)
+
+        minus.addTarget(self, action: #selector(decInterval), for: .touchUpInside)
+        plus.addTarget(self, action: #selector(incInterval), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [minus, plus])
+        stack.spacing = 12
+        return stack
+    }
+
     private func configureDetailCell(_ cell: UITableViewCell, indexPath: IndexPath) {
 
         switch frequency {
@@ -206,51 +255,20 @@ final class CustomClaimLimitViewController: UITableViewController {
             let day = Weekday.allCases[indexPath.row]
             cell.textLabel?.text = day.rawValue
             cell.accessoryType = selectedWeekdays.contains(day) ? .checkmark : .none
-            cell.tintColor = .systemBlue
 
         case .monthly:
             let day = indexPath.row + 1
             cell.textLabel?.text = "\(day)"
             cell.accessoryType = day == selectedMonthDay ? .checkmark : .none
-            cell.tintColor = .systemBlue
 
         case .yearly:
             let month = indexPath.row + 1
             cell.textLabel?.text = DateFormatter().monthSymbols[month - 1]
             cell.accessoryType = month == selectedMonth ? .checkmark : .none
-            cell.tintColor = .systemBlue
 
         default:
             break
         }
-    }
-
-    // MARK: - Headers
-
-    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        switch section {
-        case 0: return "Frequency"
-        case 1: return "Every"
-        case 2:
-            switch frequency {
-            case .weekly: return "Days of Week"
-            case .monthly: return "Day of Month"
-            case .yearly: return "Month"
-            default: return nil
-            }
-        default:
-            return nil
-        }
-    }
-
-    override func tableView(
-        _ tableView: UITableView,
-        willDisplayHeaderView view: UIView,
-        forSection section: Int
-    ) {
-        guard let header = view as? UITableViewHeaderFooterView else { return }
-        header.textLabel?.textColor = UIColor.white.withAlphaComponent(0.6)
-        header.contentView.backgroundColor = .clear
     }
 
     // MARK: - Selection
@@ -264,33 +282,25 @@ final class CustomClaimLimitViewController: UITableViewController {
             selectedWeekdays.removeAll()
             tableView.reloadData()
 
-        case 1:
-            openIntervalPicker()
-
         case 2:
             handleDetailSelection(indexPath)
+            tableView.reloadSections([2], with: .automatic)
 
         default:
             break
         }
     }
 
-    private func openIntervalPicker() {
-        let alert = UIAlertController(
-            title: "Repeat Every",
-            message: nil,
-            preferredStyle: .actionSheet
-        )
+    @objc private func decInterval() {
+        guard interval > 1 else { return }
+        interval -= 1
+        tableView.reloadSections([1], with: .none)
+    }
 
-        for i in 1...30 {
-            alert.addAction(UIAlertAction(title: "\(i)", style: .default) { [weak self] _ in
-                self?.interval = i
-                self?.tableView.reloadSections(IndexSet(integer: 1), with: .automatic)
-            })
-        }
-
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+    @objc private func incInterval() {
+        guard interval < maxInterval(for: frequency) else { return }
+        interval += 1
+        tableView.reloadSections([1], with: .none)
     }
 
     private func handleDetailSelection(_ indexPath: IndexPath) {
@@ -310,11 +320,9 @@ final class CustomClaimLimitViewController: UITableViewController {
         default:
             break
         }
-
-        tableView.reloadSections(IndexSet(integer: 2), with: .automatic)
     }
 
-    // MARK: - Result Builder
+    // MARK: - Result Builder (UNCHANGED FORMAT)
 
     private func buildResultString() -> String {
 
@@ -329,10 +337,7 @@ final class CustomClaimLimitViewController: UITableViewController {
             if selectedWeekdays.isEmpty {
                 return interval == 1 ? "Every week" : "\(every) weeks"
             }
-            let days = selectedWeekdays
-                .map { $0.rawValue }
-                .sorted()
-                .joined(separator: ", ")
+            let days = selectedWeekdays.map { $0.rawValue }.sorted().joined(separator: ", ")
             return "\(every) weeks on \(days)"
 
         case .monthly:
@@ -345,7 +350,8 @@ final class CustomClaimLimitViewController: UITableViewController {
     }
 }
 
-// MARK: - Helpers
+// MARK: - Helper
+
 private extension Set where Element == Weekday {
     mutating func toggle(_ value: Weekday) {
         if contains(value) {

@@ -292,7 +292,7 @@ extension Color {
             segment.layer.masksToBounds = true
             content.addSubview(segment)
             
-            let chartHolder = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+            let chartHolder = GlassView(style: .card, cornerRadius: 14)
             chartHolder.layer.cornerRadius = 14
             chartHolder.layer.masksToBounds = true
             chartHolder.translatesAutoresizingMaskIntoConstraints = false
@@ -326,34 +326,35 @@ extension Color {
             setupTaps(pendingCard: pendingCard, allocatedCard: allocatedCard)
         }
         
-        private func setupChartEmbed(in holder: UIVisualEffectView) {
+        private func setupChartEmbed(in holder: UIView) {
             if #available(iOS 16.0, *) {
                 let hosting = UIHostingController(rootView: AnyView(HomeChartView(points: [])))
                 hosting.view.backgroundColor = .clear
                 addChild(hosting)
-                holder.contentView.addSubview(hosting.view)
+                holder.addSubview(hosting.view)
                 hosting.view.translatesAutoresizingMaskIntoConstraints = false
                 NSLayoutConstraint.activate([
-                    hosting.view.leadingAnchor.constraint(equalTo: holder.contentView.leadingAnchor, constant: 8),
-                    hosting.view.trailingAnchor.constraint(equalTo: holder.contentView.trailingAnchor, constant: -8),
-                    hosting.view.topAnchor.constraint(equalTo: holder.contentView.topAnchor, constant: 8),
-                    hosting.view.bottomAnchor.constraint(equalTo: holder.contentView.bottomAnchor, constant: -8)
+                    hosting.view.leadingAnchor.constraint(equalTo: holder.leadingAnchor, constant: 8),
+                    hosting.view.trailingAnchor.constraint(equalTo: holder.trailingAnchor, constant: -8),
+                    hosting.view.topAnchor.constraint(equalTo: holder.topAnchor, constant: 8),
+                    hosting.view.bottomAnchor.constraint(equalTo: holder.bottomAnchor, constant: -8)
+
                 ])
                 hosting.didMove(toParent: self)
                 chartHostingController = hosting
             }
         }
         
-        private func setupTaps(pendingCard: UIVisualEffectView, allocatedCard: UIVisualEffectView) {
+        private func setupTaps(pendingCard: UIView, allocatedCard: UIView) {
             let rewardButton = UIButton(type: .system)
             rewardButton.addTarget(self, action: #selector(openRewardsPage), for: .touchUpInside)
             rewardButton.translatesAutoresizingMaskIntoConstraints = false
-            allocatedCard.contentView.addSubview(rewardButton)
+            allocatedCard.addSubview(rewardButton)
             NSLayoutConstraint.activate([
-                rewardButton.leadingAnchor.constraint(equalTo: allocatedCard.contentView.leadingAnchor),
-                rewardButton.trailingAnchor.constraint(equalTo: allocatedCard.contentView.trailingAnchor),
-                rewardButton.topAnchor.constraint(equalTo: allocatedCard.contentView.topAnchor),
-                rewardButton.bottomAnchor.constraint(equalTo: allocatedCard.contentView.bottomAnchor)
+                rewardButton.leadingAnchor.constraint(equalTo: allocatedCard.leadingAnchor),
+                rewardButton.trailingAnchor.constraint(equalTo: allocatedCard.trailingAnchor),
+                rewardButton.topAnchor.constraint(equalTo: allocatedCard.topAnchor),
+                rewardButton.bottomAnchor.constraint(equalTo: allocatedCard.bottomAnchor)
             ])
             
             let overviewButton = UIButton(type: .system)
@@ -370,12 +371,12 @@ extension Color {
             let pendingButton = UIButton(type: .system)
             pendingButton.addTarget(self, action: #selector(openApprovalPage), for: .touchUpInside)
             pendingButton.translatesAutoresizingMaskIntoConstraints = false
-            pendingCard.contentView.addSubview(pendingButton)
+            pendingCard.addSubview(pendingButton)
             NSLayoutConstraint.activate([
-                pendingButton.leadingAnchor.constraint(equalTo: pendingCard.contentView.leadingAnchor),
-                pendingButton.trailingAnchor.constraint(equalTo: pendingCard.contentView.trailingAnchor),
-                pendingButton.topAnchor.constraint(equalTo: pendingCard.contentView.topAnchor),
-                pendingButton.bottomAnchor.constraint(equalTo: pendingCard.contentView.bottomAnchor)
+                pendingButton.leadingAnchor.constraint(equalTo: pendingCard.leadingAnchor),
+                pendingButton.trailingAnchor.constraint(equalTo: pendingCard.trailingAnchor),
+                pendingButton.topAnchor.constraint(equalTo: pendingCard.topAnchor),
+                pendingButton.bottomAnchor.constraint(equalTo: pendingCard.bottomAnchor)
             ])
         }
         
@@ -386,52 +387,46 @@ extension Color {
             navigationController?.pushViewController(vc, animated: true)
         }
         @objc private func openRewardsPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 } }
-        
-        private func makeSmallStatCard(title: String, valueLabel: UILabel) -> UIVisualEffectView {
-            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-            blur.layer.cornerRadius = 14
-            blur.layer.masksToBounds = true
-            blur.translatesAutoresizingMaskIntoConstraints = false
-            
+        private func makeSmallStatCard(title: String, valueLabel: UILabel) -> GlassView {
+            let glass = GlassView(style: .card, cornerRadius: 14)
+            glass.translatesAutoresizingMaskIntoConstraints = false
+
             valueLabel.font = .systemFont(ofSize: 32, weight: .bold)
             valueLabel.textColor = .white
             valueLabel.translatesAutoresizingMaskIntoConstraints = false
-            
+
             let titleLabel = UILabel()
             titleLabel.text = title
             titleLabel.font = .systemFont(ofSize: 13)
             titleLabel.textColor = UIColor.white.withAlphaComponent(0.8)
             titleLabel.translatesAutoresizingMaskIntoConstraints = false
-            
+
             let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
             chevron.tintColor = .white.withAlphaComponent(0.45)
-            chevron.contentMode = .scaleAspectFit
             chevron.translatesAutoresizingMaskIntoConstraints = false
-            
+
             let bottomRow = UIStackView(arrangedSubviews: [titleLabel, chevron])
             bottomRow.axis = .horizontal
             bottomRow.spacing = 4
             bottomRow.alignment = .center
-            bottomRow.distribution = .fill
-            bottomRow.translatesAutoresizingMaskIntoConstraints = false
-            
+
             let mainStack = UIStackView(arrangedSubviews: [valueLabel, bottomRow])
             mainStack.axis = .vertical
             mainStack.spacing = 6
             mainStack.translatesAutoresizingMaskIntoConstraints = false
-            
-            blur.contentView.addSubview(mainStack)
+
+            glass.addSubview(mainStack)
             NSLayoutConstraint.activate([
-                mainStack.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor, constant: 14),
-                mainStack.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor, constant: -14),
-                mainStack.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 12),
-                mainStack.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor, constant: -12),
-                chevron.widthAnchor.constraint(equalToConstant: 13),
-                chevron.heightAnchor.constraint(equalToConstant: 13)
+                mainStack.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 14),
+                mainStack.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
+                mainStack.topAnchor.constraint(equalTo: glass.topAnchor, constant: 12),
+                mainStack.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -12),
+                chevron.widthAnchor.constraint(equalToConstant: 13)
             ])
-            return blur
+
+            return glass
         }
-        
+
         
         @objc private func handleSelectedKidChanged(_ notification: Notification) {
             guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }

@@ -24,11 +24,10 @@ final class RewardHomeViewController: UIViewController {
     private let header = HomeHeaderView(title: "Rewards")
     private let gradient = CAGradientLayer()
 
-    // Stats Cards
-    private let smallLeft = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-    private let smallRight = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-    private let largeCard = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-
+    private let smallLeft  = GlassView(style: .card, cornerRadius: 22)
+    private let smallRight = GlassView(style: .card, cornerRadius: 22)
+    private let largeCard  = GlassView(style: .card, cornerRadius: 24)
+    
     private let activeLabel = UILabel()
     private let activeTitle = UILabel()
 
@@ -198,13 +197,16 @@ final class RewardHomeViewController: UIViewController {
 
     // MARK: - Stats Cards
     private func setupStatsCards() {
-        [smallLeft, smallRight, largeCard].forEach {
-            $0.layer.cornerRadius = 16
-            $0.layer.masksToBounds = true
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview($0)
-        }
+        smallLeft.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(smallLeft)
+     
 
+        smallRight.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(smallRight)
+        
+        largeCard.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(largeCard)
+        
         // ACTIVE rewards
         activeLabel.font = .systemFont(ofSize: 28, weight: .bold)
         activeLabel.textColor = .white
@@ -257,9 +259,10 @@ final class RewardHomeViewController: UIViewController {
         centerStack.spacing = 4
         centerStack.translatesAutoresizingMaskIntoConstraints = false
 
-        smallLeft.contentView.addSubview(leftStack)
-        smallRight.contentView.addSubview(rightStack)
-        largeCard.contentView.addSubview(centerStack)
+        smallLeft.addSubview(leftStack)
+        smallRight.addSubview(rightStack)
+        largeCard.addSubview(centerStack)
+
 
         NSLayoutConstraint.activate([
             smallLeft.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
@@ -277,14 +280,14 @@ final class RewardHomeViewController: UIViewController {
             largeCard.topAnchor.constraint(equalTo: smallLeft.bottomAnchor, constant: 14),
             largeCard.heightAnchor.constraint(equalToConstant: 78),
 
-            leftStack.centerXAnchor.constraint(equalTo: smallLeft.contentView.centerXAnchor),
-            leftStack.centerYAnchor.constraint(equalTo: smallLeft.contentView.centerYAnchor),
+            leftStack.centerXAnchor.constraint(equalTo: smallLeft.centerXAnchor),
+            leftStack.centerYAnchor.constraint(equalTo: smallLeft.centerYAnchor),
 
-            rightStack.centerXAnchor.constraint(equalTo: smallRight.contentView.centerXAnchor),
-            rightStack.centerYAnchor.constraint(equalTo: smallRight.contentView.centerYAnchor),
+            rightStack.centerXAnchor.constraint(equalTo: smallRight.centerXAnchor),
+            rightStack.centerYAnchor.constraint(equalTo: smallRight.centerYAnchor),
 
-            centerStack.centerXAnchor.constraint(equalTo: largeCard.contentView.centerXAnchor),
-            centerStack.centerYAnchor.constraint(equalTo: largeCard.contentView.centerYAnchor)
+            centerStack.centerXAnchor.constraint(equalTo: largeCard.centerXAnchor),
+            centerStack.centerYAnchor.constraint(equalTo: largeCard.centerYAnchor)
         ])
     }
 
@@ -314,16 +317,14 @@ final class RewardHomeViewController: UIViewController {
     // MARK: - Build Category Row
     private func makeCategoryRow(item: RewardCategoryData) -> UIControl {
         let row = UIControl()
-        row.layer.cornerRadius = 14
+        row.layer.cornerRadius = 18
         row.clipsToBounds = true
-        row.heightAnchor.constraint(equalToConstant: 70).isActive = true
-
-        let glass = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
-        glass.translatesAutoresizingMaskIntoConstraints = false
-        glass.layer.cornerRadius = 14
-        glass.clipsToBounds = true
-        glass.isUserInteractionEnabled = false
+        row.heightAnchor.constraint(equalToConstant: 76).isActive = true
+        
+        let glass = GlassView(style: .card, cornerRadius: 18)
         row.addSubview(glass)
+        glass.translatesAutoresizingMaskIntoConstraints = false
+
 
         let iconView = UIImageView(image: UIImage(systemName: item.icon))
         iconView.tintColor = .white
@@ -343,7 +344,7 @@ final class RewardHomeViewController: UIViewController {
 
         let textStack = UIStackView(arrangedSubviews: [title, subtitle])
         textStack.axis = .vertical
-        textStack.spacing = 2
+        textStack.spacing = 4
         textStack.translatesAutoresizingMaskIntoConstraints = false
 
         let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
@@ -356,7 +357,7 @@ final class RewardHomeViewController: UIViewController {
         hStack.spacing = 14
         hStack.translatesAutoresizingMaskIntoConstraints = false
 
-        glass.contentView.addSubview(hStack)
+        glass.addSubview(hStack)
 
         NSLayoutConstraint.activate([
             glass.leadingAnchor.constraint(equalTo: row.leadingAnchor),
@@ -364,9 +365,9 @@ final class RewardHomeViewController: UIViewController {
             glass.topAnchor.constraint(equalTo: row.topAnchor),
             glass.bottomAnchor.constraint(equalTo: row.bottomAnchor),
 
-            hStack.leadingAnchor.constraint(equalTo: glass.contentView.leadingAnchor, constant: 14),
-            hStack.trailingAnchor.constraint(equalTo: glass.contentView.trailingAnchor, constant: -14),
-            hStack.centerYAnchor.constraint(equalTo: glass.contentView.centerYAnchor),
+            hStack.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 14),
+            hStack.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
+            hStack.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
 
             iconView.widthAnchor.constraint(equalToConstant: 22),
             iconView.heightAnchor.constraint(equalToConstant: 22),

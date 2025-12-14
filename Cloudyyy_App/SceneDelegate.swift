@@ -3,7 +3,7 @@
 //  Cloudyyy_App
 //
 //  Created by user@5 on 05/11/25.
-//  joneshcommitcheck
+//
 
 import UIKit
 
@@ -11,51 +11,85 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
+    // MARK: - App Launch
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
 
-    func scene(_ scene: UIScene,
-                               willConnectTo session: UISceneSession,
-                               options connectionOptions: UIScene.ConnectionOptions) {
-                        
-                        guard let windowScene = scene as? UIWindowScene else { return }
-                        
-                        window = UIWindow(windowScene: windowScene)
+        // 🔒 LOCK TAB BAR APPEARANCE (GLOBAL – DO THIS ONCE)
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithOpaqueBackground()
+        tabAppearance.backgroundColor = .black   // Cloudyyy base color
 
-                        // Start the app with your animated launch screen
-                        let launchVC = LaunchAnimationViewController()
-                        let nav = UINavigationController(rootViewController: launchVC)
-                        nav.isNavigationBarHidden = true   // hides nav bar for first screens
+        tabAppearance.stackedLayoutAppearance.normal.iconColor = .lightGray
+        tabAppearance.stackedLayoutAppearance.selected.iconColor = .white
+        tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.lightGray
+        ]
+        tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor.white
+        ]
 
-                        window?.rootViewController = nav
-                        window?.makeKeyAndVisible()
-                    }
-    func sceneDidDisconnect(_ scene: UIScene) {
-        // Called as the scene is being released by the system.
-        // This occurs shortly after the scene enters the background, or when its session is discarded.
-        // Release any resources associated with this scene that can be re-created the next time the scene connects.
-        // The scene may re-connect later, as its session was not necessarily discarded (see `application:didDiscardSceneSessions` instead).
+        // 🔑 IMPORTANT — lock BOTH states
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+
+        // Optional: remove top shadow line
+        UITabBar.appearance().layer.borderWidth = 0
+        UITabBar.appearance().clipsToBounds = true
+
+        // ----------------------------------------------------
+
+        let window = UIWindow(windowScene: windowScene)
+        self.window = window
+
+        // Launch / onboarding
+        let launchVC = LaunchAnimationViewController()
+        let nav = UINavigationController(rootViewController: launchVC)
+        nav.isNavigationBarHidden = true
+
+        window.rootViewController = nav
+        window.makeKeyAndVisible()
     }
 
-    func sceneDidBecomeActive(_ scene: UIScene) {
-        // Called when the scene has moved from an inactive state to an active state.
-        // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+    // MARK: - Scene lifecycle
+    func sceneDidDisconnect(_ scene: UIScene) {}
+    func sceneDidBecomeActive(_ scene: UIScene) {}
+    func sceneWillResignActive(_ scene: UIScene) {}
+    func sceneWillEnterForeground(_ scene: UIScene) {}
+    func sceneDidEnterBackground(_ scene: UIScene) {}
+}
+
+// MARK: - Root Switching
+extension SceneDelegate {
+
+    /// Switches root safely to the main app tab bar
+    func switchToMainApp(role: UserRole) {
+
+        // Save role
+        UserSession.shared.role = role
+
+        // Create ONE tab bar
+        let tabBar = AppTabBarController()
+
+        // Embed in navigation controller (hidden)
+        let nav = UINavigationController(rootViewController: tabBar)
+        nav.isNavigationBarHidden = true
+
+        guard let window = window else { return }
+
+        // Smooth root transition
+        UIView.transition(
+            with: window,
+            duration: 0.35,
+            options: .transitionCrossDissolve,
+            animations: {
+                window.rootViewController = nav
+            }
+        )
     }
-
-    func sceneWillResignActive(_ scene: UIScene) {
-        // Called when the scene will move from an active state to an inactive state.
-        // This may occur due to temporary interruptions (ex. an incoming phone call).
-    }
-
-    func sceneWillEnterForeground(_ scene: UIScene) {
-        // Called as the scene transitions from the background to the foreground.
-        // Use this method to undo the changes made on entering the background.
-    }
-
-    func sceneDidEnterBackground(_ scene: UIScene) {
-        // Called as the scene transitions from the foreground to the background.
-        // Use this method to save data, release shared resources, and store enough scene-specific state information
-        // to restore the scene back to its current state.
-    }
-
-
 }
 
