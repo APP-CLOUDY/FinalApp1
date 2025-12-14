@@ -217,6 +217,7 @@ final class CombinedTitleNotesView: UIView, UITextViewDelegate {
         super.layoutSubviews()
         updateNotesHeight(animated: false)
     }
+    
 }
 
 

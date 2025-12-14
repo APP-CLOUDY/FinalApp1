@@ -363,13 +363,14 @@ final class SelectUserViewController: UIViewController {
     }
 
     private func parentSelected() {
-        let vc = Homelogin()
+        let vc = Login()
         navigationController?.pushViewController(vc, animated: true)
     }
 
     private func childSelected() {
-         let vc = Homejoin()
+         let vc = JoinWithCode()
          navigationController?.pushViewController(vc, animated: true)
         print("Child selected")
     }
 }
+

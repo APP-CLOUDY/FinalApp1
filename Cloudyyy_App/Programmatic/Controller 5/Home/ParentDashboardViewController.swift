@@ -344,41 +344,35 @@ extension Color {
                 chartHostingController = hosting
             }
         }
-        
         private func setupTaps(pendingCard: UIView, allocatedCard: UIView) {
-            let rewardButton = UIButton(type: .system)
-            rewardButton.addTarget(self, action: #selector(openRewardsPage), for: .touchUpInside)
-            rewardButton.translatesAutoresizingMaskIntoConstraints = false
-            allocatedCard.addSubview(rewardButton)
-            NSLayoutConstraint.activate([
-                rewardButton.leadingAnchor.constraint(equalTo: allocatedCard.leadingAnchor),
-                rewardButton.trailingAnchor.constraint(equalTo: allocatedCard.trailingAnchor),
-                rewardButton.topAnchor.constraint(equalTo: allocatedCard.topAnchor),
-                rewardButton.bottomAnchor.constraint(equalTo: allocatedCard.bottomAnchor)
-            ])
-            
-            let overviewButton = UIButton(type: .system)
-            overviewButton.addTarget(self, action: #selector(openProgressPage), for: .touchUpInside)
-            overviewButton.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(overviewButton)
-            NSLayoutConstraint.activate([
-                overviewButton.leadingAnchor.constraint(equalTo: overviewCard.leadingAnchor),
-                overviewButton.trailingAnchor.constraint(equalTo: overviewCard.trailingAnchor),
-                overviewButton.topAnchor.constraint(equalTo: overviewCard.topAnchor),
-                overviewButton.bottomAnchor.constraint(equalTo: overviewCard.bottomAnchor)
-            ])
-            
-            let pendingButton = UIButton(type: .system)
-            pendingButton.addTarget(self, action: #selector(openApprovalPage), for: .touchUpInside)
-            pendingButton.translatesAutoresizingMaskIntoConstraints = false
-            pendingCard.addSubview(pendingButton)
-            NSLayoutConstraint.activate([
-                pendingButton.leadingAnchor.constraint(equalTo: pendingCard.leadingAnchor),
-                pendingButton.trailingAnchor.constraint(equalTo: pendingCard.trailingAnchor),
-                pendingButton.topAnchor.constraint(equalTo: pendingCard.topAnchor),
-                pendingButton.bottomAnchor.constraint(equalTo: pendingCard.bottomAnchor)
-            ])
+
+            func attachTap(to view: UIView, action: Selector) {
+                let button = UIButton(type: .custom) // ✅ IMPORTANT
+                button.backgroundColor = .clear
+                button.addTarget(self, action: action, for: .touchUpInside)
+                button.translatesAutoresizingMaskIntoConstraints = false
+
+                view.addSubview(button)
+                view.bringSubviewToFront(button) // ✅ CRITICAL
+
+                NSLayoutConstraint.activate([
+                    button.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                    button.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                    button.topAnchor.constraint(equalTo: view.topAnchor),
+                    button.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+                ])
+            }
+
+            // Pending Approval → Approval Page
+            attachTap(to: pendingCard, action: #selector(openApprovalPage))
+
+            // Allocated Rewards → Rewards Tab
+            attachTap(to: allocatedCard, action: #selector(openRewardsPage))
+
+            // Overview Card → Progress Tab
+            attachTap(to: overviewCard, action: #selector(openProgressPage))
         }
+
         
         @objc private func openProgressPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } }
         @objc private func openApprovalPage() {
@@ -387,9 +381,14 @@ extension Color {
             navigationController?.pushViewController(vc, animated: true)
         }
         @objc private func openRewardsPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 4 } }
+        
         private func makeSmallStatCard(title: String, valueLabel: UILabel) -> GlassView {
+
             let glass = GlassView(style: .card, cornerRadius: 14)
             glass.translatesAutoresizingMaskIntoConstraints = false
+
+            // IMPORTANT
+            glass.isUserInteractionEnabled = true
 
             valueLabel.font = .systemFont(ofSize: 32, weight: .bold)
             valueLabel.textColor = .white
@@ -403,18 +402,12 @@ extension Color {
 
             let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
             chevron.tintColor = UIColor.white.withAlphaComponent(0.45)
-            chevron.contentMode = .scaleAspectFit
             chevron.translatesAutoresizingMaskIntoConstraints = false
-
-            NSLayoutConstraint.activate([
-                chevron.widthAnchor.constraint(equalToConstant: 12),
-                chevron.heightAnchor.constraint(equalToConstant: 12)
-            ])
-
+            chevron.widthAnchor.constraint(equalToConstant: 12).isActive = true
 
             let bottomRow = UIStackView(arrangedSubviews: [titleLabel, chevron])
             bottomRow.axis = .horizontal
-            bottomRow.spacing = 4
+            bottomRow.spacing = 6
             bottomRow.alignment = .center
 
             let mainStack = UIStackView(arrangedSubviews: [valueLabel, bottomRow])
@@ -423,18 +416,17 @@ extension Color {
             mainStack.translatesAutoresizingMaskIntoConstraints = false
 
             glass.addSubview(mainStack)
+
             NSLayoutConstraint.activate([
                 mainStack.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 14),
                 mainStack.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
                 mainStack.topAnchor.constraint(equalTo: glass.topAnchor, constant: 12),
-                mainStack.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -12),
-                chevron.widthAnchor.constraint(equalToConstant: 13)
+                mainStack.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -12)
             ])
 
             return glass
         }
 
-        
         @objc private func handleSelectedKidChanged(_ notification: Notification) {
             guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
             

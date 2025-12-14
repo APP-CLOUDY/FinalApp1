@@ -64,12 +64,11 @@ final class NewRewardViewController: UIViewController {
     private let select3DBox = Select3DCard()
     
     private let claimOptions: [(title: String, isCustom: Bool)] = [
-        ("Never", false),
+        ("Once", false),
         ("Daily", false),
         ("Weekdays", false),
         ("Weekends", false),
         ("Weekly", false),
-        ("Fortnightly", false),
         ("Monthly", false),
         ("Every 3 Months", false),
         ("Yearly", false),

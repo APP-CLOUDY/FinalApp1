@@ -1,34 +1,31 @@
-// ApprovalViewController.swift
 import UIKit
 
 // MARK: - ApprovalViewController
-final class ApprovalViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+final class ApprovalViewController: UIViewController {
 
-    // MARK: - UI Components
+    // MARK: UI
     private let header = HomeHeaderView(title: "Approval")
     private let segmentControl = UISegmentedControl(items: ["Pending", "Approved", "Redeemed"])
     private let tableView = UITableView()
     private let backgroundGradient = CAGradientLayer()
 
-    // MARK: - Data
-    private var kids: [ChildModel] = []
-    private var selectedKid: ChildModel? {
-        didSet { updateKidUI() }
-    }
-
+    // MARK: Data
     private var currentData: [[String: String]] = []
+
     private let pendingTasks = [
         ["title": "Quick Reward", "subtitle": "Water Your Plant", "date": "Requested on 24/10/2020", "points": "100 ⭐️"],
         ["title": "Task", "subtitle": "Clean Your Room", "date": "Requested on 23/10/2020", "points": "80 ⭐️"]
     ]
+
     private let approvedTasks = [
         ["title": "Task", "subtitle": "Finish Homework", "date": "Approved on 22/10/2020", "points": "100 ⭐️"]
     ]
+
     private let redeemedTasks = [
-        ["title": "DREAM IT", "subtitle": "Build A Cycle", "date": "Redeemed on 26/10/2020", "points": "100 ⭐️"]
+        ["title": "Dream It", "subtitle": "Build A Cycle", "date": "Redeemed on 26/10/2020", "points": "100 ⭐️"]
     ]
 
-    // MARK: - Lifecycle
+    // MARK: Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
@@ -37,41 +34,62 @@ final class ApprovalViewController: UIViewController, UITableViewDelegate, UITab
         setupHeader()
         setupSegment()
         setupTableView()
-        setupLayoutConstraints()
+        setupConstraints()
 
-        // Header customizations: hide icons, show kids, show header chevron (no overlay)
-        header.showNotificationButton(false)
-        header.showProfileButton(false)
-        header.showPlusButton(false)
-        
-        header.onChildTapped = { [weak self] in self?.showKidsMenu() }
-
-        // Segment callback
-        segmentControl.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
         segmentControl.selectedSegmentIndex = 0
         updateData(for: 0)
-
-        // Load kids & listen to selection changes
-        fetchKidsAndLoad()
-        NotificationCenter.default.addObserver(self, selector: #selector(handleSelectedKidChanged(_:)), name: .selectedKidChanged, object: nil)
         
-        header.showBackButton(true)
-        header.onBackTapped = { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
+        header.onChildTapped = { [weak self] in
+            self?.showKidsMenu()
         }
 
-
-        
     }
-
-    deinit { NotificationCenter.default.removeObserver(self) }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradient.frame = view.bounds
     }
+    
+    private func showKidsMenu() {
 
-    // MARK: - Setup UI
+        // 🔑 Always use shared store
+        let uiKids = SelectedKidStore.shared.allKids
+        guard !uiKids.isEmpty else { return }
+
+        let menu = FloatingKidsMenu(kids: uiKids)
+        menu.manager = FloatingMenuManager.shared
+
+        menu.onKidSelected = { [weak self] (selectedKid: Kid) in
+            SelectedKidStore.shared.updateKid(selectedKid)
+            self?.header.setSelectedKid(selectedKid)
+        }
+
+        menu.show(in: view, anchor: header.childButton)
+    }
+
+    final class SelectedKidStore {
+        static let shared = SelectedKidStore()
+
+        private(set) var allKids: [Kid] = []
+        private(set) var selectedKid: Kid?
+
+        func setKids(_ kids: [Kid]) {
+            self.allKids = kids
+        }
+
+        func updateKid(_ kid: Kid) {
+            selectedKid = kid
+            NotificationCenter.default.post(
+                name: .selectedKidChanged,
+                object: nil,
+                userInfo: ["kid": kid]
+            )
+        }
+    }
+
+
+
+    // MARK: Setup
     private func setupGradient() {
         backgroundGradient.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -86,46 +104,49 @@ final class ApprovalViewController: UIViewController, UITableViewDelegate, UITab
         header.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(header)
 
-        NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 110) // match other screens
-        ])
+        header.showNotificationButton(false)
+        header.showProfileButton(false)
+        header.showPlusButton(false)
+        header.showBackButton(true)
+        header.onBackTapped = { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
     }
 
     private func setupSegment() {
         segmentControl.translatesAutoresizingMaskIntoConstraints = false
-        segmentControl.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        segmentControl.backgroundColor = UIColor.white.withAlphaComponent(0.1)
         segmentControl.selectedSegmentTintColor = .white
-        segmentControl.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.8)], for: .normal)
+        segmentControl.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.7)], for: .normal)
         segmentControl.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
-        segmentControl.layer.cornerRadius = 10
-        segmentControl.layer.masksToBounds = true
+        segmentControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         view.addSubview(segmentControl)
     }
 
     private func setupTableView() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(ApprovalCell.self, forCellReuseIdentifier: ApprovalCell.reuseId)
-        tableView.separatorStyle = .none
-        tableView.estimatedRowHeight = 120
+        tableView.estimatedRowHeight = 140
         tableView.rowHeight = UITableView.automaticDimension
         view.addSubview(tableView)
     }
 
-    private func setupLayoutConstraints() {
+    private func setupConstraints() {
         NSLayoutConstraint.activate([
-            // segment below header (header's height ensures no overlap)
+            header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            header.heightAnchor.constraint(equalToConstant: 110),
+
             segmentControl.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 12),
             segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             segmentControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             segmentControl.heightAnchor.constraint(equalToConstant: 40),
 
-            // table below segment
             tableView.topAnchor.constraint(equalTo: segmentControl.bottomAnchor, constant: 14),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -133,46 +154,9 @@ final class ApprovalViewController: UIViewController, UITableViewDelegate, UITab
         ])
     }
 
-    // MARK: - Data / API
-    private func fetchKidsAndLoad() {
-        _Concurrency.Task {
-            do {
-                let data = try await FamilyService.shared.fetchDashboard()
-                await MainActor.run {
-                    self.kids = data.children
-                    let uiKids = self.kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
-                    self.header.setKids(uiKids)
-
-                    // restore saved selection or pick first
-                    if let saved = SelectedKidStore.shared.selectedKid,
-                       let realKid = self.kids.first(where: { $0.id.uuidString == saved.id }) {
-                        self.selectKid(realKid)
-                    } else if let first = self.kids.first {
-                        self.selectKid(first)
-                    } else {
-                        self.header.childButton.setTitle("No Kids", for: .normal)
-                    }
-                }
-            } catch {
-                print("Error fetching kids: \(error)")
-            }
-        }
-    }
-
-    private func selectKid(_ kid: ChildModel) {
-        self.selectedKid = kid
-        SelectedKidStore.shared.updateKid(Kid(id: kid.id.uuidString, name: kid.name))
-    }
-
-    private func updateKidUI() {
-        if let kid = selectedKid {
-            header.setSelectedKid(Kid(id: kid.id.uuidString, name: kid.name))
-        }
-    }
-
-    // MARK: - Actions
-    @objc private func segmentChanged(_ sender: UISegmentedControl) {
-        updateData(for: sender.selectedSegmentIndex)
+    // MARK: Actions
+    @objc private func segmentChanged() {
+        updateData(for: segmentControl.selectedSegmentIndex)
     }
 
     private func updateData(for index: Int) {
@@ -184,75 +168,101 @@ final class ApprovalViewController: UIViewController, UITableViewDelegate, UITab
         }
         tableView.reloadData()
     }
+}
 
-    // MARK: - Kids Menu
-    private func showKidsMenu() {
-        guard !kids.isEmpty else { return }
-        let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
-        let menu = FloatingKidsMenu(kids: uiKids)
-        menu.manager = FloatingMenuManager.shared
-        menu.onKidSelected = { selectedUiKid in
-            SelectedKidStore.shared.updateKid(selectedUiKid)
-        }
-        menu.show(in: view, anchor: header.childButton)
-    }
+// MARK: - UITableView
+extension ApprovalViewController: UITableViewDelegate, UITableViewDataSource {
 
-    @objc private func handleSelectedKidChanged(_ notification: Notification) {
-        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
-        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
-            selectKid(realKid)
-        } else {
-            // update header even if this controller doesn't own that kid
-            header.setSelectedKid(uiKid)
-        }
-    }
-
-    // MARK: - UITableViewDataSource
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return currentData.count
+        currentData.count
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: ApprovalCell.reuseId, for: indexPath) as? ApprovalCell else {
-            return UITableViewCell()
-        }
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: ApprovalCell.reuseId,
+            for: indexPath
+        ) as! ApprovalCell
 
         let data = currentData[indexPath.row]
-        let showButtons = (segmentControl.selectedSegmentIndex == 0)
+        let isPending = segmentControl.selectedSegmentIndex == 0
 
         cell.configure(
             title: data["title"] ?? "",
             subtitle: data["subtitle"] ?? "",
             date: data["date"] ?? "",
             points: data["points"] ?? "",
-            showButtons: showButtons
+            showButtons: isPending
         )
 
-        cell.onApproveTapped = { print("✅ Approved: \(data["title"] ?? "")") }
-        cell.onDeclineTapped = { print("❌ Declined: \(data["title"] ?? "")") }
+        cell.onApproveTapped = { [weak self] in
+            self?.approveItem(at: indexPath)
+        }
+
+        cell.onDeclineTapped = { [weak self] in
+            self?.declineItem(at: indexPath)
+        }
 
         return cell
     }
 
-    // MARK: - UITableViewDelegate
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
+    // MARK: Swipe Actions
+    func tableView(_ tableView: UITableView,
+                   trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath)
+    -> UISwipeActionsConfiguration? {
+
+        guard segmentControl.selectedSegmentIndex == 0 else { return nil }
+
+        let approve = UIContextualAction(style: .normal, title: "Approve") { [weak self] _, _, done in
+            self?.approveItem(at: indexPath)
+            done(true)
+        }
+
+        approve.backgroundColor = UIColor(red: 47/255, green: 128/255, blue: 237/255, alpha: 1)
+        approve.image = UIImage(systemName: "checkmark.circle.fill")
+
+        return UISwipeActionsConfiguration(actions: [approve])
+    }
+
+    func tableView(_ tableView: UITableView,
+                   leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath)
+    -> UISwipeActionsConfiguration? {
+
+        guard segmentControl.selectedSegmentIndex == 0 else { return nil }
+
+        let decline = UIContextualAction(style: .destructive, title: "Decline") { [weak self] _, _, done in
+            self?.declineItem(at: indexPath)
+            done(true)
+        }
+
+        decline.image = UIImage(systemName: "xmark.circle.fill")
+
+        return UISwipeActionsConfiguration(actions: [decline])
+    }
+
+    // MARK: Logic
+    private func approveItem(at indexPath: IndexPath) {
+        let item = currentData.remove(at: indexPath.row)
+        tableView.deleteRows(at: [indexPath], with: .automatic)
+        print("✅ Approved:", item)
+    }
+
+    private func declineItem(at indexPath: IndexPath) {
+        let item = currentData.remove(at: indexPath.row)
+        tableView.deleteRows(at: [indexPath], with: .automatic)
+        print("❌ Declined:", item)
     }
 }
 
-// ======================================================
-// MARK: - ApprovalCell
-// ======================================================
+
 final class ApprovalCell: UITableViewCell {
 
     static let reuseId = "ApprovalCell"
 
-    // Callbacks
     var onApproveTapped: (() -> Void)?
     var onDeclineTapped: (() -> Void)?
 
-    // UI
     private let containerView = UIView()
     private let iconView = UIView()
     private let iconImageView = UIImageView()
@@ -269,7 +279,7 @@ final class ApprovalCell: UITableViewCell {
         setupUI()
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:)") }
+    required init?(coder: NSCoder) { fatalError() }
 
     private func setupUI() {
         backgroundColor = .clear
@@ -292,38 +302,32 @@ final class ApprovalCell: UITableViewCell {
 
         titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
         titleLabel.textColor = .white
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(titleLabel)
 
         subtitleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         subtitleLabel.textColor = UIColor.white.withAlphaComponent(0.7)
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(subtitleLabel)
 
-        dateLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        dateLabel.font = .systemFont(ofSize: 12)
         dateLabel.textColor = UIColor.white.withAlphaComponent(0.5)
-        dateLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(dateLabel)
 
         pointsLabel.font = .systemFont(ofSize: 16, weight: .bold)
         pointsLabel.textColor = .systemYellow
-        pointsLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(pointsLabel)
 
-        // Buttons
+        [titleLabel, subtitleLabel, dateLabel, pointsLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            containerView.addSubview($0)
+        }
+
         declineButton.setTitle("Decline", for: .normal)
-        declineButton.setTitleColor(.white, for: .normal)
         declineButton.backgroundColor = UIColor(red: 235/255, green: 87/255, blue: 87/255, alpha: 1)
         declineButton.layer.cornerRadius = 8
-        declineButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        declineButton.addTarget(self, action: #selector(handleDecline), for: .touchUpInside)
+        declineButton.setTitleColor(.white, for: .normal)
+        declineButton.addTarget(self, action: #selector(declineTapped), for: .touchUpInside)
 
         approveButton.setTitle("Approve", for: .normal)
-        approveButton.setTitleColor(.white, for: .normal)
         approveButton.backgroundColor = UIColor(red: 47/255, green: 128/255, blue: 237/255, alpha: 1)
         approveButton.layer.cornerRadius = 8
-        approveButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        approveButton.addTarget(self, action: #selector(handleApprove), for: .touchUpInside)
+        approveButton.setTitleColor(.white, for: .normal)
+        approveButton.addTarget(self, action: #selector(approveTapped), for: .touchUpInside)
 
         buttonStack.axis = .horizontal
         buttonStack.spacing = 10
@@ -339,32 +343,30 @@ final class ApprovalCell: UITableViewCell {
             containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
 
-            iconView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             iconView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
+            iconView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             iconView.widthAnchor.constraint(equalToConstant: 40),
             iconView.heightAnchor.constraint(equalToConstant: 40),
 
             iconImageView.centerXAnchor.constraint(equalTo: iconView.centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 24),
-            iconImageView.heightAnchor.constraint(equalToConstant: 24),
 
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
             titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: pointsLabel.leadingAnchor, constant: -8),
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
 
             pointsLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             pointsLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
 
-            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
 
-            dateLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             dateLabel.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            dateLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
 
             buttonStack.topAnchor.constraint(equalTo: dateLabel.bottomAnchor, constant: 16),
             buttonStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            buttonStack.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
             buttonStack.heightAnchor.constraint(equalToConstant: 34),
             buttonStack.widthAnchor.constraint(equalToConstant: 190)
         ])
@@ -375,32 +377,16 @@ final class ApprovalCell: UITableViewCell {
         subtitleLabel.text = subtitle
         dateLabel.text = date
         pointsLabel.text = points
-
         buttonStack.isHidden = !showButtons
-
-        if points.contains("-") {
-            pointsLabel.textColor = UIColor(red: 255/255, green: 107/255, blue: 107/255, alpha: 1)
-            iconImageView.image = UIImage(systemName: "gift.fill")
-        } else {
-            pointsLabel.textColor = .systemYellow
-            iconImageView.image = UIImage(systemName: "checkmark.circle.fill")
-        }
+        buttonStack.alpha = showButtons ? 1 : 0
     }
 
-    @objc private func handleApprove() {
-        animateClick(approveButton)
+    @objc private func approveTapped() {
         onApproveTapped?()
     }
 
-    @objc private func handleDecline() {
-        animateClick(declineButton)
+    @objc private func declineTapped() {
         onDeclineTapped?()
-    }
-
-    private func animateClick(_ view: UIView) {
-        UIView.animate(withDuration: 0.08, animations: { view.transform = CGAffineTransform(scaleX: 0.96, y: 0.96) }) { _ in
-            UIView.animate(withDuration: 0.08) { view.transform = .identity }
-        }
     }
 }
 

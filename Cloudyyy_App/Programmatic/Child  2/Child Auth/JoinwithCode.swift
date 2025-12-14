@@ -1,258 +1,229 @@
+//
+//  JoinWithCode.swift
+//  Cloudyyy_App
+//
+
 import UIKit
 
-final class JoinWithCode: UIViewController {
+final class JoinWithCode: PremiumBaseViewController, UITextFieldDelegate {
 
     // MARK: - Properties
-    // ✅ Enforce 6 digits (Matches Database Schema)
     private let codeLength = 6
+    private var codeFields: [UITextField] = []
 
     // MARK: - UI Components
-    private let headerView = GradientHeaderView(dottedImage: UIImage(named: "dots"))
-
-    private let scrollView: UIScrollView = {
-        let s = UIScrollView()
+    
+    // Stack to hold the 6 boxes
+    private let codeStack: UIStackView = {
+        let s = UIStackView()
         s.translatesAutoresizingMaskIntoConstraints = false
-        s.keyboardDismissMode = .interactive
-        s.alwaysBounceVertical = true
+        s.axis = .horizontal
+        s.distribution = .fillEqually
+        s.spacing = 8
         return s
     }()
 
-    private let contentView: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private let card = CardView()
-
-    private let closeButton: UIButton = {
-        let b = UIButton(type: .system)
+    private let joinButton: PremiumLoginButton = {
+        let b = PremiumLoginButton(frame: .zero)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
-        b.setImage(UIImage(systemName: "chevron.backward", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.accessibilityLabel = "Back"
+        b.setTitle("Join Family", for: .normal)
         return b
     }()
-
-    private let codeField: UITextField = {
-        let t = UITextField()
-        t.translatesAutoresizingMaskIntoConstraints = false
-        t.keyboardType = .numberPad
-        if #available(iOS 12.0, *) { t.textContentType = .oneTimeCode }
-        t.textAlignment = .center
-        t.font = .systemFont(ofSize: 28, weight: .semibold)
-        t.backgroundColor = UIColor(white: 0.98, alpha: 1)
-        t.layer.cornerRadius = 12
-        t.layer.borderWidth = 1
-        t.layer.borderColor = UIColor(white: 0.88, alpha: 1).cgColor
-        t.tintColor = UIColor.systemBlue
-        t.textColor = .label
-        t.autocorrectionType = .no
-        t.spellCheckingType = .no
-        t.autocapitalizationType = .none
-        let pad = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 10))
-        t.leftView = pad
-        t.leftViewMode = .always
-        t.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 10))
-        t.rightViewMode = .always
-        t.placeholder = ""
-        return t
-    }()
-
-    private let hintLabel: UILabel = {
+    
+    // --- INSTRUCTION LABEL (Now styled for dark background) ---
+    private let instructionLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Enter the 6 digit Code"
-        l.font = .systemFont(ofSize: 14)
-        l.textColor = UIColor(white: 0.28, alpha: 1)
+        l.text = "Find the code in Parent Dashboard > Profile > Family Members after adding a child."
+        l.font = .systemFont(ofSize: 13, weight: .regular)
+        // Changed to White/Light Gray since it is now outside the white card
+        l.textColor = UIColor(white: 1.0, alpha: 0.8)
+        l.textAlignment = .center
+        l.numberOfLines = 0
         return l
     }()
-
-    private let joinButton = GradientButton(title: "Join Family")
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-
-        setupHeader()
-        setupHierarchy()
-        setupConstraints()
+        
+        headerTitleLabel.text = "Join with Code"
+        headerSubtitleLabel.text = "Enter the 6-digit code provided by your parent."
+        
+        setupContent()
+        setupCodeFields()
         setupActions()
-
-        codeField.delegate = self
-        codeField.addTarget(self, action: #selector(textChanged(_:)), for: .editingChanged)
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        DispatchQueue.main.async { [weak self] in
-            self?.codeField.becomeFirstResponder()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.codeFields.first?.becomeFirstResponder()
         }
     }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    // MARK: - Setup UI
-    private func setupHeader() {
-        headerView.screenTitleLabel.text = "Join with Code"
-        headerView.smallInfoLabel.text = nil
-    }
-
-    private func setupHierarchy() {
-        view.addSubview(headerView)
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        contentView.addSubview(card)
-        contentView.addSubview(joinButton)
-        card.addSubview(codeField)
-        card.addSubview(hintLabel)
-        view.addSubview(closeButton)
-    }
-
-    private func setupConstraints() {
-        NSLayoutConstraint.activate([
-            closeButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
-            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            closeButton.widthAnchor.constraint(equalToConstant: 32),
-            closeButton.heightAnchor.constraint(equalToConstant: 32),
+    
+    // MARK: - Layout
+    private func setupContent() {
+        // Card Content
+        cardView.addSubview(codeStack)
+        cardView.addSubview(joinButton)
         
-            headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.bottomAnchor.constraint(equalTo: scrollView.topAnchor, constant: 28),
-
-            scrollView.topAnchor.constraint(equalTo: headerView.screenTitleLabel.bottomAnchor, constant: 30),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-
-            card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 40),
-            card.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            card.widthAnchor.constraint(equalTo: contentView.widthAnchor, constant: -32),
-            card.widthAnchor.constraint(lessThanOrEqualToConstant: 500),
-
-            codeField.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
-            codeField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
-            codeField.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
-            codeField.heightAnchor.constraint(equalToConstant: 56),
-
-            hintLabel.topAnchor.constraint(equalTo: codeField.bottomAnchor, constant: 14),
-            hintLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
-            hintLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
-
-            card.bottomAnchor.constraint(equalTo: hintLabel.bottomAnchor, constant: 18),
-
-            joinButton.topAnchor.constraint(equalTo: card.bottomAnchor, constant: 28),
-            joinButton.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            joinButton.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            joinButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -32)
+        // Background Content (Label moves here)
+        view.addSubview(instructionLabel)
+        
+        NSLayoutConstraint.activate([
+            // 1. Code Stack (Inside Card)
+            codeStack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 40),
+            codeStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            codeStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            codeStack.heightAnchor.constraint(equalToConstant: 56),
+            
+            // 2. Join Button (Inside Card)
+            joinButton.topAnchor.constraint(equalTo: codeStack.bottomAnchor, constant: 32),
+            joinButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
+            joinButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
+            joinButton.heightAnchor.constraint(equalToConstant: 56),
+            
+            // 3. Card Bottom Constraint
+            // The card ends 30pts below the button
+            cardView.bottomAnchor.constraint(equalTo: joinButton.bottomAnchor, constant: 30),
+            
+            // 4. Instruction Label (Outside Card)
+            // Sits below the cardView
+            instructionLabel.topAnchor.constraint(equalTo: cardView.bottomAnchor, constant: 24),
+            instructionLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            instructionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32)
         ])
     }
-
-    private func setupActions() {
-        joinButton.addTarget(self, action: #selector(didTapJoin), for: .touchUpInside)
-        closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
-
-        NotificationCenter.default.addObserver(self, selector: #selector(kbWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(kbWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+    
+    // MARK: - 6-Digit Field Setup
+    private func setupCodeFields() {
+        for index in 0..<codeLength {
+            let tf = UITextField()
+            
+            tf.backgroundColor = .white
+            tf.layer.borderWidth = 1.0
+            tf.layer.borderColor = UIColor.systemGray4.cgColor
+            tf.layer.cornerRadius = 12
+            
+            tf.textAlignment = .center
+            tf.font = .systemFont(ofSize: 22, weight: .bold)
+            tf.textColor = .black
+            tf.keyboardType = .numberPad
+            tf.tintColor = .systemBlue
+            
+            tf.tag = index
+            tf.delegate = self
+            tf.addTarget(self, action: #selector(textDidChange(_:)), for: .editingChanged)
+            
+            codeStack.addArrangedSubview(tf)
+            codeFields.append(tf)
+        }
     }
     
-    @objc private func didTapClose() {
-        if let nav = self.navigationController { nav.popViewController(animated: true) }
-        else { self.dismiss(animated: true, completion: nil) }
+    private func setupActions() {
+        joinButton.addTarget(self, action: #selector(didTapJoin), for: .touchUpInside)
     }
 
-    // MARK: - Logic
-    private func trySubmitCode() {
-        guard let code = codeField.text?.filter({ $0.isWholeNumber }), code.count == codeLength else { return }
+    // MARK: - Logic & Networking
+    
+    @objc private func didTapJoin() {
         view.endEditing(true)
         
-        // Disable UI while checking
-        codeField.isEnabled = false
+        let code = codeFields.compactMap { $0.text }.joined()
+        
+        guard code.count == codeLength, code.allSatisfy({ $0.isWholeNumber }) else {
+            showAlert(title: "Invalid Code", message: "Please enter the full \(codeLength)-digit numeric code.")
+            return
+        }
+        
         joinButton.isEnabled = false
+        joinButton.alpha = 0.7
         
         _Concurrency.Task {
             do {
-                // ✅ Use the separate AuthService
                 let success = try await AuthService.shared.loginChild(code: code)
                 
                 await MainActor.run {
-                    self.codeField.isEnabled = true
                     self.joinButton.isEnabled = true
+                    self.joinButton.alpha = 1.0
                     
                     if success {
                         self.navigateToChildHome()
                     } else {
+                        self.shakeCard()
                         self.showAlert(title: "Invalid Code", message: "That code didn't work. Please try again.")
-                        self.codeField.text = ""
+                        self.clearFields()
                     }
                 }
             } catch {
                 await MainActor.run {
-                    self.codeField.isEnabled = true
                     self.joinButton.isEnabled = true
+                    self.joinButton.alpha = 1.0
                     self.showAlert(title: "Error", message: error.localizedDescription)
                 }
             }
         }
     }
-
-    // MARK: - Input handling
-    @objc private func textChanged(_ tf: UITextField) {
-        let digits = (tf.text ?? "").filter { $0.isWholeNumber }
-        if digits != tf.text { tf.text = digits }
-        
-        if digits.count >= codeLength {
-            tf.text = String(digits.prefix(codeLength))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                self?.trySubmitCode()
-            }
-        }
-    }
-
-    @objc private func didTapJoin() {
-        view.endEditing(true)
-        guard let code = codeField.text?.filter({ $0.isWholeNumber }), code.count == codeLength else {
-            showAlert(title: "Invalid Code", message: "Please enter the full \(codeLength) digit code.")
-            return
-        }
-        trySubmitCode()
-    }
     
     private func navigateToChildHome() {
-        guard
-            let scene = UIApplication.shared.connectedScenes.first,
-            let sceneDelegate = scene.delegate as? SceneDelegate
-        else { return }
-
-        sceneDelegate.switchToMainApp(role: .child)
+        let vc = AppTabBarController()
+        
+        if let window = view.window {
+            window.rootViewController = vc
+            UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+        } else {
+            navigationController?.setViewControllers([vc], animated: true)
+        }
     }
-
     
-    // MARK: - Keyboard & Helpers
-    @objc private func kbWillShow(_ n: Notification) {
-        guard let info = n.userInfo,
-              let kbFrame = (info[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
-        let bottomInset = kbFrame.height - view.safeAreaInsets.bottom
-        scrollView.contentInset.bottom = bottomInset + 12
-        scrollView.verticalScrollIndicatorInsets.bottom = bottomInset + 12
+    // MARK: - Auto-Advance Logic
+    @objc private func textDidChange(_ textField: UITextField) {
+        let text = textField.text
+        
+        if text?.count == 1 {
+            let nextTag = textField.tag + 1
+            if nextTag < codeLength {
+                codeFields[nextTag].becomeFirstResponder()
+            } else {
+                textField.resignFirstResponder()
+            }
+        } else if let text = text, text.count > 1 {
+            let digits = text.filter { $0.isWholeNumber }
+            for (offset, char) in digits.enumerated() {
+                let index = textField.tag + offset
+                if index < codeLength {
+                    codeFields[index].text = String(char)
+                }
+            }
+            let lastIndex = min(textField.tag + digits.count, codeLength - 1)
+            codeFields[lastIndex].becomeFirstResponder()
+        }
     }
-
-    @objc private func kbWillHide(_ n: Notification) {
-        scrollView.contentInset.bottom = 0
-        scrollView.verticalScrollIndicatorInsets.bottom = 0
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if string.isEmpty {
+            if textField.text?.isEmpty == true {
+                let prevTag = textField.tag - 1
+                if prevTag >= 0 {
+                    codeFields[prevTag].becomeFirstResponder()
+                }
+            }
+        }
+        return true
     }
-
+    
+    // MARK: - Helpers
+    private func clearFields() {
+        codeFields.forEach { $0.text = "" }
+        codeFields.first?.becomeFirstResponder()
+    }
+    
+    private func shakeCard() {
+        let animation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.duration = 0.6
+        animation.values = [-20.0, 20.0, -20.0, 20.0, -10.0, 10.0, -5.0, 5.0, 0.0 ]
+        cardView.layer.add(animation, forKey: "shake")
+    }
+    
     private func showAlert(title: String, message: String) {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
@@ -260,18 +231,3 @@ final class JoinWithCode: UIViewController {
     }
 }
 
-// MARK: - UITextFieldDelegate
-extension JoinWithCode: UITextFieldDelegate {
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if string.isEmpty { return true }
-        if string.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) != nil { return false }
-        if string.count > 1 {
-            let current = (textField.text ?? "")
-            let combined = (current + string).filter { $0.isWholeNumber }
-            textField.text = String(combined.prefix(codeLength))
-            textChanged(textField)
-            return false
-        }
-        return (textField.text ?? "").count < codeLength
-    }
-}

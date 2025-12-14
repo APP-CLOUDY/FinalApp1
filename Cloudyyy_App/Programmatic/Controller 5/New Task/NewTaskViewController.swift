@@ -9,7 +9,6 @@ class NewTaskViewController: UIViewController {
     private var assignedSelections = Set<UUID>()
     
     private var selectedDate: Date?
-
     // MARK: - Initialization
     init() {
         super.init(nibName: nil, bundle: nil)
@@ -26,8 +25,12 @@ class NewTaskViewController: UIViewController {
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
 
-    private let titleField = StyledTextField(placeholder: "Title *")
-    private let descriptionView = StyledTextView(placeholder: "Description (Optional)")
+    private let titleNotesView =
+        CombinedTitleNotesView(
+            titlePlaceholder: "Title *",
+            notesPlaceholder: "Description (Optional)"
+        )
+
 
     private let priorityRow = SelectRow(title: "Priority")
     private let pointsRow = PointsRow()
@@ -73,7 +76,7 @@ class NewTaskViewController: UIViewController {
                 
                 await MainActor.run {
                     self.childrenList = data.children
-                    self.updateAssignedMenu() // Rebuild menu with real names
+                    self.handleAssignedToVisibility()
                 }
             } catch {
                 print("Error fetching children: \(error)")
@@ -103,6 +106,31 @@ class NewTaskViewController: UIViewController {
         gradient.endPoint = CGPoint(x: 1, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
     }
+    
+    private func handleAssignedToVisibility() {
+
+        let count = childrenList.count
+
+        // 1️⃣ No children → hide
+        if count == 0 {
+            assignedRow.isHidden = true
+            return
+        }
+
+        // 2️⃣ Only one child → auto-select & hide
+        if count == 1 {
+            let onlyChild = childrenList.first!
+            assignedSelections = [onlyChild.id]
+            assignedRow.isHidden = true
+            return
+        }
+
+        // 3️⃣ Multiple children → show selector
+        assignedRow.isHidden = false
+        updateAssignedMenu()
+        updateAssignedLabel()
+    }
+
 
     private func setupScrollView() {
         view.addSubview(scrollView)
@@ -148,20 +176,36 @@ class NewTaskViewController: UIViewController {
             stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
         ])
-
+        
         let fields: [UIView] = [
-            titleField, descriptionView, pointsRow, assignedRow,
-            priorityRow, dateRow, frequencyRow, listRow, approvalRow
+            titleNotesView,
+            pointsRow,
+            assignedRow,
+            frequencyRow,   // ✅ Frequency instead of Claim Limit
+            priorityRow,
+            dateRow,
+            listRow,
+            approvalRow
         ]
-
         fields.forEach { stack.addArrangedSubview($0) }
     }
 
     private func setupHeights() {
-        let rows = [titleField, priorityRow, pointsRow, dateRow, frequencyRow, listRow, approvalRow, assignedRow]
-        rows.forEach { $0.heightAnchor.constraint(equalToConstant: 52).isActive = true }
-        descriptionView.heightAnchor.constraint(equalToConstant: 140).isActive = true
+        let rows = [
+            priorityRow,
+            pointsRow,
+            dateRow,
+            frequencyRow,
+            listRow,
+            approvalRow,
+            assignedRow
+        ]
+
+        rows.forEach {
+            $0.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        }
     }
+
     
     private func applyDefaultValues() {
         priorityRow.setDetail("Medium")
@@ -172,64 +216,165 @@ class NewTaskViewController: UIViewController {
 
     // MARK: - Menus
     private func setupStaticMenus() {
-        // Priority Menu
-        priorityRow.setMenu(UIMenu(children: ["Low", "Medium", "High", "Critical"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.priorityRow.setDetail(name) }
-        }))
 
-        // Frequency Menu
-        frequencyRow.setMenu(UIMenu(children: ["Once", "Daily", "Weekly", "Monthly"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.frequencyRow.setDetail(name) }
-        }))
-        
-        // List Menu (Static for now)
-        listRow.setMenu(UIMenu(children: ["General", "Morning Routine", "Evening Routine", "School", "Chores"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.listRow.setDetail(name) }
-        }))
+        // Priority
+        priorityRow.setMenu(
+            UIMenu(children: ["None", "Low", "Medium", "High"].map { level in
+                UIAction(title: level) { [weak self] _ in
+                    self?.priorityRow.setDetail(level)
+                }
+            })
+        )
+
+        // Frequency (with Custom)
+        frequencyRow.setMenu(
+            UIMenu(children: [
+                UIAction(title: "Once") { [weak self] _ in self?.frequencyRow.setDetail("Once") },
+                UIAction(title: "Daily") { [weak self] _ in self?.frequencyRow.setDetail("Daily") },
+                UIAction(title: "Weekly") { [weak self] _ in self?.frequencyRow.setDetail("Weekly") },
+                UIAction(title: "Monthly") { [weak self] _ in self?.frequencyRow.setDetail("Monthly") },
+                UIAction(title: "Every 3 Months") { [weak self] _ in self?.frequencyRow.setDetail("Yearly") },
+                UIAction(title: "Yearly") { [weak self] _ in self?.frequencyRow.setDetail("Yearly") },
+
+                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
+                    self?.openCustomFrequency()
+                }
+            ])
+        )
+
+        // List (with Custom)
+        let defaultLists = ["General", "Morning Routine", "Evening Routine", "School", "Chores"]
+        let customLists = loadCustomLists()
+
+        let listActions =
+            defaultLists.map { name in
+                UIAction(title: name) { [weak self] _ in
+                    self?.listRow.setDetail(name)
+                }
+            }
+            +
+            customLists.map { name in
+                UIAction(title: name) { [weak self] _ in
+                    self?.listRow.setDetail(name)
+                }
+            }
+            +
+            [
+                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
+                    self?.openCustomList()
+                }
+            ]
+
+        listRow.setMenu(UIMenu(children: listActions))
     }
+    // MARK: - Custom Frequency
+    private func openCustomFrequency() {
+        let vc = CustomClaimLimitViewController()
+        vc.onSave = { [weak self] value in
+            self?.frequencyRow.setDetail(value)
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    // MARK: - Custom List
+    private func openCustomList() {
+        let vc = CustomListViewController()
+        vc.onSave = { [weak self] name in
+            self?.saveListIfNeeded(name)
+            self?.listRow.setDetail(name)
+            self?.setupStaticMenus() // refresh menu
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    private func saveListIfNeeded(_ list: String) {
+        let key = "custom_task_lists"
+        var lists = UserDefaults.standard.stringArray(forKey: key) ?? []
+        if !lists.contains(list) {
+            lists.append(list)
+            UserDefaults.standard.setValue(lists, forKey: key)
+        }
+    }
+
+    private func loadCustomLists() -> [String] {
+        UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
+    }
+
     
     // MARK: - Multi-Select Assignment Logic
     private func updateAssignedMenu() {
-        // Create an action for each child
-        let menuItems = childrenList.map { child in
-            UIAction(
+        if childrenList.isEmpty { return }
+
+        var items: [UIMenuElement] = []
+
+        // 1️⃣ ALL / DESELECT option
+        let allSelected = assignedSelections.count == childrenList.count
+
+        let allAction = UIAction(
+            title: allSelected ? "Deselect" : "All",
+            state: allSelected ? .on : .off
+        ) { [weak self] _ in
+            guard let self = self else { return }
+
+            if allSelected {
+                self.assignedSelections.removeAll()
+            } else {
+                self.assignedSelections = Set(self.childrenList.map { $0.id })
+            }
+
+            self.updateAssignedLabel()
+            self.updateAssignedMenu()
+        }
+
+        items.append(allAction)
+
+        // 2️⃣ Individual children
+        for child in childrenList {
+            let selected = assignedSelections.contains(child.id)
+
+            let action = UIAction(
                 title: child.name,
-                // Show a checkmark if this child is already selected
-                state: assignedSelections.contains(child.id) ? .on : .off
+                state: selected ? .on : .off
             ) { [weak self] _ in
                 guard let self = self else { return }
-                
-                // Toggle Selection logic
-                if self.assignedSelections.contains(child.id) {
+
+                if selected {
                     self.assignedSelections.remove(child.id)
                 } else {
                     self.assignedSelections.insert(child.id)
                 }
-                
-                // Update the Display Text
+
                 self.updateAssignedLabel()
-                
-                // Re-generate the menu so the checkmarks update
                 self.updateAssignedMenu()
             }
+
+            items.append(action)
         }
-        
-        assignedRow.setMenu(UIMenu(title: "Select Children", options: .displayInline, children: menuItems))
+
+        assignedRow.setMenu(
+            UIMenu(title: "Select Children", options: .displayInline, children: items)
+        )
     }
-    
+
     private func updateAssignedLabel() {
-        if assignedSelections.isEmpty {
-            assignedRow.setDetail("Select Child")
+
+        // Hidden when only one child
+        if childrenList.count == 1 {
+            assignedRow.setDetail("")
             return
         }
-        
-        // Map IDs back to Names for display
-        let selectedNames = childrenList
+
+        if assignedSelections.isEmpty {
+            assignedRow.setDetail("Select")
+            return
+        }
+
+        let names = childrenList
             .filter { assignedSelections.contains($0.id) }
             .map { $0.name }
-        
-        assignedRow.setDetail(selectedNames.joined(separator: ", "))
+
+        assignedRow.setDetail(names.joined(separator: ", "))
     }
+
 
     // MARK: - Actions
     private func setupActions() {
@@ -264,12 +409,13 @@ class NewTaskViewController: UIViewController {
     @objc private func doneTapped() {
         view.endEditing(true)
         
-        // 1. Validation
-        guard let title = titleField.textValue.isEmpty ? nil : titleField.textValue else {
+        let title = titleNotesView.titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !title.isEmpty else {
             showAlert("Please enter a title")
             return
         }
-        
+
         if assignedSelections.isEmpty {
             showAlert("Please assign to at least one child")
             return
@@ -291,7 +437,7 @@ class NewTaskViewController: UIViewController {
             do {
                 let taskId = try await TaskService.shared.createTask(
                     title: title,
-                    description: descriptionView.textValue,
+                    description: titleNotesView.notesText,
                     points: points,
                     priority: priority,
                     frequency: frequency,

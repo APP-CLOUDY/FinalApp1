@@ -1,15 +1,18 @@
+//
+//  Addchildform.swift
+//  Cloudyyy_App
+//
+
 import UIKit
 
 // MARK: - Addchildform
 final class Addchildform: UIViewController {
 
     // MARK: - Data Properties
-    // We store the actual date object here to send to Supabase
     private var selectedDate: Date = Date()
 
     // MARK: - Views
 
-    // This layer handles the full-screen gradient
     private var backgroundGradientLayer: CAGradientLayer?
 
     private let scrollView: UIScrollView = {
@@ -28,13 +31,12 @@ final class Addchildform: UIViewController {
         return v
     }()
 
-    // Cloud image (from Assets)
+    // Cloud image
     private let cloudImageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        // Replace "cloudyy_logo" with your actual asset name
-        iv.image = UIImage(named: "cloudyy_logo")
+        iv.image = UIImage(named: "cloudyy_logo") // Ensure this asset exists
         return iv
     }()
 
@@ -71,16 +73,11 @@ final class Addchildform: UIViewController {
         return l
     }()
 
-    // MARK: - Labels & Fields
-
-    private lazy var nameLabel = makeLabel(text: "Name")
-    private lazy var nickNameLabel = makeLabel(text: "Nick name")
-    private lazy var dobLabel = makeLabel(text: "Birth of date")
-    private lazy var genderLabel = makeLabel(text: "Gender")
+    // MARK: - Fields
 
     private lazy var nameField = makeTextField(placeholder: "Enter child's name")
-    private lazy var nickField = makeTextField(placeholder: "Chore Champion")
-    private lazy var dobField = makeTextField(placeholder: "18/03/2024")
+    private lazy var nickField = makeTextField(placeholder: "Nick Name (e.g. Chore Champion)")
+    private lazy var dobField = makeTextField(placeholder: "Date of Birth (DD/MM/YYYY)")
 
     private let genderSelector = GenderSelector(options: ["Female", "Male"])
 
@@ -108,7 +105,6 @@ final class Addchildform: UIViewController {
         setupDatePicker()
         registerKeyboardNotifications()
         
-        // Hide default back button if we are using our custom one
         navigationItem.hidesBackButton = true
     }
 
@@ -142,37 +138,31 @@ final class Addchildform: UIViewController {
         contentView.addSubview(cloudImageView)
         contentView.addSubview(cardView)
 
+        // Stack View WITHOUT labels
         let stack = UIStackView(arrangedSubviews: [
             titleLabel,
-            nameLabel, nameField,
-            nickNameLabel, nickField,
-            dobLabel, dobField,
-            genderLabel, genderSelector,
+            nameField,
+            nickField,
+            dobField,
+            genderSelector,
             doneButton
         ])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 10
+        stack.spacing = 24
         stack.alignment = .fill
         stack.distribution = .fill
-
-        // Custom Spacing
-        stack.setCustomSpacing(24, after: nameField)
-        stack.setCustomSpacing(24, after: nickField)
-        stack.setCustomSpacing(24, after: dobField)
-        stack.setCustomSpacing(24, after: genderSelector)
-        stack.setCustomSpacing(4, after: nameLabel)
-        stack.setCustomSpacing(4, after: nickNameLabel)
-        stack.setCustomSpacing(4, after: dobLabel)
-        stack.setCustomSpacing(4, after: genderLabel)
+        
+        // Extra spacing for title
+        stack.setCustomSpacing(32, after: titleLabel)
 
         cardView.addSubview(stack)
 
         if let nav = navigationController, !nav.isNavigationBarHidden {
             navigationItem.leftBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"),
-                                                               style: .plain,
-                                                               target: self,
-                                                               action: #selector(backTapped))
+                                                             style: .plain,
+                                                             target: self,
+                                                             action: #selector(backTapped))
             navigationItem.leftBarButtonItem?.tintColor = .white
         } else {
             view.addSubview(backButton)
@@ -224,10 +214,10 @@ final class Addchildform: UIViewController {
 
         if let stack = cardView.subviews.compactMap({ $0 as? UIStackView }).first {
             NSLayoutConstraint.activate([
-                stack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
-                stack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
-                stack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
-                stack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -22)
+                stack.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 32),
+                stack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 20),
+                stack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -20),
+                stack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -32)
             ])
         }
 
@@ -241,6 +231,7 @@ final class Addchildform: UIViewController {
     private func applyFullBackgroundGradient() {
         if backgroundGradientLayer == nil {
             let gradient = CAGradientLayer()
+            // Using the dark obsidian theme from other screens
             gradient.colors = [
                 UIColor(red: 12/255, green: 12/255, blue: 12/255, alpha: 1).cgColor,
                 UIColor(red: 32/255, green: 59/255, blue: 111/255, alpha: 1).cgColor
@@ -256,35 +247,42 @@ final class Addchildform: UIViewController {
     // MARK: - Date Picker
 
     private func setupDatePicker() {
-        let picker = UIDatePicker()
-        picker.datePickerMode = .date
-        if #available(iOS 13.4, *) { picker.preferredDatePickerStyle = .wheels }
-        picker.maximumDate = Date()
-        picker.addTarget(self, action: #selector(datePicked(_:)), for: .valueChanged)
+            // 1. Setup the Date Picker
+            let picker = UIDatePicker()
+            picker.datePickerMode = .date
+            if #available(iOS 13.4, *) { picker.preferredDatePickerStyle = .wheels }
+            picker.maximumDate = Date()
+            picker.addTarget(self, action: #selector(datePicked(_:)), for: .valueChanged)
 
-        dobField.inputView = picker
+            dobField.inputView = picker
 
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        toolbar.items = [
-            UIBarButtonItem.flexibleSpace(),
-            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissPicker))
-        ]
-        dobField.inputAccessoryView = toolbar
+            // 2. Setup Toolbar
+            let toolbar = UIToolbar()
+            toolbar.sizeToFit()
+            toolbar.items = [
+                UIBarButtonItem.flexibleSpace(),
+                UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(dismissPicker))
+            ]
+            dobField.inputAccessoryView = toolbar
 
-        let cal = UIImageView(image: UIImage(systemName: "calendar"))
-        cal.tintColor = UIColor(white: 0.6, alpha: 1)
-        cal.contentMode = .center
-        cal.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
-        dobField.rightView = cal
-        dobField.rightViewMode = .always
-    }
+            // 3. FIX: Calendar Icon Alignment
+            let iconContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 50))
+            
+            let calIcon = UIImageView(image: UIImage(systemName: "calendar"))
+            calIcon.tintColor = UIColor(white: 0.5, alpha: 1) // Slightly darker gray for visibility
+            calIcon.contentMode = .scaleAspectFit
+            
+            // Center the icon 24x24 inside the container
+            calIcon.frame = CGRect(x: 10, y: 13, width: 24, height: 24)
+            
+            iconContainer.addSubview(calIcon)
+            
+            dobField.rightView = iconContainer
+            dobField.rightViewMode = .always
+        }
 
     @objc private func datePicked(_ sender: UIDatePicker) {
-        // 1. Store the Date object for the API
         self.selectedDate = sender.date
-        
-        // 2. Update display text
         let df = DateFormatter()
         df.dateFormat = "dd/MM/yyyy"
         dobField.text = df.string(from: sender.date)
@@ -332,44 +330,47 @@ final class Addchildform: UIViewController {
         }
     }
 
+    // --- FIX START: Shake Logic & Button Giggle ---
     @objc private func doneTapped() {
         view.endEditing(true)
         
-        // 1. Validate (Using single name field)
         guard let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            // Optional: Shake animation or alert here
-            print("Name is empty")
+            // 1. Shake Name Field
+            shakeView(nameField)
+            
+            // 2. Shake Done Button (The "Giggle")
+            shakeView(doneButton)
+            
+            // 3. Haptic Feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+            
             return
         }
         
         let nick = nickField.text ?? ""
         let gender = genderSelector.selectedGender.rawValue.lowercased()
         
-        // 2. UI Loading State
         doneButton.isEnabled = false
         doneButton.setTitle("Saving...", for: .normal)
         doneButton.alpha = 0.7
         
-        // 3. API Call via Service
-        // Use _Concurrency.Task to avoid conflict with "Task" model
         _Concurrency.Task {
             do {
-                // We send the SINGLE name directly
                 let joinCode = try await ChildService.shared.addChild(
                     name: name,
                     nickname: nick,
                     dob: self.selectedDate,
                     gender: gender
                 )
-                
+              
                 print("Success! Child Added. Code: \(joinCode)")
-                
+              
                 await MainActor.run {
                     self.doneButton.isEnabled = true
                     self.doneButton.setTitle("Done", for: .normal)
                     self.doneButton.alpha = 1.0
                     
-                    // 4. Navigate to Family/Dashboard
                     let vc = FamilyViewController()
                     self.navigationController?.pushViewController(vc, animated: true)
                 }
@@ -379,31 +380,44 @@ final class Addchildform: UIViewController {
                     self.doneButton.isEnabled = true
                     self.doneButton.setTitle("Try Again", for: .normal)
                     self.doneButton.alpha = 1.0
+                    
+                    // Shake on error response too
+                    self.shakeView(self.doneButton)
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.error)
                 }
             }
         }
     }
 
-    // MARK: - Helpers
-
-    private func makeLabel(text: String) -> UILabel {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = text
-        l.font = UIFont.systemFont(ofSize: 13, weight: .regular)
-        l.textColor = UIColor(white: 0.35, alpha: 1)
-        return l
+    // Helper to shake any view
+    private func shakeView(_ view: UIView) {
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.duration = 0.07
+        animation.repeatCount = 3
+        animation.autoreverses = true
+        animation.fromValue = NSValue(cgPoint: CGPoint(x: view.center.x - 8, y: view.center.y))
+        animation.toValue = NSValue(cgPoint: CGPoint(x: view.center.x + 8, y: view.center.y))
+        view.layer.add(animation, forKey: "position")
     }
+    // --- FIX END ---
+
+    // MARK: - Helpers
 
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.placeholder = placeholder
+        
+        tf.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+        )
+        
         tf.font = UIFont.systemFont(ofSize: 15)
         tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
         tf.layer.cornerRadius = 10
         tf.setLeftPaddingPoints(12)
-        tf.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        tf.heightAnchor.constraint(equalToConstant: 50).isActive = true
         return tf
     }
 }
@@ -572,3 +586,4 @@ private extension NSLayoutConstraint {
         return self
     }
 }
+

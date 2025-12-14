@@ -1,9 +1,14 @@
 import UIKit
+import ImagePlayground // Required for the AI features (iOS 18.2+)
 
 final class RewardsViewController: UIViewController {
 
     // MARK: - Properties
     private var isSpringOnActive: Bool = false
+    
+    // Playground State
+    private var isPlaygroundExpanded: Bool = false
+    private var playgroundWidthConstraint: NSLayoutConstraint?
 
     // MARK: - UI Elements
     private let gradientLayer = CAGradientLayer()
@@ -24,7 +29,7 @@ final class RewardsViewController: UIViewController {
         return lb
     }()
 
-    // NEW: Coin Badge Container
+    // Coin Badge Container
     private let coinBadgeView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -52,7 +57,7 @@ final class RewardsViewController: UIViewController {
         return lb
     }()
 
-    // --- NEW: Notification Button ---
+    // Notification Button
     private let bellButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -78,6 +83,8 @@ final class RewardsViewController: UIViewController {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.showsVerticalScrollIndicator = false
+        // Important: Dismiss keyboard when dragging scrollview
+        sv.keyboardDismissMode = .onDrag
         return sv
     }()
     
@@ -88,6 +95,7 @@ final class RewardsViewController: UIViewController {
     }()
     
     // --- Content Elements ---
+    // Note: Assuming StreakCardView is defined in your project
     private let streakCard: StreakCardView = {
         let v = StreakCardView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -116,6 +124,7 @@ final class RewardsViewController: UIViewController {
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.backgroundColor = .clear
         cv.showsHorizontalScrollIndicator = false
+        // Note: Ensure RewardCell is defined in your project
         cv.register(RewardCell.self, forCellWithReuseIdentifier: RewardCell.reuseID)
         cv.dataSource = self
         cv.delegate = self
@@ -183,7 +192,7 @@ final class RewardsViewController: UIViewController {
         lb.text = "Build a cycle"
         lb.font = .systemFont(ofSize: 18, weight: .bold)
         lb.textColor = .white
-        lb.textAlignment = .left // Align left since it's outside
+        lb.textAlignment = .left
         return lb
     }()
 
@@ -199,10 +208,59 @@ final class RewardsViewController: UIViewController {
     
     private let bottomPaddingView = UIView()
 
+    // --- PLAYGROUND UI (The Magic Button) ---
+    
+    private let playgroundContainer: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = UIColor(white: 0.1, alpha: 0.95) // Dark background
+        v.layer.cornerRadius = 25 // Height will be 50
+        v.layer.borderWidth = 1
+        v.layer.borderColor = UIColor(white: 1, alpha: 0.2).cgColor
+        v.clipsToBounds = true
+        return v
+    }()
+
+    private let playgroundButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .medium)
+        b.setImage(UIImage(systemName: "sparkles", withConfiguration: config), for: .normal)
+        b.tintColor = .systemYellow
+        b.isUserInteractionEnabled = false // Let container handle the tap
+        return b
+    }()
+
+    private let playgroundTextField: UITextField = {
+        let tf = UITextField()
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.placeholder = "Imagine a dragon..."
+        tf.textColor = .white
+        tf.attributedPlaceholder = NSAttributedString(
+            string: "Imagine a dragon...",
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.lightGray]
+        )
+        tf.font = .systemFont(ofSize: 16)
+        tf.alpha = 0 // Hidden initially
+        tf.returnKeyType = .done
+        tf.autocorrectionType = .no
+        return tf
+    }()
+
+    private let playgroundSendButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .bold)
+        b.setImage(UIImage(systemName: "arrow.up.circle.fill", withConfiguration: config), for: .normal)
+        b.tintColor = .white
+        b.alpha = 0 // Hidden initially
+        return b
+    }()
+
     // --- Data ---
     private let carouselImages: [UIImage?] = [
-        UIImage(named:"Cycle"),      // Index 0: Dream It
-        UIImage(named: "springon"),  // Index 1: Spring On (Beach Image)
+        UIImage(named:"Cycle"),
+        UIImage(named: "springon"),
         UIImage(systemName: "gift.fill"),
         UIImage(systemName: "headphones")
     ]
@@ -219,22 +277,28 @@ final class RewardsViewController: UIViewController {
         super.viewDidLoad()
         setupGradient()
         setupViews()
+        
+        // 1. CRITICAL: Setup playground UI *BEFORE* constraints to prevent crash
+        setupPlaygroundUI()
+        
+        // 2. Setup Constraints (now safe)
         setupConstraints()
+        
         setupActions()
-       
-        // Load initial image
+        
+        // 3. Ensure Floating Button is on top
+        view.bringSubviewToFront(playgroundContainer)
+        
         carouselCard.image = carouselImages.first ?? UIImage()
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCardTap))
         carouselCard.addGestureRecognizer(tapGesture)
         
-        // Initial State
         selectLeft()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Ensure nav bar is hidden on this screen, but allows it to show when we push other screens
         navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
@@ -260,13 +324,11 @@ final class RewardsViewController: UIViewController {
         view.addSubview(topBarContainer)
         topBarContainer.addSubview(titleLabel)
         
-        // Add new badge view and subviews
         topBarContainer.addSubview(coinBadgeView)
         coinBadgeView.addSubview(starIcon)
         coinBadgeView.addSubview(coinLabel)
         
-        // Add Buttons
-        topBarContainer.addSubview(bellButton) // Added Bell
+        topBarContainer.addSubview(bellButton)
         topBarContainer.addSubview(profileButton)
         
         view.addSubview(scrollView)
@@ -282,7 +344,6 @@ final class RewardsViewController: UIViewController {
         segmentContainer.addSubview(rightSegment)
         
         contentView.addSubview(carouselCard)
-        
         contentView.addSubview(carouselTitle)
         contentView.addSubview(pageControl)
         
@@ -290,6 +351,22 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(bottomPaddingView)
         
         quickCollectionView.delegate = self
+    }
+
+    private func setupPlaygroundUI() {
+        // Add to main view so it floats above scrollview
+        view.addSubview(playgroundContainer)
+        playgroundContainer.addSubview(playgroundButton)
+        playgroundContainer.addSubview(playgroundTextField)
+        playgroundContainer.addSubview(playgroundSendButton)
+        
+        // Delegate for keyboard return
+        playgroundTextField.delegate = self
+        
+        // 4. FIX: Add tap gesture to the entire black circle
+        let containerTap = UITapGestureRecognizer(target: self, action: #selector(togglePlaygroundInput))
+        playgroundContainer.addGestureRecognizer(containerTap)
+        playgroundContainer.isUserInteractionEnabled = true
     }
 
     private func setupConstraints() {
@@ -305,25 +382,24 @@ final class RewardsViewController: UIViewController {
             titleLabel.leadingAnchor.constraint(equalTo: topBarContainer.leadingAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
 
-            // 1. Profile Button (Rightmost)
+            // Profile
             profileButton.trailingAnchor.constraint(equalTo: topBarContainer.trailingAnchor),
             profileButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             profileButton.widthAnchor.constraint(equalToConstant: 25),
             profileButton.heightAnchor.constraint(equalToConstant: 25),
 
-            // 2. Bell Button (Left of Profile)
+            // Bell
             bellButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
             bellButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             bellButton.widthAnchor.constraint(equalToConstant: 25),
             bellButton.heightAnchor.constraint(equalToConstant: 25),
  
-            // 3. Coin Badge (Left of Bell)
+            // Coin Badge
             coinBadgeView.trailingAnchor.constraint(equalTo: bellButton.leadingAnchor, constant: -12),
             coinBadgeView.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             coinBadgeView.heightAnchor.constraint(equalToConstant: 25),
             coinBadgeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
             
-            // Contents inside Badge
             starIcon.leadingAnchor.constraint(equalTo: coinBadgeView.leadingAnchor, constant: 10),
             starIcon.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
             starIcon.widthAnchor.constraint(equalToConstant: 12),
@@ -366,12 +442,9 @@ final class RewardsViewController: UIViewController {
             segmentContainer.trailingAnchor.constraint(equalTo: streakCard.trailingAnchor),
             segmentContainer.heightAnchor.constraint(equalToConstant: 36),
 
-            // Indicator Logic
             segmentIndicator.topAnchor.constraint(equalTo: segmentContainer.topAnchor, constant: 4),
             segmentIndicator.bottomAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: -4),
-            
             segmentIndicator.widthAnchor.constraint(equalTo: segmentContainer.widthAnchor, multiplier: 0.5, constant: -4),
-            
             
             leftSegment.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor),
             leftSegment.topAnchor.constraint(equalTo: segmentContainer.topAnchor),
@@ -389,20 +462,45 @@ final class RewardsViewController: UIViewController {
             carouselCard.trailingAnchor.constraint(equalTo: streakCard.trailingAnchor),
             carouselCard.heightAnchor.constraint(equalToConstant: 180),
 
-            // TITLE CENTERED
             carouselTitle.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 16),
             carouselTitle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            // PAGE CONTROL CENTERED BELOW TITLE
             pageControl.topAnchor.constraint(equalTo: carouselTitle.bottomAnchor, constant: 5),
             pageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
             // Bottom padding
             bottomPaddingView.topAnchor.constraint(equalTo: pageControl.bottomAnchor, constant: 20),
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            bottomPaddingView.heightAnchor.constraint(equalToConstant: 50)
-
+            bottomPaddingView.heightAnchor.constraint(equalToConstant: 100), // Extra space for FAB
+            
+            // --- PLAYGROUND CONSTRAINTS ---
+            // Attached to keyboardLayoutGuide to move up when keyboard shows
+            playgroundContainer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -20),
+            playgroundContainer.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -20),
+            playgroundContainer.heightAnchor.constraint(equalToConstant: 50),
+            
+            // Icon (Sparkles)
+            playgroundButton.trailingAnchor.constraint(equalTo: playgroundContainer.trailingAnchor, constant: -3),
+            playgroundButton.centerYAnchor.constraint(equalTo: playgroundContainer.centerYAnchor),
+            playgroundButton.widthAnchor.constraint(equalToConstant: 44),
+            playgroundButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Send Button
+            playgroundSendButton.trailingAnchor.constraint(equalTo: playgroundButton.leadingAnchor, constant: -4),
+            playgroundSendButton.centerYAnchor.constraint(equalTo: playgroundContainer.centerYAnchor),
+            playgroundSendButton.widthAnchor.constraint(equalToConstant: 30),
+            playgroundSendButton.heightAnchor.constraint(equalToConstant: 30),
+            
+            // Text Field
+            playgroundTextField.leadingAnchor.constraint(equalTo: playgroundContainer.leadingAnchor, constant: 20),
+            playgroundTextField.trailingAnchor.constraint(equalTo: playgroundSendButton.leadingAnchor, constant: -8),
+            playgroundTextField.centerYAnchor.constraint(equalTo: playgroundContainer.centerYAnchor),
+            playgroundTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
+        
+        // Initial Width Constraint (Circle size)
+        playgroundWidthConstraint = playgroundContainer.widthAnchor.constraint(equalToConstant: 50)
+        playgroundWidthConstraint?.isActive = true
         
         indicatorLeadingConstraint = segmentIndicator.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 4)
         indicatorLeadingConstraint?.isActive = true
@@ -410,46 +508,41 @@ final class RewardsViewController: UIViewController {
     
     // MARK: - Setup Actions
     private func setupActions() {
-        // Segments
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
         
-        // Navigation Buttons
         bellButton.addTarget(self, action: #selector(bellTapped), for: .touchUpInside)
         profileButton.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
+        
+        // Playground Actions (Send button only)
+        playgroundSendButton.addTarget(self, action: #selector(generateImageTapped), for: .touchUpInside)
     }
 
     // MARK: - Actions
     @objc private func selectLeft() {
-        // 1. Force state update
         isSpringOnActive = false
         animateSegmentChange()
         
-        // 2. Button Styling
         leftSegment.setTitleColor(.black, for: .normal)
         leftSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
         
         rightSegment.setTitleColor(.white, for: .normal)
         rightSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
         
-        // 3. Update Content -> "Dream It"
         let image = carouselImages.first ?? UIImage(systemName: "bicycle")
         updateCarouselContent(title: "Build a cycle", image: image)
     }
 
     @objc private func selectRight() {
-        // 1. Force state update
         isSpringOnActive = true
         animateSegmentChange()
         
-        // 2. Button Styling
         rightSegment.setTitleColor(.black, for: .normal)
         rightSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
         
         leftSegment.setTitleColor(.white, for: .normal)
         leftSegment.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
         
-        // 3. Update Content -> "Spring On"
         var image: UIImage?
         if carouselImages.count > 1 {
             image = carouselImages[1]
@@ -460,7 +553,6 @@ final class RewardsViewController: UIViewController {
         updateCarouselContent(title: "Spring Rewards", image: image)
     }
     
-    // MARK: - Navigation Actions
     @objc private func bellTapped() {
         print("Navigating to Notifications")
         let vc = NotificationViewController()
@@ -477,7 +569,90 @@ final class RewardsViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
     
-    // MARK: - Content Update Helper
+    // MARK: - Playground Actions
+    
+    @objc private func togglePlaygroundInput() {
+        isPlaygroundExpanded.toggle()
+        
+        // Expand to fit screen width minus padding, or collapse to circle
+        let expandedWidth = view.frame.width - 40 // 20 padding each side
+        let newWidth: CGFloat = isPlaygroundExpanded ? expandedWidth : 50
+        
+        playgroundWidthConstraint?.constant = newWidth
+        
+        // Animate
+        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseInOut) {
+            
+            self.view.layoutIfNeeded()
+            
+            // Reveal text field and send button
+            self.playgroundTextField.alpha = self.isPlaygroundExpanded ? 1.0 : 0.0
+            self.playgroundSendButton.alpha = self.isPlaygroundExpanded ? 1.0 : 0.0
+            
+            // Rotate the sparkles icon for effect
+            let angle = self.isPlaygroundExpanded ? CGFloat.pi / 2 : 0
+            self.playgroundButton.transform = CGAffineTransform(rotationAngle: angle)
+            
+        } completion: { _ in
+            if self.isPlaygroundExpanded {
+                self.playgroundTextField.becomeFirstResponder()
+            } else {
+                self.playgroundTextField.resignFirstResponder()
+                self.playgroundTextField.text = "" // Clear text
+            }
+        }
+    }
+
+    @objc private func generateImageTapped() {
+            guard let text = playgroundTextField.text, !text.isEmpty else { return }
+            
+            togglePlaygroundInput()
+            
+            // 1. Real Device Check
+            if #available(iOS 18.2, *), ImagePlaygroundViewController.isAvailable {
+                 let playgroundVC = ImagePlaygroundViewController()
+                 playgroundVC.delegate = self
+                 playgroundVC.concepts = [.text(text)]
+                 present(playgroundVC, animated: true)
+            }
+            // 2. Simulator: Search for the keyword!
+            else {
+                print("⚠️ Simulator: Searching for '\(text)'...")
+                let alert = UIAlertController(title: "Mocking AI...", message: "Searching for '\(text)'...", preferredStyle: .alert)
+                present(alert, animated: true)
+                
+                // CLEAN THE TEXT: Remove spaces so URL works (e.g. "Cute Dragon" -> "Cute,Dragon")
+                let safeText = text.replacingOccurrences(of: " ", with: ",")
+                
+                // USE LOREMFLICKR: It finds images based on keywords
+                // URL Structure: https://loremflickr.com/width/height/keywords
+                guard let searchURL = URL(string: "https://loremflickr.com/800/600/\(safeText)") else { return }
+                
+                // Add a cache buster so we don't get the same image twice
+                let finalURL = URL(string: "\(searchURL.absoluteString)?random=\(Int.random(in: 1...1000))")!
+                
+                URLSession.shared.dataTask(with: finalURL) { [weak self] data, response, error in
+                    DispatchQueue.main.async {
+                        alert.dismiss(animated: true)
+                        
+                        if let data = data, let realImage = UIImage(data: data) {
+                            
+                            self?.updateCarouselContent(title: "Mock: \(text)", image: realImage)
+                            
+                            // Save to Simulator Gallery
+                            UIImageWriteToSavedPhotosAlbum(realImage, nil, nil, nil)
+                            
+                        } else {
+                            // Fallback if no image found
+                            let fallback = UIImage(systemName: "photo.badge.exclamationmark")
+                            self?.updateCarouselContent(title: "Not Found", image: fallback)
+                        }
+                    }
+                }.resume()
+            }
+        }
+    
+    // MARK: - Helpers
     private func updateCarouselContent(title: String, image: UIImage?) {
         self.carouselTitle.text = title
         UIView.transition(with: carouselCard, duration: 0.3, options: .transitionCrossDissolve, animations: {
@@ -507,7 +682,7 @@ final class RewardsViewController: UIViewController {
         if isSpringOnActive {
             let vc = SpringOnChildViewController()
             vc.hidesBottomBarWhenPushed = true
-            navigationController?.setNavigationBarHidden(false, animated: true) // Assuming these screens have nav bars
+            navigationController?.setNavigationBarHidden(false, animated: true)
             navigationController?.pushViewController(vc, animated: true)
         } else {
             let vc = ChildDreamItViewController()
@@ -518,26 +693,42 @@ final class RewardsViewController: UIViewController {
     }
 }
 
+// MARK: - Image Playground Delegate
+extension RewardsViewController: ImagePlaygroundViewController.Delegate {
+    
+    // This runs ONLY on a Real Device when AI finishes
+    func imagePlaygroundViewController(_ viewController: ImagePlaygroundViewController, didCreateImageAt imageURL: URL) {
+        
+        viewController.dismiss(animated: true)
+
+        if let data = try? Data(contentsOf: imageURL), let aiImage = UIImage(data: data) {
+            
+            // 1. Show in App
+            self.updateCarouselContent(title: "Magic Creation", image: aiImage)
+            
+            // 2. SAVE TO REAL DEVICE GALLERY
+            UIImageWriteToSavedPhotosAlbum(aiImage, nil, nil, nil)
+            
+            print("AI Image saved to Gallery successfully.")
+        }
+    }
+
+    func imagePlaygroundViewControllerDidCancel(_ viewController: ImagePlaygroundViewController) {
+        viewController.dismiss(animated: true)
+    }
+}
+
+// MARK: - TextField Delegate
+extension RewardsViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        generateImageTapped()
+        return true
+    }
+}
+
 // MARK: - Collection View Extension
 extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-            
-            // 1. Get the data for the tapped item
-            let selectedItem = quickItems[indexPath.item]
-            
-            // 2. Create the popup
-            let popupVC = QuickRewardPopupViewController()
-            popupVC.rewardName = selectedItem.title
-            popupVC.cost = 100 // Or fetch dynamic cost if you have it
-            
-            // 3. Set presentation style to 'overFullScreen' to keep the background visible
-            popupVC.modalPresentationStyle = .overFullScreen
-            popupVC.modalTransitionStyle = .crossDissolve
-            
-            // 4. Present it
-            present(popupVC, animated: true, completion: nil)
-        }
     static let circleSize: CGFloat = 80
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -555,4 +746,19 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         return CGSize(width: RewardsViewController.circleSize, height: RewardsViewController.circleSize + 20)
     }
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            
+            let selectedItem = quickItems[indexPath.item]
+            
+            let popupVC = QuickRewardPopupViewController()
+            popupVC.rewardName = selectedItem.title
+            popupVC.cost = 100
+            
+            popupVC.modalPresentationStyle = .overFullScreen
+            popupVC.modalTransitionStyle = .crossDissolve
+            
+            present(popupVC, animated: true, completion: nil)
+        }
 }
+

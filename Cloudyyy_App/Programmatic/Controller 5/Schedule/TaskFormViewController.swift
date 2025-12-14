@@ -1,35 +1,31 @@
-//
-//  TaskFormViewController.swift
-//  Cloudyyy_App
-//
-//  Created by user@5 on 07/12/25.
-//
-
 import UIKit
 
-// Define Modes
+// MARK: - Mode
 enum TaskFormMode {
     case create
     case edit(ScheduleTaskModel)
 }
 
-class TaskFormViewController: UIViewController {
+final class TaskFormViewController: UIViewController {
 
     // MARK: - Properties
     var mode: TaskFormMode = .create
-    
+
     private var childrenList: [ChildModel] = []
     private var assignedSelections = Set<UUID>()
     private var selectedDate: Date?
 
-    // MARK: - UI Components
+    // MARK: - UI
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
 
-    private let titleField = StyledTextField(placeholder: "Title *")
-    private let descriptionView = StyledTextView(placeholder: "Description (Optional)")
+    private let titleNotesView =
+        CombinedTitleNotesView(
+            titlePlaceholder: "Title *",
+            notesPlaceholder: "Description (Optional)"
+        )
 
     private let priorityRow = SelectRow(title: "Priority")
     private let pointsRow = PointsRow()
@@ -39,206 +35,140 @@ class TaskFormViewController: UIViewController {
     private let approvalRow = ApprovalToggleRow(title: "Approval Required")
     private let assignedRow = SelectRow(title: "Assigned To")
 
-    // Delete Button (Hidden by default)
     private let deleteButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("Delete Task", for: .normal)
-        btn.setTitleColor(.systemRed, for: .normal)
-        btn.backgroundColor = UIColor(red: 1, green: 0, blue: 0, alpha: 0.1)
-        btn.layer.cornerRadius = 12
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-        return btn
+        let b = UIButton(type: .system)
+        b.setTitle("Delete Task", for: .normal)
+        b.setTitleColor(.systemRed, for: .normal)
+        b.backgroundColor = UIColor.red.withAlphaComponent(0.12)
+        b.layer.cornerRadius = 12
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        b.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        return b
     }()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupUIBasedOnMode()
-        
+        view.backgroundColor = .black
+
         setupNavigationBar()
         setupGradient()
         setupScrollView()
         setupStack()
         setupHeights()
-        
         setupActions()
         setupStaticMenus()
-        
-        // Load Data
+
         fetchChildrenAndAssignments()
+        configureForMode()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
-    
-    // MARK: - Mode Setup
-    private func setupUIBasedOnMode() {
-        view.backgroundColor = .black
-        
+
+    // MARK: - Mode
+    private func configureForMode() {
         switch mode {
         case .create:
             title = "New Task"
             deleteButton.isHidden = true
-            applyDefaultValues()
-            
+            applyDefaults()
+
         case .edit(let task):
             title = "Edit Task"
             deleteButton.isHidden = false
-            populateExistingData(task)
+            populate(task)
         }
     }
-    
-    private func applyDefaultValues() {
+
+    private func applyDefaults() {
         priorityRow.setDetail("Medium")
         frequencyRow.setDetail("Once")
-        assignedRow.setDetail("Select Child")
         listRow.setDetail("General")
+        assignedRow.setDetail("Select Child")
     }
-    
-    private func populateExistingData(_ task: ScheduleTaskModel) {
-            // 1. Title & Description
-            titleField.textValue = task.title
-            descriptionView.textValue = task.description ?? ""
-            
-            // 2. Priority & Frequency
-            priorityRow.setDetail(task.priority ?? "Medium")
-            frequencyRow.setDetail(task.frequency)
-            
-            // 3. Points (✅ NEW)
-            pointsRow.countValue = task.points
-            
-            // 4. Approval (✅ NEW)
-            // Defaults to false if nil
-            approvalRow.setOn(task.approval_required ?? false)
-            
-            // 5. List (✅ NEW)
-            listRow.setDetail(task.list_name ?? "General")
-            
-            // 6. Date
-            if let dateStr = task.due_date {
-                let df = DateFormatter()
-                df.dateFormat = "yyyy-MM-dd"
-                if let date = df.date(from: dateStr) {
-                    self.selectedDate = date
-                    let displayF = DateFormatter(); displayF.dateFormat = "MMM d, h:mm a"
-                    dateRow.setDetail(displayF.string(from: date))
-                }
+    private func populate(_ task: ScheduleTaskModel) {
+
+        // ✅ SAME AS NewTaskViewController
+        titleNotesView.titleText = task.title
+        titleNotesView.notesText = task.description ?? ""
+
+        pointsRow.countValue = task.points
+        priorityRow.setDetail(task.priority ?? "Medium")
+        frequencyRow.setDetail(task.frequency)
+        listRow.setDetail(task.list_name ?? "General")
+        approvalRow.setOn(task.approval_required ?? false)
+
+        if let dateStr = task.due_date {
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            if let d = df.date(from: dateStr) {
+                selectedDate = d
+                let f = DateFormatter()
+                f.dateFormat = "MMM d, h:mm a"
+                dateRow.setDetail(f.string(from: d))
             }
         }
-    
-    // MARK: - Data Logic
+    }
+
+
+    // MARK: - Data
     private func fetchChildrenAndAssignments() {
         _Concurrency.Task {
             do {
-                // 1. Fetch Children
-                let dashboardData = try await FamilyService.shared.fetchDashboard()
-                
-                // 2. If Editing, Fetch Assignments to see who is assigned
-                var existingAssignments: [UUID] = []
+                let dashboard = try await FamilyService.shared.fetchDashboard()
+                var preselected: [UUID] = []
+
                 if case .edit(let task) = mode {
-                    existingAssignments = try await TaskService.shared.fetchAssignments(for: task.id)
+                    preselected = try await TaskService.shared.fetchAssignments(for: task.id)
                 }
-                
+
                 await MainActor.run {
-                    self.childrenList = dashboardData.children
-                    
-                    // Pre-select children in Edit Mode
-                    if case .edit = mode {
-                        self.assignedSelections = Set(existingAssignments)
-                    }
-                    
-                    self.updateAssignedMenu()
-                    self.updateAssignedLabel()
+                    self.childrenList = dashboard.children
+                    self.assignedSelections = Set(preselected)
+                    self.handleAssignedVisibility()
                 }
             } catch {
-                print("Error fetching data: \(error)")
+                print(error)
             }
         }
     }
 
-    // MARK: - Actions
-    private func setupActions() {
-        dateRow.onTap = { [weak self] in self?.openDatePicker() }
-        deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
-    }
-    
-    @objc private func deleteTapped() {
-        guard case .edit(let task) = mode else { return }
-        
-        let alert = UIAlertController(title: "Delete Task?", message: "This will remove this task permanently.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
-            self.performDelete(taskId: task.id)
-        }))
-        present(alert, animated: true)
-    }
-    
-    private func performDelete(taskId: UUID) {
-        _Concurrency.Task {
-            do {
-                try await TaskService.shared.deleteTask(taskId: taskId)
-                await MainActor.run { self.dismiss(animated: true) }
-            } catch {
-                await MainActor.run { self.showAlert("Delete failed: \(error.localizedDescription)") }
-            }
+    private func handleAssignedVisibility() {
+        let count = childrenList.count
+
+        if count == 0 {
+            assignedRow.isHidden = true
+            return
         }
+
+        if count == 1 {
+            assignedSelections = [childrenList[0].id]
+            assignedRow.isHidden = true
+            return
+        }
+
+        assignedRow.isHidden = false
+        updateAssignedMenu()
+        updateAssignedLabel()
     }
 
-    @objc private func doneTapped() {
-            view.endEditing(true)
-            
-            guard let title = titleField.textValue.isEmpty ? nil : titleField.textValue else {
-                showAlert("Please enter a title"); return
-            }
-            if assignedSelections.isEmpty {
-                showAlert("Please assign to at least one child"); return
-            }
-            
-            let points = pointsRow.countValue
-            let priority = priorityRow.detailText ?? "Medium"
-            let frequency = frequencyRow.detailText ?? "Once"
-            let approval = approvalRow.isOn // ✅ Capture Toggle
-            
-            navigationItem.rightBarButtonItem?.isEnabled = false
-            
-            _Concurrency.Task {
-                do {
-                    switch mode {
-                    case .create:
-                        _ = try await TaskService.shared.createTask(
-                            title: title, description: descriptionView.textValue, points: points, priority: priority, frequency: frequency,
-                            assignTo: Array(assignedSelections), dueDate: selectedDate,
-                            approvalRequired: approval // ✅ Send Toggle
-                        )
-                    case .edit(let task):
-                        try await TaskService.shared.updateTask(
-                            taskId: task.id, title: title, description: descriptionView.textValue, points: points, priority: priority, frequency: frequency,
-                            childIds: Array(assignedSelections), date: selectedDate ?? Date(),
-                            approvalRequired: approval // ✅ Send Toggle
-                        )
-                    }
-                    await MainActor.run { self.dismiss(animated: true) }
-                } catch {
-                    await MainActor.run {
-                        self.navigationItem.rightBarButtonItem?.isEnabled = true
-                        self.showAlert("Error: \(error.localizedDescription)")
-                    }
-                }
-            }
-        }
-    // MARK: - Setup Boilerplate
+    // MARK: - UI Setup
     private func setupNavigationBar() {
         navigationController?.navigationBar.tintColor = .white
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        let a = UINavigationBarAppearance()
+        a.configureWithTransparentBackground()
+        a.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.standardAppearance = a
+        navigationController?.navigationBar.scrollEdgeAppearance = a
 
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneTapped))
+        navigationItem.leftBarButtonItem =
+            UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
+
+        navigationItem.rightBarButtonItem =
+            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneTapped))
     }
 
     private func setupGradient() {
@@ -246,13 +176,16 @@ class TaskFormViewController: UIViewController {
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
             UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
-        gradient.startPoint = CGPoint(x: 0, y: 0); gradient.endPoint = CGPoint(x: 1, y: 1)
+        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.endPoint = CGPoint(x: 1, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
     }
 
     private func setupScrollView() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
+
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
@@ -262,6 +195,8 @@ class TaskFormViewController: UIViewController {
 
         scrollView.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.backgroundColor = .clear
+
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
@@ -274,7 +209,8 @@ class TaskFormViewController: UIViewController {
     private func setupStack() {
         contentView.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.axis = .vertical; stack.spacing = 16; stack.alignment = .fill; stack.distribution = .fill
+        stack.axis = .vertical
+        stack.spacing = 16
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -283,73 +219,268 @@ class TaskFormViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
         ])
 
-        let fields: [UIView] = [
-            titleField, descriptionView, pointsRow, assignedRow,
-            priorityRow, dateRow, frequencyRow, listRow, approvalRow,
+        [
+            titleNotesView,
+            pointsRow,
+            assignedRow,
+            frequencyRow,
+            priorityRow,
+            dateRow,
+            listRow,
+            approvalRow,
             deleteButton
-        ]
-        fields.forEach { stack.addArrangedSubview($0) }
+        ].forEach { stack.addArrangedSubview($0) }
     }
 
     private func setupHeights() {
-        let rows = [titleField, priorityRow, pointsRow, dateRow, frequencyRow, listRow, approvalRow, assignedRow, deleteButton]
-        rows.forEach { $0.heightAnchor.constraint(equalToConstant: 52).isActive = true }
-        descriptionView.heightAnchor.constraint(equalToConstant: 140).isActive = true
+        [
+            priorityRow, pointsRow, dateRow,
+            frequencyRow, listRow, approvalRow, assignedRow
+        ].forEach {
+            $0.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        }
     }
 
+    // MARK: - Menus
     private func setupStaticMenus() {
-        priorityRow.setMenu(UIMenu(children: ["Low", "Medium", "High", "Critical"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.priorityRow.setDetail(name) }
-        }))
-        frequencyRow.setMenu(UIMenu(children: ["Once", "Daily", "Weekly", "Monthly"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.frequencyRow.setDetail(name) }
-        }))
-        listRow.setMenu(UIMenu(children: ["General", "Morning Routine", "Evening Routine", "School", "Chores"].map { name in
-            UIAction(title: name) { [weak self] _ in self?.listRow.setDetail(name) }
-        }))
+
+        priorityRow.setMenu(
+            UIMenu(children: ["Low", "Medium", "High"].map { value in
+                UIAction(title: value) { [weak self] _ in
+                    self?.priorityRow.setDetail(value)
+                }
+            })
+        )
+
+        frequencyRow.setMenu(
+            UIMenu(children:
+                ["Once", "Daily", "Weekly", "Monthly", "Yearly"].map { value in
+                    UIAction(title: value) { [weak self] _ in
+                        self?.frequencyRow.setDetail(value)
+                    }
+                }
+                + [
+                    UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
+                        self?.openCustomFrequency()
+                    }
+                ]
+            )
+        )
+
+        refreshListMenu()
     }
-    
+
+    private func refreshListMenu() {
+        let defaults = ["General", "Morning Routine", "Evening Routine", "School", "Chores"]
+        let customs = UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
+
+        let actions =
+            (defaults + customs).map { name in
+                UIAction(title: name) { [weak self] _ in
+                    self?.listRow.setDetail(name)
+                }
+            }
+            + [
+                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
+                    self?.openCustomList()
+                }
+            ]
+
+        listRow.setMenu(UIMenu(children: actions))
+    }
+
+    // MARK: - Assignment
     private func updateAssignedMenu() {
-        let menuItems = childrenList.map { child in
-            UIAction(title: child.name, state: assignedSelections.contains(child.id) ? .on : .off) { [weak self] _ in
+        let allSelected = assignedSelections.count == childrenList.count
+
+        var actions: [UIAction] = [
+            UIAction(
+                title: allSelected ? "Deselect All" : "Select All",
+                state: allSelected ? .on : .off
+            ) { [weak self] _ in
                 guard let self = self else { return }
-                if self.assignedSelections.contains(child.id) { self.assignedSelections.remove(child.id) }
-                else { self.assignedSelections.insert(child.id) }
-                self.updateAssignedLabel()
+                if allSelected {
+                    self.assignedSelections.removeAll()
+                } else {
+                    self.assignedSelections = Set(self.childrenList.map { $0.id })
+                }
                 self.updateAssignedMenu()
+                self.updateAssignedLabel()
+            }
+        ]
+
+        for child in childrenList {
+            let selected = assignedSelections.contains(child.id)
+
+            let action = UIAction(
+                title: child.name,
+                state: selected ? .on : .off
+            ) { [weak self] _ in
+                guard let self = self else { return }
+
+                if selected {
+                    self.assignedSelections.remove(child.id)
+                } else {
+                    self.assignedSelections.insert(child.id)
+                }
+
+                self.updateAssignedMenu()
+                self.updateAssignedLabel()
+            }
+
+            actions.append(action)
+        }
+
+        assignedRow.setMenu(UIMenu(children: actions))
+    }
+
+    private func updateAssignedLabel() {
+        let names = childrenList
+            .filter { assignedSelections.contains($0.id) }
+            .map { $0.name }
+
+        assignedRow.setDetail(names.isEmpty ? "Select" : names.joined(separator: ", "))
+    }
+
+    // MARK: - Actions
+    private func setupActions() {
+        dateRow.onTap = { [weak self] in self?.openDatePicker() }
+        deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
+    }
+
+    @objc private func deleteTapped() {
+        guard case .edit(let task) = mode else { return }
+
+        let alert = UIAlertController(
+            title: "Delete Task?",
+            message: "This action cannot be undone.",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
+            _Concurrency.Task {
+                try? await TaskService.shared.deleteTask(taskId: task.id)
+                await MainActor.run { self.dismiss(animated: true) }
+            }
+        })
+
+        present(alert, animated: true)
+    }
+
+    @objc private func doneTapped() {
+        let title = titleNotesView.titleText.trimmingCharacters(in: .whitespaces)
+
+        guard !title.isEmpty else {
+            showAlert("Please enter a title")
+            return
+        }
+
+        guard !assignedSelections.isEmpty else {
+            showAlert("Assign at least one child")
+            return
+        }
+
+        let approval = approvalRow.isOn
+
+        _Concurrency.Task {
+            do {
+                switch mode {
+                case .create:
+                    _ = try await TaskService.shared.createTask(
+                        title: title,
+                        description: titleNotesView.notesText,
+                        points: pointsRow.countValue,
+                        priority: priorityRow.detailText ?? "Medium",
+                        frequency: frequencyRow.detailText ?? "Once",
+                        assignTo: Array(assignedSelections),
+                        dueDate: selectedDate,
+                        approvalRequired: approval
+                    )
+
+                case .edit(let task):
+                    try await TaskService.shared.updateTask(
+                        taskId: task.id,
+                        title: title,
+                        description: titleNotesView.notesText,
+                        points: pointsRow.countValue,
+                        priority: priorityRow.detailText ?? "Medium",
+                        frequency: frequencyRow.detailText ?? "Once",
+                        childIds: Array(assignedSelections),
+                        date: selectedDate ?? Date(),
+                        approvalRequired: approval
+                    )
+                }
+
+                await MainActor.run {
+                    self.dismiss(animated: true)
+                }
+
+            } catch {
+                await MainActor.run {
+                    self.showAlert(error.localizedDescription)
+                }
             }
         }
-        assignedRow.setMenu(UIMenu(title: "Select Children", options: .displayInline, children: menuItems))
     }
-    
-    private func updateAssignedLabel() {
-        if assignedSelections.isEmpty { assignedRow.setDetail("Select Child"); return }
-        let selectedNames = childrenList.filter { assignedSelections.contains($0.id) }.map { $0.name }
-        assignedRow.setDetail(selectedNames.joined(separator: ", "))
-    }
-    
+
     private func openDatePicker() {
-        let vc = UIViewController(); vc.view.backgroundColor = .systemBackground
-        if let sheet = vc.sheetPresentationController { sheet.detents = [.medium()] }
-        let picker = UIDatePicker(); picker.datePickerMode = .dateAndTime; picker.preferredDatePickerStyle = .wheels
-        picker.translatesAutoresizingMaskIntoConstraints = false; vc.view.addSubview(picker)
+        let vc = UIViewController()
+        vc.view.backgroundColor = .systemBackground
+        vc.sheetPresentationController?.detents = [.medium()]
+
+        let picker = UIDatePicker()
+        picker.datePickerMode = .dateAndTime
+        picker.preferredDatePickerStyle = .wheels
+        picker.translatesAutoresizingMaskIntoConstraints = false
+
+        vc.view.addSubview(picker)
+
         NSLayoutConstraint.activate([
             picker.centerXAnchor.constraint(equalTo: vc.view.centerXAnchor),
             picker.centerYAnchor.constraint(equalTo: vc.view.centerYAnchor)
         ])
-        if let date = selectedDate { picker.date = date }
-        picker.addAction(UIAction(handler: { [weak self] _ in
+
+        picker.addAction(UIAction { [weak self] _ in
             self?.selectedDate = picker.date
-            let df = DateFormatter(); df.dateFormat = "MMM d, h:mm a"
-            self?.dateRow.setDetail(df.string(from: picker.date))
-        }), for: .valueChanged)
+            let f = DateFormatter()
+            f.dateFormat = "MMM d, h:mm a"
+            self?.dateRow.setDetail(f.string(from: picker.date))
+        }, for: .valueChanged)
+
         present(vc, animated: true)
     }
 
-    @objc private func cancelTapped() { dismiss(animated: true) }
-    private func showAlert(_ message: String) {
-        let alert = UIAlertController(title: "Info", message: message, preferredStyle: .alert)
+    private func openCustomFrequency() {
+        let vc = CustomClaimLimitViewController()
+        vc.onSave = { [weak self] value in
+            self?.frequencyRow.setDetail(value)
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    private func openCustomList() {
+        let vc = CustomListViewController()
+        vc.onSave = { [weak self] name in
+            var lists = UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
+            if !lists.contains(name) {
+                lists.append(name)
+                UserDefaults.standard.setValue(lists, forKey: "custom_task_lists")
+            }
+            self?.refreshListMenu()
+            self?.listRow.setDetail(name)
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    @objc private func cancelTapped() {
+        dismiss(animated: true)
+    }
+
+    private func showAlert(_ msg: String) {
+        let alert = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
 }
+
