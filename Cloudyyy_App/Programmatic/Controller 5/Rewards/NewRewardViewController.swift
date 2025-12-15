@@ -74,7 +74,7 @@ final class NewRewardViewController: UIViewController {
         ("Yearly", false),
         ("Custom", true)
     ]
-
+    
     private let rewardTypeOptions = ["Experience", "Toy", "Food", "Custom"]
     
     // ✅ Delete Button
@@ -162,16 +162,16 @@ final class NewRewardViewController: UIViewController {
             case "Spring On":
                 springInput.titleText = item.title
                 springInput.notesText = item.description ?? ""
-
+                
             case "Dream it":
                 dreamInput.titleText = item.title
                 dreamInput.notesText = item.description ?? ""
-
+                
             default: // Quick
                 quickInput.titleText = item.title
                 quickInput.notesText = item.description ?? ""
             }
-
+            
             existingImageUrl = item.image_url
             
             // ✅ Populate Extra Fields (Claim Limit & Type)
@@ -217,9 +217,13 @@ final class NewRewardViewController: UIViewController {
                         self.assignedSelections = Set(existingAssignments)
                     }
 
-                    // NEW logic
                     self.handleAssignedToVisibility()
+
+                    // ✅ ADD THESE (CRITICAL)
+                    self.buildSections()
+                    self.applySegment(animated: false)
                 }
+
             } catch {
                 print("Error fetching data: \(error)")
             }
@@ -230,13 +234,11 @@ final class NewRewardViewController: UIViewController {
 
         let count = childrenList.count
 
-        // 1️⃣ No Children → Hide
         if count == 0 {
             assignedToRow.isHidden = true
             return
         }
 
-        // 2️⃣ Only 1 child → auto-select & hide
         if count == 1 {
             let onlyChild = childrenList.first!
             assignedSelections = [onlyChild.id]
@@ -244,10 +246,11 @@ final class NewRewardViewController: UIViewController {
             return
         }
 
-        // 3️⃣ Multiple → show selection block
+        // ✅ MULTIPLE CHILDREN
         assignedToRow.isHidden = false
-        updateAssignedMenu()
-        updateAssignedLabel()
+
+        updateAssignedMenu()     // ✅ MUST
+        updateAssignedLabel()    // ✅ MUST
     }
 
     // MARK: - Gradient & Header
@@ -355,8 +358,8 @@ final class NewRewardViewController: UIViewController {
     private func setupHeights() {
         // Combined Title + Notes block — start with a comfortable minimum but allow growth
         springInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
-            dreamInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
-            quickInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
+        dreamInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
+        quickInput.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
         
         pointsSpring.heightAnchor.constraint(equalToConstant: 56).isActive = true
         pointsDream.heightAnchor.constraint(equalToConstant: 56).isActive = true
@@ -370,63 +373,73 @@ final class NewRewardViewController: UIViewController {
     }
     
     private func buildSections() {
-
+        
         let assignedBlock: [UIView] = assignedToRow.isHidden ? [] : [assignedToRow]
-
+        
         springViews = [subtitleLabel, springInput, pointsSpring] + assignedBlock + [uploadBox]
-
+        
         dreamViews  = [subtitleLabel, dreamInput, pointsDream] + assignedBlock + [select3DBox]
-
+        
         quickViews  = [subtitleLabel, quickInput, pointsQuick, claimLimitRow, rewardTypeRow]
-                      + assignedBlock
+        + assignedBlock
+        
     }
-
-    
     // MARK: - Menus
-    private func setupMenus() {
-
-        claimLimitRow.setMenu(
-            UIMenu(children: [
-
-                UIAction(title: "Once") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Once")
-                },
-
-                UIAction(title: "Daily") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Daily")
-                },
-
-                UIAction(title: "Weekdays") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Weekdays")
-                },
-
-                UIAction(title: "Weekends") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Weekends")
-                },
-
-                UIAction(title: "Weekly") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Weekly")
-                },
-
-                UIAction(title: "Monthly") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Monthly")
-                },
-
-                UIAction(title: "Yearly") { [weak self] _ in
-                    self?.claimLimitRow.setDetail("Yearly")
-                },
-
-                // 👇 Custom at bottom (looks like Reminders)
-                UIAction(
-                    title: "Custom",
-                    image: UIImage(systemName: "plus")
-                ) { [weak self] _ in
-                    self?.openCustomClaimLimit()
-                }
-            ])
-        )
-    }
-
+        private func setupMenus() {
+            
+            claimLimitRow.setMenu(
+                UIMenu(children: [
+                    
+                    UIAction(title: "Once") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Once")
+                    },
+                    
+                    UIAction(title: "Daily") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Daily")
+                    },
+                    
+                    UIAction(title: "Weekdays") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Weekdays")
+                    },
+                    
+                    UIAction(title: "Weekends") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Weekends")
+                    },
+                    
+                    UIAction(title: "Weekly") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Weekly")
+                    },
+                    
+                    UIAction(title: "Monthly") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Monthly")
+                    },
+                    
+                    UIAction(title: "Yearly") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Yearly")
+                    },
+                    
+                    // 👇 Custom at bottom (looks like Reminders)
+                    UIAction(
+                        title: "Custom",
+                        image: UIImage(systemName: "plus")
+                    ) { [weak self] _ in
+                        self?.openCustomClaimLimit()
+                    }
+                ])
+            )
+            rewardTypeRow.setMenu(
+                UIMenu(
+                    title: "Reward Type",
+                    children: rewardTypeOptions.map { option in
+                        UIAction(title: option) { [weak self] _ in
+                            self?.rewardTypeRow.setDetail(option)
+                        }
+                    }
+                )
+            )
+        }
+        
+    
     private func openCustomClaimLimit() {
         let vc = CustomClaimLimitViewController()
         vc.onSave = { [weak self] value in

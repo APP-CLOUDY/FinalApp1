@@ -100,7 +100,7 @@ final class OverviewCardGlassView: UIView {
         animated: Bool
     ) {
         missionsLabel.text = "\(missionsDone)/\(missionsTotal) Missions"
-        redeemedLabel.text = redeemedText.isEmpty ? "No rewards yet" : "Redeemed \(redeemedText)"
+        redeemedLabel.text = redeemedText.isEmpty ? "" : "Redeemed \(redeemedText)"
         arcView.setProgress(progress, animated: animated)
     }
 }
