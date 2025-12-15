@@ -296,55 +296,55 @@ final class DreamItViewController: UIViewController {
     }
 
     private func setupContentLayout() {
+        // Do NOT add searchBar or categoryScroll here (removed)
+        // We'll add the active and completed sections directly.
 
         activeScroll.showsHorizontalScrollIndicator = false
         activeScroll.translatesAutoresizingMaskIntoConstraints = false
-
         activeStack.axis = .horizontal
         activeStack.spacing = 16
         activeStack.translatesAutoresizingMaskIntoConstraints = false
         activeScroll.addSubview(activeStack)
+        content.addSubview(activeScroll)
 
         completedStack.axis = .vertical
         completedStack.spacing = 12
         completedStack.translatesAutoresizingMaskIntoConstraints = false
 
+        // Add labels & stacks
         [activeLabel, activeScroll, completedLabel, completedStack, bottomSpacer].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-
-            // ✅ FIRST anchor — VERY IMPORTANT
+            // Put activeLabel at top of content (was previously below search bar)
             activeLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
 
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
             activeScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             activeScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            activeScroll.heightAnchor.constraint(equalToConstant: 220),
+            activeScroll.heightAnchor.constraint(equalToConstant: 240),
 
-            // ✅ Stack positioning fix
-            activeStack.topAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.topAnchor),
-            activeStack.bottomAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.bottomAnchor),
             activeStack.leadingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.leadingAnchor),
             activeStack.trailingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.trailingAnchor, constant: -20),
             activeStack.heightAnchor.constraint(equalTo: activeScroll.frameLayoutGuide.heightAnchor),
 
-            bottomSpacer.topAnchor.constraint(equalTo: activeScroll.bottomAnchor, constant: 30),
-            bottomSpacer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            bottomSpacer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            bottomSpacer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            bottomSpacer.heightAnchor.constraint(equalToConstant: 80),
+            completedLabel.topAnchor.constraint(equalTo: activeScroll.bottomAnchor, constant: 30),
+            completedLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
 
+            completedStack.topAnchor.constraint(equalTo: completedLabel.bottomAnchor, constant: 12),
+            completedStack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 18),
+            completedStack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -18),
+
+            bottomSpacer.topAnchor.constraint(equalTo: completedStack.bottomAnchor, constant: 20),
             bottomSpacer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             bottomSpacer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             bottomSpacer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             bottomSpacer.heightAnchor.constraint(equalToConstant: 80)
         ])
     }
-
     
     @objc private func handleSelectedKidChanged(_ notification: Notification) {
         guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
