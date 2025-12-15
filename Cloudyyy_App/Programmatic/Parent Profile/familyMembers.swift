@@ -1,29 +1,17 @@
 import UIKit
 
 // MARK: - 1. Destination View Controller
-// This is the screen you navigate to when clicking "Add Family Member"
 //class AddFamilyMembersViewController: UIViewController {
-//    
 //    override func viewDidLoad() {
 //        super.viewDidLoad()
-//        view.backgroundColor = .white // Set a background color so we can see the transition
-//        title = "Add Family Members"
-//        
-//        // Simple label to confirm navigation worked
-//        let label = UILabel()
-//        label.text = "Add Members Screen"
-//        label.center = view.center
-//        label.sizeToFit()
-//        view.addSubview(label)
+//        view.backgroundColor = .systemBackground
+//        title = "Add Member"
 //    }
 //}
 
-// MARK: - 2. Custom Gradient View (Card Background)
+// MARK: - 2. GgradientCardView (UNTOUCHED)
 class GgradientCardView: UIView {
-    
     private let gradientLayer = CAGradientLayer()
-    
-    // Gradient colors: Top-left lighter -> Bottom-right darker
     private let startColor = UIColor(red: 50/255, green: 60/255, blue: 85/255, alpha: 1.0)
     private let endColor = UIColor(red: 35/255, green: 45/255, blue: 65/255, alpha: 1.0)
 
@@ -31,44 +19,56 @@ class GgradientCardView: UIView {
         super.init(frame: frame)
         setupGradient()
     }
-    
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupGradient()
     }
-    
     private func setupGradient() {
         gradientLayer.colors = [startColor.cgColor, endColor.cgColor]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
         layer.insertSublayer(gradientLayer, at: 0)
-        
-        // Subtle border for definition
         layer.borderWidth = 0.5
         layer.borderColor = UIColor.white.withAlphaComponent(0.1).cgColor
-        
         clipsToBounds = true
     }
-    
     override func layoutSubviews() {
         super.layoutSubviews()
         gradientLayer.frame = bounds
     }
-    
     func setCornerRadius(_ radius: CGFloat) {
         layer.cornerRadius = radius
     }
 }
 
-// MARK: - 3. Main View Controller
+// MARK: - 3. GlassCardView (Same as before)
+class GlassCardView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupGlassStyle()
+    }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupGlassStyle()
+    }
+    private func setupGlassStyle() {
+        self.backgroundColor = UIColor(white: 1, alpha: 0.05)
+        self.layer.borderWidth = 1
+        self.layer.borderColor = UIColor(white: 1, alpha: 0.1).cgColor
+        self.clipsToBounds = true
+    }
+    func setCornerRadius(_ radius: CGFloat) {
+        layer.cornerRadius = radius
+    }
+}
+
+// MARK: - 4. Main View Controller
 class ParentProfileMembers: UIViewController {
 
     // MARK: - UI Components
     
-    // 1. Background Gradient
     private let backgroundGradientLayer = CAGradientLayer()
     
-    // 2. Custom Header Area
     private let headerView: UIView = {
         let view = UIView()
         view.backgroundColor = .clear
@@ -78,9 +78,12 @@ class ParentProfileMembers: UIViewController {
     
     private let backButton: UIButton = {
         let btn = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        let image = UIImage(systemName: "chevron.left", withConfiguration: config)
-        btn.setImage(image, for: .normal)
+        btn.backgroundColor = UIColor(white: 1, alpha: 0.1)
+        btn.layer.cornerRadius = 20
+        btn.layer.borderWidth = 1
+        btn.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
         btn.tintColor = .white
         btn.translatesAutoresizingMaskIntoConstraints = false
         return btn
@@ -96,7 +99,6 @@ class ParentProfileMembers: UIViewController {
         return label
     }()
     
-    // 3. ScrollView & Content
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.showsVerticalScrollIndicator = false
@@ -115,23 +117,20 @@ class ParentProfileMembers: UIViewController {
         return stack
     }()
     
-    // 4. Family Name Display
     private let familyDisplayLabel: UILabel = {
         let label = UILabel()
         label.text = "Enter Family Name"
         label.textColor = UIColor.lightGray
-        label.font = .systemFont(ofSize: 16)
+        label.font = .systemFont(ofSize: 16, weight: .medium)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
-    // 5. Add Member Button
     private let addMemberButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setTitle("Add Family Member", for: .normal)
         btn.setTitleColor(.white, for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
-        // Custom Blue color matching the image
+        btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .bold)
         btn.backgroundColor = UIColor(red: 55/255, green: 115/255, blue: 250/255, alpha: 1.0)
         btn.layer.cornerRadius = 12
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -143,7 +142,6 @@ class ParentProfileMembers: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackgroundGradient()
-        
         setupHeader()
         setupLayout()
         setupContent()
@@ -160,11 +158,9 @@ class ParentProfileMembers: UIViewController {
     private func setupBackgroundGradient() {
         let topColor = UIColor(red: 12/255, green: 12/255, blue: 12/255, alpha: 1.0)
         let bottomColor = UIColor(red: 32/255, green: 59/255, blue: 111/255, alpha: 1.0)
-        
         backgroundGradientLayer.colors = [topColor.cgColor, bottomColor.cgColor]
-        backgroundGradientLayer.startPoint = CGPoint(x: 0, y: 0)
-        backgroundGradientLayer.endPoint = CGPoint(x: 0, y: 1)
-        
+        backgroundGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        backgroundGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
         view.layer.insertSublayer(backgroundGradientLayer, at: 0)
     }
     
@@ -233,14 +229,14 @@ class ParentProfileMembers: UIViewController {
             avatarName: "person.crop.circle.fill",
             name: "Jonesh",
             role: "Chore Captain",
-            code: "Code: 32456"
+            code: "32456" // Just the number
         )
         
         let child2 = createMemberCard(
             avatarName: "person.crop.circle",
             name: "Riduvarshini",
             role: "Chore champion",
-            code: "Code: 33501"
+            code: "33501" // Just the number
         )
         
         childrenSection.addArrangedSubview(child1)
@@ -269,18 +265,16 @@ class ParentProfileMembers: UIViewController {
         let sectionStack = UIStackView()
         sectionStack.axis = .vertical
         sectionStack.spacing = 10
-        
         let label = UILabel()
         label.text = title
         label.textColor = .white
         label.font = .systemFont(ofSize: 18, weight: .bold)
-        
         sectionStack.addArrangedSubview(label)
         return sectionStack
     }
     
     private func createFamilyNameCard() -> UIView {
-        let container = GgradientCardView()
+        let container = GlassCardView()
         container.setCornerRadius(12)
         container.translatesAutoresizingMaskIntoConstraints = false
         container.heightAnchor.constraint(equalToConstant: 56).isActive = true
@@ -312,11 +306,12 @@ class ParentProfileMembers: UIViewController {
     }
     
     private func createMemberCard(avatarName: String, name: String, role: String, code: String?) -> UIView {
-        let card = GgradientCardView()
+        let card = GlassCardView()
         card.setCornerRadius(16)
         card.translatesAutoresizingMaskIntoConstraints = false
         card.heightAnchor.constraint(equalToConstant: 90).isActive = true
         
+        // Avatar
         let avatarView = UIImageView()
         avatarView.image = UIImage(named: avatarName) ?? UIImage(systemName: avatarName)
         avatarView.contentMode = .scaleAspectFit
@@ -326,6 +321,7 @@ class ParentProfileMembers: UIViewController {
         avatarView.layer.shadowOpacity = 0.3
         avatarView.layer.shadowOffset = CGSize(width: 0, height: 2)
         
+        // Name and Role Stack
         let nameLabel = UILabel()
         nameLabel.text = name
         nameLabel.textColor = .white
@@ -342,16 +338,32 @@ class ParentProfileMembers: UIViewController {
         textStack.alignment = .leading
         textStack.translatesAutoresizingMaskIntoConstraints = false
         
-        if let codeText = code {
-            let codeLabel = UILabel()
-            codeLabel.text = codeText
-            codeLabel.textColor = UIColor(red: 80/255, green: 150/255, blue: 255/255, alpha: 1.0)
-            codeLabel.font = .systemFont(ofSize: 13, weight: .medium)
-            textStack.addArrangedSubview(codeLabel)
-        }
-        
         card.addSubview(avatarView)
         card.addSubview(textStack)
+        
+        // --- UPDATED CODE LAYOUT ---
+        // 1. If Code exists, place it on the RIGHT side of the card.
+        if let codeText = code {
+            let codeLabel = UILabel()
+            codeLabel.text = codeText // Just the number
+            codeLabel.textColor = UIColor(red: 100/255, green: 180/255, blue: 255/255, alpha: 1.0)
+            codeLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+            codeLabel.translatesAutoresizingMaskIntoConstraints = false
+            
+            card.addSubview(codeLabel)
+            
+            NSLayoutConstraint.activate([
+                // Code anchored to the right
+                codeLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+                codeLabel.centerYAnchor.constraint(equalTo: card.centerYAnchor)
+            ])
+            
+            // Ensure text stack doesn't overlap code
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: codeLabel.leadingAnchor, constant: -10).isActive = true
+        } else {
+            // No code, anchor text stack to card edge
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -16).isActive = true
+        }
         
         NSLayoutConstraint.activate([
             avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -360,8 +372,7 @@ class ParentProfileMembers: UIViewController {
             avatarView.heightAnchor.constraint(equalToConstant: 50),
             
             textStack.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
-            textStack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
-            textStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16)
+            textStack.centerYAnchor.constraint(equalTo: card.centerYAnchor)
         ])
         
         return card
@@ -377,33 +388,24 @@ class ParentProfileMembers: UIViewController {
         }
     }
     
-    // --- UPDATED NAVIGATION LOGIC HERE ---
     @objc private func handleAddMember() {
-        // 1. Create the new View Controller
         let addMemberVC = AddFamilyMembersViewController()
-        
-        // 2. Check if we are inside a Navigation Controller
         if let navigationController = navigationController {
-            // Push (Slide)
             navigationController.pushViewController(addMemberVC, animated: true)
         } else {
-            // Modal (Popup) - Use this if your App entry point isn't wrapped in a Nav Controller
             present(addMemberVC, animated: true, completion: nil)
         }
     }
     
     @objc private func handleEditFamilyName() {
         let alert = UIAlertController(title: "Edit Family Name", message: "Please enter your family name below.", preferredStyle: .alert)
-        
         alert.addTextField { textField in
             textField.placeholder = "Family Name"
             if self.familyDisplayLabel.text != "Enter Family Name" {
                 textField.text = self.familyDisplayLabel.text
             }
         }
-        
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-        
         let doneAction = UIAlertAction(title: "Done", style: .default) { [weak self] _ in
             guard let self = self else { return }
             if let newName = alert.textFields?.first?.text, !newName.isEmpty {
@@ -411,10 +413,8 @@ class ParentProfileMembers: UIViewController {
                 self.familyDisplayLabel.textColor = .white
             }
         }
-        
         alert.addAction(cancelAction)
         alert.addAction(doneAction)
-        
         present(alert, animated: true, completion: nil)
     }
 }
