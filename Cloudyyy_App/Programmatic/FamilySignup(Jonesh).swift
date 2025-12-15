@@ -1,7 +1,7 @@
 import UIKit
 
 // MARK: - 1. Glass Card View (Reusable)
-class GlassCardView: UIView {
+class FamGlassCardView: UIView {
     
     private let blurEffectView: UIVisualEffectView = {
         let blur = UIBlurEffect(style: .systemUltraThinMaterialDark)
@@ -334,8 +334,8 @@ class FamilyViewController: UIViewController {
         return v
     }
     
-    private func createGlassContainer() -> GlassCardView {
-        let card = GlassCardView()
+    private func createGlassContainer() -> FamGlassCardView {
+        let card = FamGlassCardView()
         card.setCornerRadius(16)
         card.translatesAutoresizingMaskIntoConstraints = false
         return card
