@@ -398,10 +398,10 @@ class ParentProfileMembers: UIViewController {
     }
     
     @objc private func handleEditFamilyName() {
-        let alert = UIAlertController(title: "Edit Family Name", message: "Please enter your family name below.", preferredStyle: .alert)
+        let alert = UIAlertController(title: "Edit Family Name", message: "Display Family name and edit", preferredStyle: .alert)
         alert.addTextField { textField in
             textField.placeholder = "Family Name"
-            if self.familyDisplayLabel.text != "Enter Family Name" {
+            if self.familyDisplayLabel.text != "Happy Home" {
                 textField.text = self.familyDisplayLabel.text
             }
         }
