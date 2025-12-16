@@ -264,7 +264,7 @@ final class QuickRewardsViewController: UIViewController {
     }
 
     private func setupContentLayout() {
- 
+        
         activeScroll.showsHorizontalScrollIndicator = false;
         activeScroll.translatesAutoresizingMaskIntoConstraints = false;
         
@@ -274,8 +274,12 @@ final class QuickRewardsViewController: UIViewController {
         historyStack.axis = .vertical;
         historyStack.spacing = 12;
         historyStack.translatesAutoresizingMaskIntoConstraints = false
-    [activeLabel, activeScroll, historyLabel, historyStack, bottomSpacer].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; content.addSubview($0) }
+        [activeLabel, activeScroll, historyLabel, historyStack, bottomSpacer].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; content.addSubview($0) }
         NSLayoutConstraint.activate([
+            
+            // ✅ STARTING ANCHOR (THIS WAS MISSING)
+            activeLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            activeLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
             activeScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
@@ -296,10 +300,11 @@ final class QuickRewardsViewController: UIViewController {
             bottomSpacer.topAnchor.constraint(equalTo: historyStack.bottomAnchor, constant: 20),
             bottomSpacer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             bottomSpacer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            bottomSpacer.bottomAnchor.constraint(equalTo: content.bottomAnchor), bottomSpacer.heightAnchor.constraint(equalToConstant: 80)
+            bottomSpacer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            bottomSpacer.heightAnchor.constraint(equalToConstant: 80)
         ])
+        
     }
-    
 
     
     @objc private func handleSelectedKidChanged(_ notification: Notification) {
