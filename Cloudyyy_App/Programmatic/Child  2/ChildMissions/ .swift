@@ -68,89 +68,103 @@ struct Mission: Identifiable, Equatable {
     }
 }
 
-// MARK: - Gemini AI Service
-// MARK: - Gemini AI Service (Bulletproof)
-actor CloudyAIService {
-    static let shared = CloudyAIService()
-    
-    // ⬇️ PASTE YOUR NEW KEY HERE (No spaces!) ⬇️
-    private let apiKey = "AIzaSyBHYhHoMvnQkXQNo9JaOQxveO0I6_vddM8"
-    
-    // ⬇️ IF YOU GET 404, UNCOMMENT THE OTHER LINE BELOW ⬇️
-    
-    // OPTION 1: The standard for new keys (Try this first)
-    private let model = "gemini-1.5-flash"
-    
-    // OPTION 2: The legacy standard (Uncomment this if Option 1 fails)
-    // private let model = "gemini-pro"
-    
-    func sendMessage(userQuery: String, missions: [Mission], rewardsBalance: Int) async throws -> String {
-        
-        let cleanKey = apiKey.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent"
-        
-        // 1. Context String
-        let missionContext = missions.map {
-            "- Task: \($0.title) (Time: \($0.time), Needs Photo: \($0.requiresPhoto ? "Yes" : "No"))"
-        }.joined(separator: "\n")
-        
-        // 2. Merged Prompt (Prevents Error 400)
-        // We put the "System" instructions inside the user message. This works on ALL models.
-        let fullPrompt = """
-        SYSTEM INSTRUCTIONS:
-        You are 'Cloudyy', a friendly cloud character in a kids' app.
-        Current Data:
-        \(missionContext)
-        - Wallet: \(rewardsBalance) Coins
-        Rules:
-        1. Only answer about tasks/rewards. Refuse math/history.
-        2. Keep answers short (max 2 sentences).
-        3. Use emojis (☁️, ✨).
-        
-        USER QUESTION:
-        \(userQuery)
-        """
-        
-        // 3. Simple JSON Body (Safe for all models)
-        let body: [String: Any] = [
-            "contents": [
-                [
-                    "role": "user",
-                    "parts": [ ["text": fullPrompt] ]
-                ]
-            ],
-            "generationConfig": [ "temperature": 0.7, "maxOutputTokens": 100 ]
-        ]
-        
-        // 4. Send Request
-        guard let url = URL(string: "\(endpoint)?key=\(cleanKey)") else { return "Error: Invalid URL" }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        // 5. Check for Errors
-        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-            print("❌ Error Code: \(httpResponse.statusCode)")
-            return "⚠️ Error \(httpResponse.statusCode). Try switching the 'model' variable in code."
-        }
-        
-        // 6. Parse Success
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let candidates = json["candidates"] as? [[String: Any]],
-           let firstCandidate = candidates.first,
-           let content = firstCandidate["content"] as? [String: Any],
-           let parts = content["parts"] as? [[String: Any]],
-           let text = parts.first?["text"] as? String {
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        
-        return "Oops! Cloudyy is confused. ☁️"
-    }
-}
+import Foundation
+
+// MARK: - Cloudyy Gemini AI Service (FINAL & DEBUGGABLE)
+import Foundation
+
+//actor CloudyAIService {
+//
+//    static let shared = CloudyAIService()
+//
+//    // 🔑 REPLACE WITH A NEW KEY LATER (this one is compromised)
+//    private let apiKey = "AIzaSyCqQpua3z7VtGC4UtEDsId2NfdYRehVH2c"
+//
+//    // ✅ ONLY STABLE PUBLIC MODEL
+//    private let model = "gemini-pro"
+//
+//    func sendMessage(
+//        userQuery: String,
+//        missions: [Mission],
+//        rewardsBalance: Int
+//    ) async -> String {
+//
+//        let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+//
+//        let endpoint =
+//        "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(cleanKey)"
+//
+//        guard let url = URL(string: endpoint) else {
+//            print("❌ Invalid URL")
+//            return fallbackMessage
+//        }
+//
+//        // --- Prompt ---
+//        let missionContext = missions.map {
+//            "- \($0.title) | Time: \($0.time)"
+//        }.joined(separator: "\n")
+//
+//        let prompt = """
+//        You are Cloudyy ☁️, a friendly assistant for kids.
+//
+//        Rules:
+//        - Talk only about tasks and rewards
+//        - Max 2 short sentences
+//        - Use emojis ☁️✨
+//
+//        Tasks:
+//        \(missionContext.isEmpty ? "No tasks yet." : missionContext)
+//
+//        Wallet: \(rewardsBalance) coins
+//
+//        User: \(userQuery)
+//        """
+//
+//        let body: [String: Any] = [
+//            "contents": [
+//                [
+//                    "parts": [
+//                        ["text": prompt]
+//                    ]
+//                ]
+//            ]
+//        ]
+//
+//        var request = URLRequest(url: url)
+//        request.httpMethod = "POST"
+//        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+//        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+//
+//        do {
+//            let (data, response) = try await URLSession.shared.data(for: request)
+//
+//            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+//                print("❌ GEMINI ERROR:", http.statusCode)
+//                print(String(data: data, encoding: .utf8) ?? "")
+//                return fallbackMessage
+//            }
+//
+//            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+//            let text =
+//            (((json?["candidates"] as? [[String: Any]])?.first?["content"]
+//              as? [String: Any])?["parts"] as? [[String: Any]])?
+//                .first?["text"] as? String
+//
+//            return text?.trimmingCharacters(in: .whitespacesAndNewlines)
+//                ?? fallbackMessage
+//
+//        } catch {
+//            print("❌ NETWORK ERROR:", error)
+//            return fallbackMessage
+//        }
+//    }
+//
+//    private var fallbackMessage: String {
+//        "My cloud signal is weak… try again later! ☁️"
+//    }
+//}
+//
+//
 
 // MARK: - 2. Main Flow Controller View
 
@@ -383,11 +397,12 @@ struct CloudyFlowView: View {
                 // Fetch simulated rewards (or replace with ChildHomeService.shared.getCoins() if available)
                 let currentRewards = 150
                 
-                let response = try await CloudyAIService.shared.sendMessage(
+                let response = await OllamaAIService.shared.sendMessage(
                     userQuery: userText,
                     missions: missions,
                     rewardsBalance: currentRewards
                 )
+
                 
                 await MainActor.run {
                     withAnimation {
