@@ -14,11 +14,24 @@ final class TaskFormViewController: UIViewController {
     private var childrenList: [ChildModel] = []
     private var assignedSelections = Set<UUID>()
     private var selectedDate: Date?
+    private var repeatRule: RepeatRule?
+    
+    private func repeatRuleDisplayString(from value: Any?) -> String {
+        // Accepts either String or RepeatRule and returns a string for UI
+        if let s = value as? String { return s }
+        // Fallback: try common enum names
+        if let r = value { return String(describing: r) }
+        return "Once"
+    }
 
     // MARK: - UI
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
+    private var taskLists: [TaskListModel] = []
+    
+    private var familyId: UUID?
+
     private let gradient = CAGradientLayer()
 
     private let titleNotesView =
@@ -34,6 +47,8 @@ final class TaskFormViewController: UIViewController {
     private let listRow = SelectRow(title: "List")
     private let approvalRow = ApprovalToggleRow(title: "Approval Required")
     private let assignedRow = SelectRow(title: "Assigned To")
+    private var selectedListId: UUID?
+
 
     private let deleteButton: UIButton = {
         let b = UIButton(type: .system)
@@ -58,6 +73,7 @@ final class TaskFormViewController: UIViewController {
         setupHeights()
         setupActions()
         setupStaticMenus()
+        loadTaskLists()
 
         fetchChildrenAndAssignments()
         configureForMode()
@@ -82,36 +98,48 @@ final class TaskFormViewController: UIViewController {
             populate(task)
         }
     }
-
+ 
     private func applyDefaults() {
         priorityRow.setDetail("Medium")
         frequencyRow.setDetail("Once")
         listRow.setDetail("General")
         assignedRow.setDetail("Select Child")
     }
+    
     private func populate(_ task: ScheduleTaskModel) {
-
-        // ✅ SAME AS NewTaskViewController
         titleNotesView.titleText = task.title
         titleNotesView.notesText = task.description ?? ""
 
         pointsRow.countValue = task.points
         priorityRow.setDetail(task.priority ?? "Medium")
-        frequencyRow.setDetail(task.frequency)
-        listRow.setDetail(task.list_name ?? "General")
-        approvalRow.setOn(task.approval_required ?? false)
+        
+        let uiRule = RepeatRule.fromPayload(task.repeat_rule)
+        repeatRule = uiRule
+        frequencyRow.setDetail(uiRule.displayText)
 
-        if let dateStr = task.due_date {
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            if let d = df.date(from: dateStr) {
-                selectedDate = d
-                let f = DateFormatter()
-                f.dateFormat = "MMM d, h:mm a"
-                dateRow.setDetail(f.string(from: d))
+
+        listRow.setDetail(task.list_name)
+        approvalRow.setOn(task.approval_required ?? false)
+        selectedListId = task.list_id
+    }
+    private func loadTaskLists() {
+        guard let familyId else { return }
+
+        _Concurrency.Task {
+            do {
+                let lists = try await TaskService.shared.fetchTaskLists(familyId: familyId)
+
+                await MainActor.run {
+                    self.taskLists = lists
+                    self.refreshListMenu()
+                }
+            } catch {
+                print(error)
             }
         }
     }
+
+
 
 
     // MARK: - Data
@@ -271,23 +299,20 @@ final class TaskFormViewController: UIViewController {
     }
 
     private func refreshListMenu() {
-        let defaults = ["General", "Morning Routine", "Evening Routine", "School", "Chores"]
-        let customs = UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
-
-        let actions =
-            (defaults + customs).map { name in
-                UIAction(title: name) { [weak self] _ in
-                    self?.listRow.setDetail(name)
-                }
+        let actions = taskLists.map { list in
+            UIAction(title: list.name) { [weak self] _ in
+                self?.listRow.setDetail(list.name)
+                self?.selectedListId = list.id   // ✅ REAL ID
             }
-            + [
-                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
-                    self?.openCustomList()
-                }
-            ]
+        }
 
-        listRow.setMenu(UIMenu(children: actions))
+        let custom = UIAction(title: "Custom", image: UIImage(systemName: "plus")) {
+            [weak self] _ in self?.openCustomList()
+        }
+
+        listRow.setMenu(UIMenu(children: actions + [custom]))
     }
+
 
     // MARK: - Assignment
     private func updateAssignedMenu() {
@@ -367,12 +392,16 @@ final class TaskFormViewController: UIViewController {
 
         present(alert, animated: true)
     }
-
     @objc private func doneTapped() {
         let title = titleNotesView.titleText.trimmingCharacters(in: .whitespaces)
 
         guard !title.isEmpty else {
             showAlert("Please enter a title")
+            return
+        }
+
+        guard let listId = selectedListId else {
+            showAlert("Please select a list")
             return
         }
 
@@ -392,7 +421,8 @@ final class TaskFormViewController: UIViewController {
                         description: titleNotesView.notesText,
                         points: pointsRow.countValue,
                         priority: priorityRow.detailText ?? "Medium",
-                        frequency: frequencyRow.detailText ?? "Once",
+                        repeatRule: repeatRule,          // ✅ RepeatRule?
+                        listId: listId,
                         assignTo: Array(assignedSelections),
                         dueDate: selectedDate,
                         approvalRequired: approval
@@ -405,7 +435,8 @@ final class TaskFormViewController: UIViewController {
                         description: titleNotesView.notesText,
                         points: pointsRow.countValue,
                         priority: priorityRow.detailText ?? "Medium",
-                        frequency: frequencyRow.detailText ?? "Once",
+                        repeatRule: repeatRule,          // ✅ RepeatRule?
+                        listId: listId,
                         childIds: Array(assignedSelections),
                         date: selectedDate ?? Date(),
                         approvalRequired: approval
@@ -423,6 +454,7 @@ final class TaskFormViewController: UIViewController {
             }
         }
     }
+
 
     private func openDatePicker() {
         let vc = UIViewController()
@@ -450,26 +482,47 @@ final class TaskFormViewController: UIViewController {
 
         present(vc, animated: true)
     }
-
     private func openCustomFrequency() {
         let vc = CustomClaimLimitViewController()
-        vc.onSave = { [weak self] value in
-            self?.frequencyRow.setDetail(value)
+        vc.onSave = { [weak self] rule, label in
+            self?.repeatRule = rule
+            self?.frequencyRow.setDetail(label)
         }
         navigationController?.pushViewController(vc, animated: true)
     }
 
+
     private func openCustomList() {
         let vc = CustomListViewController()
+
         vc.onSave = { [weak self] name in
-            var lists = UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
-            if !lists.contains(name) {
-                lists.append(name)
-                UserDefaults.standard.setValue(lists, forKey: "custom_task_lists")
+            guard let self = self else { return }
+            guard let familyId = self.familyId else {
+                self.showAlert("Family not found")
+                return
             }
-            self?.refreshListMenu()
-            self?.listRow.setDetail(name)
+
+            _Concurrency.Task {
+                do {
+                    let list = try await TaskService.shared.createTaskList(
+                        name: name,
+                        familyId: familyId   // ✅ now UUID
+                    )
+
+                    await MainActor.run {
+                        self.taskLists.append(list)
+                        self.selectedListId = list.id
+                        self.listRow.setDetail(list.name)
+                        self.refreshListMenu()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.showAlert("Failed to create list")
+                    }
+                }
+            }
         }
+
         navigationController?.pushViewController(vc, animated: true)
     }
 

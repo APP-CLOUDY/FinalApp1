@@ -1,20 +1,17 @@
-//
-//  SelectRow.swift
-//  Cloudyyy_App
-//
-//  Created by user@10 on 15/12/25.
-//
-
-import Foundation
 import UIKit
 
-final class NewRewardSelectRow: UIView {
+final class SelectRow: UIView {
 
+    // MARK: - UI
     private let button = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let chevron = UIImageView(image: UIImage(systemName: "chevron.down"))
 
+    // MARK: - Tap handler (for Date row etc.)
+    var onTap: (() -> Void)?
+
+    // MARK: - Init
     init(title: String) {
         super.init(frame: .zero)
         titleLabel.text = title
@@ -25,13 +22,17 @@ final class NewRewardSelectRow: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Setup
     private func setupUI() {
+        translatesAutoresizingMaskIntoConstraints = false
         isUserInteractionEnabled = true
 
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.showsMenuAsPrimaryAction = true   // ✅ critical
         button.backgroundColor = UIColor.white.withAlphaComponent(0.06)
         button.layer.cornerRadius = 12
+
+        // 🔥 IMPORTANT: manual tap handling
+        button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
 
         addSubview(button)
 
@@ -51,7 +52,12 @@ final class NewRewardSelectRow: UIView {
 
         chevron.tintColor = UIColor.white.withAlphaComponent(0.5)
 
-        let content = UIStackView(arrangedSubviews: [titleLabel, UIView(), detailLabel, chevron])
+        let content = UIStackView(arrangedSubviews: [
+            titleLabel,
+            UIView(),
+            detailLabel,
+            chevron
+        ])
         content.translatesAutoresizingMaskIntoConstraints = false
         content.axis = .horizontal
         content.spacing = 8
@@ -65,15 +71,23 @@ final class NewRewardSelectRow: UIView {
         ])
     }
 
-    // MARK: - Public API
-
+    // MARK: - Menu support
     func setMenu(_ menu: UIMenu) {
         button.menu = menu
-        button.isEnabled = true          // ✅ MUST EXIST
-        button.showsMenuAsPrimaryAction = true
+        button.showsMenuAsPrimaryAction = true   // ✅ ONLY when menu exists
+        button.isEnabled = true
     }
 
+    // MARK: - Tap handler
+    @objc private func handleTap() {
+        // If menu exists, system handles it
+        if button.menu != nil { return }
 
+        // Otherwise manual tap
+        onTap?()
+    }
+
+    // MARK: - Detail
     func setDetail(_ text: String) {
         detailLabel.text = text
     }

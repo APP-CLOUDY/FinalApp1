@@ -179,7 +179,7 @@ final class StyledTextView: UIView, UITextViewDelegate {
 // MARK: - SelectRow (button-backed, supports UIMenu)
 // ===========================================================
 
-class SelectRow: RewardCardView {
+class RewardSelectRow: RewardCardView {
     // Hides the chevron arrow
     func hideChevron() {
         chevron.isHidden = true

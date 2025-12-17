@@ -1,16 +1,13 @@
 import UIKit
 
-// MARK: - Parent Profile View Controller
 class ParentProfileViewController: UIViewController {
 
     // MARK: - Properties
-    
-    // Background Gradient Layer
     private let backgroundGradientLayer = CAGradientLayer()
     
     // MARK: - UI Components
 
-    // 1. Full Screen Background View
+    // 1. Full Screen Background
     private let fullBackgroundView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -47,7 +44,6 @@ class ParentProfileViewController: UIViewController {
         btn.layer.cornerRadius = 20
         btn.layer.borderWidth = 1
         btn.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
-        
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
         btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
         btn.tintColor = .white
@@ -80,31 +76,22 @@ class ParentProfileViewController: UIViewController {
     
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
-        iv.image = UIImage(named: "avatar_placeholder") ?? UIImage(systemName: "person.crop.circle.fill")
+        iv.image = UIImage(systemName: "person.crop.circle.fill")
         iv.tintColor = .lightGray
         iv.contentMode = .scaleAspectFill
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.layer.cornerRadius = 35
         iv.clipsToBounds = true
-        iv.layer.borderWidth = 2
-        iv.layer.borderColor = UIColor.white.cgColor
+//        iv.layer.borderWidth = 2
+//        iv.layer.borderColor = UIColor.white.cgColor
         return iv
     }()
 
-    // Family Name (Top)
-    private let familyLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Happy Home"
-        label.font = .systemFont(ofSize: 14, weight: .semibold)
-        label.textColor = UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0) // Light Blue
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
+    // Name Label
     private let nameLabel: UILabel = {
         let label = UILabel()
-        label.text = "David Johnson"
-        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.text = "Loading..."
+        label.font = .systemFont(ofSize: 22, weight: .bold)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -113,9 +100,9 @@ class ParentProfileViewController: UIViewController {
     // Role Label
     private let roleLabel: UILabel = {
         let label = UILabel()
-        label.text = "Parent"
-        label.font = .systemFont(ofSize: 14, weight: .medium)
-        label.textColor = .systemBlue
+        label.text = "..."
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.textColor = UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0) // Light Blue
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -149,38 +136,73 @@ class ParentProfileViewController: UIViewController {
         setupLayout()
         addMenuItems()
         setupActions()
+        
+        fetchProfileData()
     }
     
     override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(true, animated: animated)
-        // Ensure Tab Bar is VISIBLE
-        self.tabBarController?.tabBar.isHidden = false
-    }
+            super.viewWillAppear(animated)
+            navigationController?.setNavigationBarHidden(true, animated: animated)
+            self.tabBarController?.tabBar.isHidden = false
+            
+            // ✅ FIX 1: Fetch data every time the view appears so it updates immediately
+            fetchProfileData()
+        }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer.frame = view.bounds
     }
     
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
-    }
+    override var preferredStatusBarStyle: UIStatusBarStyle { return .lightContent }
 
-    // MARK: - Gradient Setup
+    // MARK: - Backend Logic
+    
+    // In ParentProfileViewController.swift
+
+    private func fetchProfileData() {
+            _Concurrency.Task {
+                do {
+                    let profile = try await ProfileService.shared.fetchUserProfile()
+                    
+                    await MainActor.run {
+                        self.nameLabel.text = profile.first_name
+                        self.roleLabel.text = (profile.role ?? "Parent").capitalized
+                        
+                        // ✅ FIX 2: Handle Default Image & Backend URL
+                        // If DB has an avatar, use it. If not, use "tiger.png"
+                        let avatarName = profile.avatar_id ?? "tiger.png"
+                        
+                        // 1. Get the full Supabase URL
+                        let avatarURL = ProfileService.shared.getAvatarURL(fileName: avatarName)
+                        
+                        // 2. Load it using the extension (Check if you have this file!)
+                        self.avatarImageView.loadImage(from: avatarURL)
+                    }
+                } catch {
+                    print("Error fetching profile: \(error)")
+                    await MainActor.run {
+                        self.nameLabel.text = "Parent"
+                        // Fallback if fetch fails
+                        self.avatarImageView.image = UIImage(named: "tiger.png")
+                    }
+                }
+            }
+        }
+    
+    
+
+    // MARK: - UI Setup
     private func setupGradient() {
         let colorTop = UIColor(red: 0x0C/255.0, green: 0x0C/255.0, blue: 0x0C/255.0, alpha: 1.0).cgColor
         let colorBottom = UIColor(red: 0x20/255.0, green: 0x3B/255.0, blue: 0x6F/255.0, alpha: 1.0).cgColor
-        
         backgroundGradientLayer.colors = [colorTop, colorBottom]
         backgroundGradientLayer.locations = [0.0, 1.0]
         backgroundGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
         backgroundGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
-        
         fullBackgroundView.layer.addSublayer(backgroundGradientLayer)
     }
 
-    // MARK: - Layout Setup
     private func setupLayout() {
         view.addSubview(fullBackgroundView)
         view.addSubview(scrollView)
@@ -190,10 +212,10 @@ class ParentProfileViewController: UIViewController {
         headerContainer.addSubview(backButton)
         headerContainer.addSubview(headerTitle)
         
-        // Profile Section
         contentView.addSubview(profileGlassView)
         profileGlassView.contentView.addSubview(avatarImageView)
-        profileGlassView.contentView.addSubview(familyLabel)
+        
+        // Removed FamilyLabel as requested
         profileGlassView.contentView.addSubview(nameLabel)
         profileGlassView.contentView.addSubview(roleLabel)
         profileGlassView.contentView.addSubview(editProfileButton)
@@ -201,26 +223,22 @@ class ParentProfileViewController: UIViewController {
         contentView.addSubview(menuStackView)
         
         NSLayoutConstraint.activate([
-            // Background
             fullBackgroundView.topAnchor.constraint(equalTo: view.topAnchor),
             fullBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             fullBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             fullBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // ScrollView
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // ContentView
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             
-            // Header
             headerContainer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
             headerContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             headerContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
@@ -234,38 +252,30 @@ class ParentProfileViewController: UIViewController {
             headerTitle.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
             headerTitle.centerXAnchor.constraint(equalTo: headerContainer.centerXAnchor),
             
-            // Profile Glass Card
+            // Profile Card
             profileGlassView.topAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: 30),
             profileGlassView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             profileGlassView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             profileGlassView.heightAnchor.constraint(equalToConstant: 110),
             
-            // Avatar
             avatarImageView.leadingAnchor.constraint(equalTo: profileGlassView.leadingAnchor, constant: 16),
             avatarImageView.centerYAnchor.constraint(equalTo: profileGlassView.centerYAnchor),
             avatarImageView.widthAnchor.constraint(equalToConstant: 70),
             avatarImageView.heightAnchor.constraint(equalToConstant: 70),
             
-            // Family Name (Top)
-            familyLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 16),
-            familyLabel.topAnchor.constraint(equalTo: avatarImageView.topAnchor, constant: 4),
-            
-            // Name (Middle)
+            // Name Label - Centered vertically with avatar (offset slightly up)
             nameLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 16),
-            nameLabel.topAnchor.constraint(equalTo: familyLabel.bottomAnchor, constant: 2),
             nameLabel.trailingAnchor.constraint(equalTo: editProfileButton.leadingAnchor, constant: -8),
+            nameLabel.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor, constant: -12),
             
-            // Role (Bottom)
-            roleLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 16),
-            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 2),
+            roleLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
+            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             
-            // Edit Button
             editProfileButton.trailingAnchor.constraint(equalTo: profileGlassView.trailingAnchor, constant: -16),
             editProfileButton.centerYAnchor.constraint(equalTo: profileGlassView.centerYAnchor),
             editProfileButton.widthAnchor.constraint(equalToConstant: 34),
             editProfileButton.heightAnchor.constraint(equalToConstant: 34),
             
-            // Menu Stack
             menuStackView.topAnchor.constraint(equalTo: profileGlassView.bottomAnchor, constant: 30),
             menuStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             menuStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
@@ -278,7 +288,7 @@ class ParentProfileViewController: UIViewController {
         let items: [(title: String, icon: String)] = [
             ("Family", "person.2"),
             ("Account", "person.circle"),
-            ("Password & Security", "lock.fill"), // FIXED: Changed to "lock.fill"
+            ("Password & Security", "lock.fill"),
             ("Privacy & Policy", "hand.raised")
         ]
         
@@ -288,23 +298,18 @@ class ParentProfileViewController: UIViewController {
             
             row.isUserInteractionEnabled = true
             if item.title == "Family" {
-                let tap = UITapGestureRecognizer(target: self, action: #selector(familyTapped))
-                row.addGestureRecognizer(tap)
+                row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(familyTapped)))
             } else if item.title == "Account" {
-                let tap = UITapGestureRecognizer(target: self, action: #selector(accountTapped))
-                row.addGestureRecognizer(tap)
+                row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(accountTapped)))
             }
         }
         
-        // Logout
         let logoutRow = createGlassMenuRow(title: "Logout", icon: "rectangle.portrait.and.arrow.right", isDestructive: true)
         logoutRow.isUserInteractionEnabled = true
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleLogout))
-        logoutRow.addGestureRecognizer(tapGesture)
+        logoutRow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleLogout)))
         menuStackView.addArrangedSubview(logoutRow)
     }
     
-    // Glassmorphism Row Builder
     private func createGlassMenuRow(title: String, icon: String, isDestructive: Bool) -> UIView {
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
@@ -332,8 +337,7 @@ class ParentProfileViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         
         let chevron = UIImageView()
-        let config = UIImage.SymbolConfiguration(weight: .semibold)
-        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: config)
+        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
         chevron.tintColor = UIColor(white: 0.6, alpha: 1.0)
         chevron.contentMode = .scaleAspectFit
         chevron.translatesAutoresizingMaskIntoConstraints = false
@@ -366,24 +370,26 @@ class ParentProfileViewController: UIViewController {
         return container
     }
     
-    // MARK: - Actions Setup
+    // MARK: - Actions
     private func setupActions() {
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         editProfileButton.addTarget(self, action: #selector(editAvatarTapped), for: .touchUpInside)
-        
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(editAvatarTapped))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(editAvatarTapped))
         avatarImageView.isUserInteractionEnabled = true
-        avatarImageView.addGestureRecognizer(tapGesture)
+        avatarImageView.addGestureRecognizer(tap)
     }
     
-    // MARK: - Action Handlers
+    @objc private func editAvatarTapped() {
+            // Navigate to the Avatar Selection Screen
+            let vc = AvatarSelectViewController()
+            navigationController?.pushViewController(vc, animated: true)
+        }
     
     @objc private func backButtonTapped() {
-        if let navigationController = navigationController,
-           navigationController.viewControllers.count > 1 {
-            navigationController.popViewController(animated: true)
+        if let nav = navigationController, nav.viewControllers.count > 1 {
+            nav.popViewController(animated: true)
         } else {
-            dismiss(animated: true, completion: nil)
+            dismiss(animated: true)
         }
     }
     
@@ -397,11 +403,25 @@ class ParentProfileViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
     
-    @objc private func editAvatarTapped() {
-        print("Edit Avatar Tapped")
-    }
+    //@objc private func editAvatarTapped() { print("Edit Avatar") }
     
     @objc private func handleLogout() {
-        UserDefaults.standard.removeObject(forKey: "isLoggedIn")
+        // ✅ Real Logout with explicit Concurrency Task
+        _Concurrency.Task {
+            do {
+                try await ProfileService.shared.signOut()
+                
+                await MainActor.run {
+                    if let window = view.window {
+                        let authVC = SelectUserViewController()
+                        let nav = UINavigationController(rootViewController: authVC)
+                        window.rootViewController = nav
+                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                    }
+                }
+            } catch {
+                print("Logout Failed: \(error)")
+            }
+        }
     }
 }

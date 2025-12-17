@@ -144,24 +144,26 @@ final class KidAgendaViewController: UIViewController {
 
     private func applyFilterAndRender() {
         let index = statusFilterControl.selectedSegmentIndex
-        
+
         switch index {
-        case 1: // "To Do"
-            // Show items that are NOT approved yet (nil or pending)
+        case 1: // To Do
             visibleTasks = allTasksForDate.filter {
                 $0.submission_status == nil || $0.submission_status == "pending"
             }
-        case 2: // "Done"
-            // Show approved items
+
+        case 2: // Done
             visibleTasks = allTasksForDate.filter {
                 $0.submission_status == "approved"
             }
-        default: // "All"
+
+        default: // All
             visibleTasks = allTasksForDate
         }
-        
+
         renderAgendaCards()
     }
+
+
 
     private func renderAgendaCards() {
         // Clear previous cards
@@ -415,3 +417,4 @@ private extension Date {
         return df.string(from: self)
     }
 }
+

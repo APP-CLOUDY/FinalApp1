@@ -20,7 +20,6 @@ final class AvatarCell: UICollectionViewCell {
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFill // Images will fill the circle
         iv.clipsToBounds = true
-        // No background color here; the glass will be the background
         return iv
     }()
     
@@ -45,19 +44,10 @@ final class AvatarCell: UICollectionViewCell {
     
     // MARK: - Public
     
-    public func set(imageName: String) {
-        if let img = UIImage(named: imageName) {
-            avatarImageView.image = img
-            avatarImageView.contentMode = .scaleAspectFill
-            avatarImageView.tintColor = nil // Clear tint if using a real image
-        } else {
-            // Fallback to a system icon
-            // Adjust pointSize to make the icon fit well in the circle
-            let config = UIImage.SymbolConfiguration(pointSize: bounds.width * 0.35, weight: .regular)
-            avatarImageView.image = UIImage(systemName: "person.fill", withConfiguration: config)
-            avatarImageView.contentMode = .center // Center system icon
-            avatarImageView.tintColor = .white // System icon color
-        }
+    // ✅ CHANGED: Now accepts a URL string for Supabase images
+    public func set(url: String) {
+        // Ensure you have the UIImageView+Ext.swift file created for this to work
+        avatarImageView.loadImage(from: url)
     }
     
     // MARK: - Setup
@@ -68,9 +58,9 @@ final class AvatarCell: UICollectionViewCell {
         
         // Add a light border to enhance the glass effect
         contentView.layer.borderWidth = 0.5
-        contentView.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor // Semi-transparent white border
+        contentView.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
         contentView.layer.cornerRadius = 24
-        contentView.clipsToBounds = true // Ensure content respects corner radius
+        contentView.clipsToBounds = true
         
         // Pin blur effect view to the cell's content view
         NSLayoutConstraint.activate([
@@ -80,11 +70,11 @@ final class AvatarCell: UICollectionViewCell {
             blurEffectView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
         
-        // Add the avatar image view on top of the blur effect view
+        // Add the avatar image view on top
         contentView.addSubview(avatarImageView)
         
         // Inset the circular image from the cell's edges
-        let avatarPadding: CGFloat = 16 // Adjust this value to control circle size within the square
+        let avatarPadding: CGFloat = 16
         
         NSLayoutConstraint.activate([
             avatarImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: avatarPadding),

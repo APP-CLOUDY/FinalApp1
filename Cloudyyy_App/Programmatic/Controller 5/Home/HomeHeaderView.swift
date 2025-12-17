@@ -68,7 +68,11 @@ final class HomeHeaderView: UIView {
         return b
     }()
 
-    private lazy var plusButton = makeIconButton(systemName: "plus.circle.fill", pointSize: 20)
+    private lazy var plusButton: UIButton = {
+        let b = makeIconButton(systemName: "plus.circle.fill", pointSize: 20)
+        b.isHidden = true   // ✅ DEFAULT: hidden
+        return b
+    }()
     private lazy var bellButton = makeIconButton(systemName: "bell", pointSize: 20)
     private lazy var profileButton = makeIconButton(systemName: "person.circle.fill", pointSize: 22)
 
@@ -195,4 +199,5 @@ final class HomeHeaderView: UIView {
     @objc private func plusTapped()   { onPlusTapped?() }
     @objc private func backTapped()   { onBackTapped?() }
 }
+
 

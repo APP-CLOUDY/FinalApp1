@@ -97,4 +97,3 @@ final class CustomListViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
 }
-

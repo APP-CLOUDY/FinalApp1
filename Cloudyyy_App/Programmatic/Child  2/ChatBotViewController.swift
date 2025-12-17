@@ -154,7 +154,7 @@ struct CloudyFlowView: View {
                 return Mission(
                     id: task.id, // Use real Backend ID
                     title: task.title,
-                    time: task.frequency, // Or format task.due_date if available
+                    time: task.dueDateText, // Or format task.due_date if available
                     color: randomColor,
                     size: randomSize,
                     x: randomX,

@@ -24,7 +24,7 @@ final class NewRewardViewController: UIViewController {
     private let contentView = UIView()
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
-    
+
     // Top segment (Hidden in Edit Mode)
     private let segment: UISegmentedControl = {
         let sc = UISegmentedControl(items: ["Spring On", "Dream It", "Quick"])
@@ -103,6 +103,17 @@ final class NewRewardViewController: UIViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    // MARK: - Custom Claim Limit (Repeat)
+
+    private func openCustomFrequency() {
+        let vc = CustomClaimLimitViewController()
+        vc.onSave = { [weak self] rule, preview in
+            self?.claimLimitRow.setDetail(preview) // UI text
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -423,8 +434,9 @@ final class NewRewardViewController: UIViewController {
                         title: "Custom",
                         image: UIImage(systemName: "plus")
                     ) { [weak self] _ in
-                        self?.openCustomClaimLimit()
+                        self?.openCustomFrequency()
                     }
+
                 ])
             )
             rewardTypeRow.setMenu(
@@ -439,15 +451,6 @@ final class NewRewardViewController: UIViewController {
             )
         }
         
-    
-    private func openCustomClaimLimit() {
-        let vc = CustomClaimLimitViewController()
-        vc.onSave = { [weak self] value in
-            self?.claimLimitRow.setDetail(value)
-        }
-        navigationController?.pushViewController(vc, animated: true)
-    }
-
 
     
     private func updateAssignedMenu() {

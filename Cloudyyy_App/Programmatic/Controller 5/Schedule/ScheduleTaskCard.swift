@@ -45,7 +45,7 @@ final class ScheduleTaskCard: UIView {
         // Time / Frequency
         timeLabel.font = .systemFont(ofSize: 13)
         timeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
-        timeLabel.text = "\(task.points) Points • \(task.frequency)"
+        timeLabel.text = "\(task.points) Points • \(task.frequencyText)"
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         // Category

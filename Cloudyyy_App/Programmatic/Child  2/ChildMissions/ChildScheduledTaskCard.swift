@@ -89,9 +89,9 @@ final class KidAgendaItemPanel: UIView {
 
     private func configure(with task: ScheduleTaskModel) {
         headingLabel.text = task.title
-        subLabel.text = "\(task.points) pts • \(task.frequency)"
-
-        let status = task.submission_status ?? ""
+        let frequencyText = task.frequencyText.isEmpty ? "Once" : task.frequencyText
+        subLabel.text = "\(task.points) pts • \(frequencyText)"
+        let status = "" // No status on ScheduleTaskModel; default to To Do visuals
         
         // Visual Status Logic
         if status == "pending" {

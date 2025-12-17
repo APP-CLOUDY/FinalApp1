@@ -8,6 +8,7 @@ class NewTaskViewController: UIViewController {
     // Stores selected Child IDs (Supports Multi-Select)
     private var assignedSelections = Set<UUID>()
     
+    
     private var selectedDate: Date?
     // MARK: - Initialization
     init() {
@@ -18,12 +19,29 @@ class NewTaskViewController: UIViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    private var repeatRule: RepeatRule?
+    private var familyId: UUID?
+
+
+    private func openCustomFrequency() {
+           let vc = CustomClaimLimitViewController()
+           vc.onSave = { [weak self] rule, label in
+               self?.repeatRule = rule
+               self?.frequencyRow.setDetail(label)
+           }
+           navigationController?.pushViewController(vc, animated: true)
+       }
+
 
     // MARK: - UI Components
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
+    private var selectedListId: UUID?
+    private var taskLists: [TaskListModel] = []
+
+
 
     private let titleNotesView =
         CombinedTitleNotesView(
@@ -60,6 +78,7 @@ class NewTaskViewController: UIViewController {
         
         // FETCH DATA: Get real children from DB for Dynamic Menu
         fetchChildren()
+
     }
 
     override func viewDidLayoutSubviews() {
@@ -69,20 +88,27 @@ class NewTaskViewController: UIViewController {
     
     // MARK: - Data Logic
     private func fetchChildren() {
-        // Use _Concurrency.Task to avoid Main Actor errors
         _Concurrency.Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
-                
+
                 await MainActor.run {
                     self.childrenList = data.children
+                    self.familyId = data.family_id   // ✅ THIS FIXES LIST & DATE
                     self.handleAssignedToVisibility()
                 }
+
+
+                await self.loadTaskLists()
+
             } catch {
-                print("Error fetching children: \(error)")
+                print("Error fetching children:", error)
             }
         }
     }
+
+
+
 
     // MARK: - UI Setup
     private func setupNavigationBar() {
@@ -210,81 +236,111 @@ class NewTaskViewController: UIViewController {
     private func applyDefaultValues() {
         priorityRow.setDetail("Medium")
         frequencyRow.setDetail("Once")
-        assignedRow.setDetail("Select Child")
-        listRow.setDetail("General")
+
+        if let general = taskLists.first(where: { $0.name == "General" }) {
+            listRow.setDetail(general.name)
+            selectedListId = general.id
+        }
+    }
+
+    private func loadTaskLists() async {
+        guard let familyId else { return }
+
+        do {
+            let lists = try await TaskService.shared.fetchTaskLists(familyId: familyId)
+
+            await MainActor.run {
+                self.taskLists = lists
+                self.refreshListMenu()
+
+                if let general = lists.first(where: { $0.name == "General" }) {
+                    self.selectedListId = general.id
+                    self.listRow.setDetail("General")
+                }
+            }
+        } catch {
+            print("Failed to load task lists:", error)
+        }
+    }
+    private func refreshListMenu() {
+        let actions = taskLists.map { list in
+            UIAction(title: list.name) { [weak self] _ in
+                self?.selectedListId = list.id
+                self?.listRow.setDetail(list.name)
+            }
+        }
+
+        let custom = UIAction(
+            title: "Custom",
+            image: UIImage(systemName: "plus")
+        ) { [weak self] _ in
+            self?.openCustomList()
+        }
+
+        listRow.setMenu(UIMenu(children: actions + [custom]))
     }
 
     // MARK: - Menus
     private func setupStaticMenus() {
-
-        // Priority
+        
         priorityRow.setMenu(
-            UIMenu(children: ["None", "Low", "Medium", "High"].map { level in
-                UIAction(title: level) { [weak self] _ in
-                    self?.priorityRow.setDetail(level)
+            UIMenu(children: ["None", "Low", "Medium", "High"].map { value in
+                UIAction(title: value) { [weak self] _ in
+                    self?.priorityRow.setDetail(value)
                 }
             })
         )
-
-        // Frequency (with Custom)
+        
         frequencyRow.setMenu(
             UIMenu(children: [
-                UIAction(title: "Once") { [weak self] _ in self?.frequencyRow.setDetail("Once") },
-                UIAction(title: "Daily") { [weak self] _ in self?.frequencyRow.setDetail("Daily") },
-                UIAction(title: "Weekly") { [weak self] _ in self?.frequencyRow.setDetail("Weekly") },
-                UIAction(title: "Monthly") { [weak self] _ in self?.frequencyRow.setDetail("Monthly") },
-                UIAction(title: "Every 3 Months") { [weak self] _ in self?.frequencyRow.setDetail("Yearly") },
-                UIAction(title: "Yearly") { [weak self] _ in self?.frequencyRow.setDetail("Yearly") },
-
+                UIAction(title: "Once") { [weak self] _ in
+                    self?.repeatRule = .once
+                    self?.frequencyRow.setDetail("Once")
+                },
+                UIAction(title: "Daily") { [weak self] _ in
+                    self?.repeatRule = .daily
+                    self?.frequencyRow.setDetail("Daily")
+                },
+                UIAction(title: "Weekly") { [weak self] _ in
+                    self?.repeatRule = .weekly(nil)
+                    self?.frequencyRow.setDetail("Weekly")
+                },
                 UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
                     self?.openCustomFrequency()
                 }
             ])
         )
-
-        // List (with Custom)
-        let defaultLists = ["General", "Morning Routine", "Evening Routine", "School", "Chores"]
-        let customLists = loadCustomLists()
-
-        let listActions =
-            defaultLists.map { name in
-                UIAction(title: name) { [weak self] _ in
-                    self?.listRow.setDetail(name)
-                }
-            }
-            +
-            customLists.map { name in
-                UIAction(title: name) { [weak self] _ in
-                    self?.listRow.setDetail(name)
-                }
-            }
-            +
-            [
-                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
-                    self?.openCustomList()
-                }
-            ]
-
-        listRow.setMenu(UIMenu(children: listActions))
     }
     // MARK: - Custom Frequency
-    private func openCustomFrequency() {
-        let vc = CustomClaimLimitViewController()
-        vc.onSave = { [weak self] value in
-            self?.frequencyRow.setDetail(value)
-        }
-        navigationController?.pushViewController(vc, animated: true)
-    }
-    // MARK: - Custom List
+
     private func openCustomList() {
         let vc = CustomListViewController()
+
         vc.onSave = { [weak self] name in
-            self?.saveListIfNeeded(name)
-            self?.listRow.setDetail(name)
-            self?.setupStaticMenus() // refresh menu
+            guard let self else { return }
+            guard let familyId = self.familyId else {
+                self.showAlert("Family not found")
+                return
+            }
+
+            _Concurrency.Task {
+                let list = try await TaskService.shared.createTaskList(
+                    name: name,          // ✅ String
+                    familyId: familyId   // ✅ UUID
+                )
+
+                await MainActor.run {
+                    self.taskLists.append(list)
+                    self.refreshListMenu()
+                    self.selectedListId = list.id
+                    self.listRow.setDetail(list.name)
+                }
+            }
         }
+
         navigationController?.pushViewController(vc, animated: true)
     }
+
 
     private func saveListIfNeeded(_ list: String) {
         let key = "custom_task_lists"
@@ -405,69 +461,61 @@ class NewTaskViewController: UIViewController {
         
         present(vc, animated: true)
     }
+    
 
     @objc private func doneTapped() {
-        view.endEditing(true)
-        
-        let title = titleNotesView.titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let title = titleNotesView.titleText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !title.isEmpty else {
             showAlert("Please enter a title")
             return
         }
 
-        if assignedSelections.isEmpty {
-            showAlert("Please assign to at least one child")
+        guard let listId = selectedListId,
+              !assignedSelections.isEmpty
+        else {
+            showAlert("Please fill all required fields")
             return
         }
-        
-        // 2. Prep Data
-        let points = pointsRow.countValue // ✅ Using countValue from your PointsRow
-        let priority = priorityRow.detailText ?? "Medium"
-        let frequency = frequencyRow.detailText ?? "Once"
-        
-        // ✅ 3. Get Approval Status
-        let approval = approvalRow.isOn
-        
-        // 4. UI Loading
-        navigationItem.rightBarButtonItem?.isEnabled = false
-        
-        // 5. API Call
+
         _Concurrency.Task {
             do {
                 let taskId = try await TaskService.shared.createTask(
                     title: title,
                     description: titleNotesView.notesText,
-                    points: points,
-                    priority: priority,
-                    frequency: frequency,
+                    points: pointsRow.countValue,
+                    priority: priorityRow.detailText ?? "Medium",
+                    repeatRule: repeatRule,
+                    listId: listId,
                     assignTo: Array(assignedSelections),
                     dueDate: selectedDate,
-                    approvalRequired: approval // ✅ FIXED: Added this parameter
+                    approvalRequired: approvalRow.isOn
                 )
-                
-                print("Task Created! ID: \(taskId)")
-                
+
+                print("Created task:", taskId)
                 await MainActor.run {
                     self.dismiss(animated: true)
                 }
+
             } catch {
-                print("Error: \(error)")
+                print("Create task failed:", error)
                 await MainActor.run {
-                    self.navigationItem.rightBarButtonItem?.isEnabled = true
-                    self.showAlert("Failed: \(error.localizedDescription)")
+                    self.showAlert("Failed to create task")
                 }
             }
         }
     }
 
+    
     @objc private func cancelTapped() {
         dismiss(animated: true)
     }
     
-    private func showAlert(_ message: String) {
-        let alert = UIAlertController(title: "Info", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
-}
+    private func showAlert(_ msg: String) {
+           let a = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
+           a.addAction(.init(title: "OK", style: .default))
+           present(a, animated: true)
+       }
+   }
