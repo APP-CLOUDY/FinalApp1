@@ -164,7 +164,7 @@ final class JoinWithCode: PremiumBaseViewController, UITextFieldDelegate {
     }
     
     private func navigateToChildHome() {
-        let vc = AppTabBarController()
+        let vc = ChildTabBarController()
         
         if let window = view.window {
             window.rootViewController = vc

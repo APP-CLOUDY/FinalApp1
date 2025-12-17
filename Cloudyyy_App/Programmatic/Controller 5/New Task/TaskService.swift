@@ -108,19 +108,7 @@ struct TaskResponse: Decodable, Sendable {
 }
 
 // Keep your ScheduleTaskModel as is (with Optionals)
-struct ScheduleTaskModel: Decodable, Sendable, Identifiable {
-    let id: UUID
-    let title: String
-    let description: String?
-    let points: Int
-    let priority: String?
-    let frequency: String
-    let due_date: String?
-    let due_time: String?     // ✅ ADD
-    let submission_status: String?
-    let approval_required: Bool?
-    let list_name: String?
-}
+
 
 // MARK: - Service Class
 

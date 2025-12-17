@@ -104,6 +104,19 @@ final class KidAgendaViewController: UIViewController {
         
         // Select Today by default
         select(date: Date(), animated: false)
+        
+        // ✅ NEW: Listen for Chatbot Completion
+        NotificationCenter.default.addObserver(self, selector: #selector(handleTaskCompletionRefresh), name: .taskDidComplete, object: nil)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    // ✅ NEW: Refresh when Chatbot finishes a task
+    @objc private func handleTaskCompletionRefresh() {
+        print("🔄 Schedule Screen received update notification")
+        fetchTasks(for: activeDate)
     }
 
     override func viewDidLayoutSubviews() {
@@ -146,17 +159,20 @@ final class KidAgendaViewController: UIViewController {
         let index = statusFilterControl.selectedSegmentIndex
         
         switch index {
-        case 1: // "To Do"
-            // Show items that are NOT approved yet (nil or pending)
+        case 1: // "To Do" Tab
+            // Show only items that have NOT been submitted
             visibleTasks = allTasksForDate.filter {
-                $0.submission_status == nil || $0.submission_status == "pending"
+                $0.submission_status == nil
             }
-        case 2: // "Done"
-            // Show approved items
+            
+        case 2: // "Done" Tab
+            // ✅ CHANGED: Show Approved OR Pending (Waiting for parent)
             visibleTasks = allTasksForDate.filter {
-                $0.submission_status == "approved"
+                let status = $0.submission_status?.lowercased()
+                return status == "approved" || status == "pending"
             }
-        default: // "All"
+            
+        default: // "All" Tab
             visibleTasks = allTasksForDate
         }
         
