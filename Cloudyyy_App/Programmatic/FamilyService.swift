@@ -107,83 +107,95 @@ final class FamilyService: Sendable {
     }
 
     /// Parents + Children list for UI
-    func fetchFamilyMembers(familyId: UUID) async throws -> [FamilyMemberDisplay] {
-        var members: [FamilyMemberDisplay] = []
-
-        // MARK: - Parents
-
-        struct ParentRow: Decodable {
-            let users: [UserProfile]?
-        }
-
-        let parentRows: [ParentRow] = try await client.database
-            .from("family_members")
-            .select("users:users(*)")
-            .eq("family_id", value: familyId)
-            .not("user_id", operator: .is, value: "null")
-            .execute()
-            .value
-
-        for row in parentRows {
-            guard let user = row.users?.first else { continue }
-
-            let avatarUrl = user.avatar_id.map {
-                ProfileService.shared.getAvatarURL(fileName: $0)
+    // MARK: - 2. Fetch Members (Fixed Decoding)
+        func fetchFamilyMembers(familyId: UUID) async throws -> [FamilyMemberDisplay] {
+            var displayMembers: [FamilyMemberDisplay] = []
+            
+            print("🔍 DEBUG: Fetching members for Family ID: \(familyId)")
+            
+            // --- A. Fetch Parents ---
+            // 1. Define struct LOCALLY with a unique name to avoid conflicts
+            struct ParentRow: Decodable {
+                // "users" refers to the joined table.
+                // It is a SINGLE object (Dictionary), not an Array.
+                let users: UserProfile?
             }
-
-            members.append(
-                FamilyMemberDisplay(
-                    id: user.id.uuidString,
-                    name: user.first_name,
-                    role: (user.role ?? "Parent").capitalized,
-                    avatarUrl: avatarUrl,
-                    joinCode: nil,
-                    type: .parent
-                )
-            )
-        }
-
-        // MARK: - Children
-
-        struct ChildRow: Decodable {
-            struct ChildData: Decodable {
-                let id: UUID
-                let name: String
-                let join_code: String?
-                let gender: String?
+            
+            do {
+                let parentRows: [ParentRow] = try await client.database
+                    .from("family_members")
+                    .select("users:users(*)") // Join users table
+                    .eq("family_id", value: familyId)
+                    .not("user_id", operator: .is, value: "null")
+                    .execute()
+                    .value
+                
+                print("✅ DEBUG: Decoded \(parentRows.count) Parent Rows")
+                
+                for row in parentRows {
+                    if let user = row.users {
+                        let avatarUrl = user.avatar_id != nil ? ProfileService.shared.getAvatarURL(fileName: user.avatar_id!) : nil
+                        let p = FamilyMemberDisplay(
+                            id: user.id.uuidString,
+                            name: user.first_name,
+                            role: (user.role ?? "Parent").capitalized,
+                            avatarUrl: avatarUrl,
+                            joinCode: nil,
+                            type: .parent
+                        )
+                        displayMembers.append(p)
+                    }
+                }
+            } catch {
+                print("❌ DEBUG: Parent Decoding Error: \(error)")
             }
-            let children: ChildData?
+            
+            // --- B. Fetch Children ---
+            struct ChildRow: Decodable {
+                struct ChildData: Decodable {
+                    let id: UUID
+                    let name: String
+                    let join_code: String? // Optional
+                    let gender: String?    // Optional
+                }
+                let children: ChildData?
+            }
+            
+            do {
+                let childRows: [ChildRow] = try await client.database
+                    .from("family_members")
+                    .select("children:children(*)") // Join children table
+                    .eq("family_id", value: familyId)
+                    .not("child_id", operator: .is, value: "null")
+                    .execute()
+                    .value
+                
+                print("✅ DEBUG: Decoded \(childRows.count) Child Rows")
+                
+                for row in childRows {
+                    if let child = row.children {
+                        // Safe Fallback for Gender
+                        let gender = child.gender?.lowercased() ?? "male"
+                        let avatarName = (gender == "female") ? "avatar-f-1.png" : "avatar-m-1.png"
+                        let avatarUrl = ProfileService.shared.getAvatarURL(fileName: avatarName)
+                        
+                        let c = FamilyMemberDisplay(
+                            id: child.id.uuidString,
+                            name: child.name,
+                            role: "Child",
+                            avatarUrl: avatarUrl,
+                            joinCode: child.join_code ?? "----",
+                            type: .child
+                        )
+                        displayMembers.append(c)
+                    }
+                }
+            } catch {
+                print("❌ DEBUG: Child Decoding Error: \(error)")
+            }
+            
+            return displayMembers
         }
-
-        let childRows: [ChildRow] = try await client.database
-            .from("family_members")
-            .select("children:children(*)")
-            .eq("family_id", value: familyId)
-            .not("child_id", operator: .is, value: "null")
-            .execute()
-            .value
-
-        for row in childRows {
-            guard let child = row.children else { continue }
-
-            let gender = child.gender?.lowercased() ?? "male"
-            let avatarName = gender == "female" ? "avatar-f-1.png" : "avatar-m-1.png"
-            let avatarUrl = ProfileService.shared.getAvatarURL(fileName: avatarName)
-
-            members.append(
-                FamilyMemberDisplay(
-                    id: child.id.uuidString,
-                    name: child.name,
-                    role: "Child",
-                    avatarUrl: avatarUrl,
-                    joinCode: child.join_code ?? "----",
-                    type: .child
-                )
-            )
-        }
-
-        return members
-    }
 
     // MARK: - Update
 
@@ -195,4 +207,3 @@ final class FamilyService: Sendable {
             .execute()
     }
 }
-

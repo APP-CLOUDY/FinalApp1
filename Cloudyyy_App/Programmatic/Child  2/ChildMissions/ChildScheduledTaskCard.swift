@@ -8,7 +8,7 @@ final class KidAgendaItemPanel: UIView {
     private let subLabel = UILabel()
     private let blurContainerView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
     
-    // Visual-only icon (No action for now)
+    // Visual-only icon
     private let statusIcon: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
@@ -18,7 +18,7 @@ final class KidAgendaItemPanel: UIView {
     }()
 
     // MARK: - Init
-    init(task: ScheduleTaskModel) {
+    init(task: ScheduleTaskModelChild) {
         super.init(frame: .zero)
         setupUI()
         configure(with: task)
@@ -33,11 +33,11 @@ final class KidAgendaItemPanel: UIView {
         clipsToBounds = true
         backgroundColor = .clear
 
-        // 1. Stripe
+        // 1. Stripe (Left)
         accentStripeView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(accentStripeView)
 
-        // 2. Glass Container
+        // 2. Glass Container (Right)
         blurContainerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(blurContainerView)
 
@@ -56,13 +56,13 @@ final class KidAgendaItemPanel: UIView {
         content.addSubview(statusIcon)
 
         NSLayoutConstraint.activate([
-            // Stripe (Left edge)
+            // Stripe (Left edge, fixed width)
             accentStripeView.leadingAnchor.constraint(equalTo: leadingAnchor),
             accentStripeView.topAnchor.constraint(equalTo: topAnchor),
             accentStripeView.bottomAnchor.constraint(equalTo: bottomAnchor),
             accentStripeView.widthAnchor.constraint(equalToConstant: 6),
 
-            // Container
+            // Container (Fills the rest)
             blurContainerView.leadingAnchor.constraint(equalTo: accentStripeView.trailingAnchor),
             blurContainerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             blurContainerView.topAnchor.constraint(equalTo: topAnchor),
@@ -87,30 +87,27 @@ final class KidAgendaItemPanel: UIView {
         ])
     }
 
-    private func configure(with task: ScheduleTaskModel) {
+    private func configure(with task: ScheduleTaskModelChild) {
         headingLabel.text = task.title
-        let frequencyText = task.frequencyText.isEmpty ? "Once" : task.frequencyText
-        subLabel.text = "\(task.points) pts • \(frequencyText)"
-        let status = "" // No status on ScheduleTaskModel; default to To Do visuals
+        subLabel.text = "\(task.points) pts • \(task.frequency)"
         
-        // Visual Status Logic
-        if status == "pending" {
-            // Waiting for parent
-            accentStripeView.backgroundColor = .systemYellow
-            statusIcon.image = UIImage(systemName: "hourglass")
-            statusIcon.tintColor = .systemYellow
-        }
-        else if status == "approved" {
-            // Finished
-            accentStripeView.backgroundColor = .systemGreen
+        // Default icon
+        statusIcon.image = UIImage(systemName: "hourglass")
+    }
+    
+    // ✅ THIS IS THE FUNCTION THAT WAS MISSING
+    func setStatusColor(_ color: UIColor) {
+        accentStripeView.backgroundColor = color
+        statusIcon.tintColor = color
+        
+        // Update icon based on color logic
+        if color == .systemGreen {
             statusIcon.image = UIImage(systemName: "checkmark.circle.fill")
-            statusIcon.tintColor = .systemGreen
-        }
-        else {
-            // To Do
-            accentStripeView.backgroundColor = .systemBlue
-            statusIcon.image = UIImage(systemName: "circle")
-            statusIcon.tintColor = .white.withAlphaComponent(0.5)
+        } else if color == .systemRed {
+            statusIcon.image = UIImage(systemName: "xmark.circle.fill")
+        } else {
+            statusIcon.image = UIImage(systemName: "hourglass")
         }
     }
 }
+
