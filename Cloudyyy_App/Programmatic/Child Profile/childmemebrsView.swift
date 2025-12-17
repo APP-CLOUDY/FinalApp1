@@ -177,7 +177,7 @@ class ChildMembersView: UIViewController {
     private func createMemberCard(avatarName: String, name: String, role: String, code: String?) -> UIView {
         // NOTE: Ensure your existing class is named 'GradientCardView'.
         // If your previous file uses 'GgradientCardView' (with two G's), change this line below to match it.
-        let card = GgradientCardView()
+        let card = GlassCardView()
         card.setCornerRadius(16)
         card.translatesAutoresizingMaskIntoConstraints = false
         card.heightAnchor.constraint(equalToConstant: 90).isActive = true
