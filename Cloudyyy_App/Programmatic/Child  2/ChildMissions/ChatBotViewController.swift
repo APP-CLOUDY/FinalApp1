@@ -23,6 +23,14 @@ enum AppState: Equatable {
     }
 }
 
+// MARK: - AI Models
+struct ChatMessage: Identifiable, Equatable {
+    let id = UUID()
+    let text: String
+    let isUser: Bool // true = Child, false = AI
+    let timestamp = Date()
+}
+
 // MARK: - Theme Configuration
 extension Color {
     static let bgGradientStart = Color(red: 15/255, green: 18/255, blue: 24/255)
@@ -40,7 +48,7 @@ extension Color {
     static let neonYellow = Color(red: 1.0, green: 0.9, blue: 0.4)
 }
 
-// MARK: - Data Model (UI Representation)
+// MARK: - Data Model
 struct Mission: Identifiable, Equatable {
     let id: UUID // Maps to Backend ID
     let title: String
@@ -60,6 +68,90 @@ struct Mission: Identifiable, Equatable {
     }
 }
 
+// MARK: - Gemini AI Service
+// MARK: - Gemini AI Service (Bulletproof)
+actor CloudyAIService {
+    static let shared = CloudyAIService()
+    
+    // ⬇️ PASTE YOUR NEW KEY HERE (No spaces!) ⬇️
+    private let apiKey = "AIzaSyBHYhHoMvnQkXQNo9JaOQxveO0I6_vddM8"
+    
+    // ⬇️ IF YOU GET 404, UNCOMMENT THE OTHER LINE BELOW ⬇️
+    
+    // OPTION 1: The standard for new keys (Try this first)
+    private let model = "gemini-1.5-flash"
+    
+    // OPTION 2: The legacy standard (Uncomment this if Option 1 fails)
+    // private let model = "gemini-pro"
+    
+    func sendMessage(userQuery: String, missions: [Mission], rewardsBalance: Int) async throws -> String {
+        
+        let cleanKey = apiKey.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent"
+        
+        // 1. Context String
+        let missionContext = missions.map {
+            "- Task: \($0.title) (Time: \($0.time), Needs Photo: \($0.requiresPhoto ? "Yes" : "No"))"
+        }.joined(separator: "\n")
+        
+        // 2. Merged Prompt (Prevents Error 400)
+        // We put the "System" instructions inside the user message. This works on ALL models.
+        let fullPrompt = """
+        SYSTEM INSTRUCTIONS:
+        You are 'Cloudyy', a friendly cloud character in a kids' app.
+        Current Data:
+        \(missionContext)
+        - Wallet: \(rewardsBalance) Coins
+        Rules:
+        1. Only answer about tasks/rewards. Refuse math/history.
+        2. Keep answers short (max 2 sentences).
+        3. Use emojis (☁️, ✨).
+        
+        USER QUESTION:
+        \(userQuery)
+        """
+        
+        // 3. Simple JSON Body (Safe for all models)
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "role": "user",
+                    "parts": [ ["text": fullPrompt] ]
+                ]
+            ],
+            "generationConfig": [ "temperature": 0.7, "maxOutputTokens": 100 ]
+        ]
+        
+        // 4. Send Request
+        guard let url = URL(string: "\(endpoint)?key=\(cleanKey)") else { return "Error: Invalid URL" }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // 5. Check for Errors
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            print("❌ Error Code: \(httpResponse.statusCode)")
+            return "⚠️ Error \(httpResponse.statusCode). Try switching the 'model' variable in code."
+        }
+        
+        // 6. Parse Success
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let candidates = json["candidates"] as? [[String: Any]],
+           let firstCandidate = candidates.first,
+           let content = firstCandidate["content"] as? [String: Any],
+           let parts = content["parts"] as? [[String: Any]],
+           let text = parts.first?["text"] as? String {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        return "Oops! Cloudyy is confused. ☁️"
+    }
+}
+
 // MARK: - 2. Main Flow Controller View
 
 struct CloudyFlowView: View {
@@ -74,6 +166,11 @@ struct CloudyFlowView: View {
     @State private var missions: [Mission] = []
     @State private var isLoading: Bool = false
     
+    // MARK: - AI Chat State
+    @State private var chatHistory: [ChatMessage] = []
+    @State private var isAIThinking: Bool = false
+    @FocusState private var isInputFocused: Bool
+    
     var body: some View {
         ZStack {
             // Background Gradient
@@ -87,30 +184,42 @@ struct CloudyFlowView: View {
             VStack(spacing: 0) {
                 header
                 
-                Group {
-                    switch currentState {
-                    case .chatWelcome:
-                        WelcomeView(currentState: $currentState)
-                            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-                    case .missionCluster:
-                        MissionClusterView(
-                            currentState: $currentState,
-                            missions: missions,
-                            completedMissionIDs: $completedMissionIDs,
-                            dissolvingMissionID: $dissolvingMissionID,
-                            isLoading: isLoading
-                        )
-                        .transition(.opacity)
-                    case .missionDetail(let mission):
-                        MissionDetailView(
-                            currentState: $currentState,
-                            mission: mission,
-                            completedMissionIDs: $completedMissionIDs, // ✅ PASSED BINDING
-                            dissolvingMissionID: $dissolvingMissionID
-                        )
-                        .transition(.slide)
+                // MAIN CONTENT AREA (Switches between Chat and App)
+                ZStack {
+                    if chatHistory.isEmpty {
+                        // Standard App Flow
+                        Group {
+                            switch currentState {
+                            case .chatWelcome:
+                                WelcomeView(currentState: $currentState)
+                                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                            case .missionCluster:
+                                MissionClusterView(
+                                    currentState: $currentState,
+                                    missions: missions,
+                                    completedMissionIDs: $completedMissionIDs,
+                                    dissolvingMissionID: $dissolvingMissionID,
+                                    isLoading: isLoading
+                                )
+                                .transition(.opacity)
+                            case .missionDetail(let mission):
+                                MissionDetailView(
+                                    currentState: $currentState,
+                                    mission: mission,
+                                    completedMissionIDs: $completedMissionIDs,
+                                    dissolvingMissionID: $dissolvingMissionID
+                                )
+                                .transition(.slide)
+                            }
+                        }
+                    } else {
+                        // AI Chat Flow
+                        AIChatScrollView(messages: chatHistory, isThinking: isAIThinking)
+                            .transition(.move(edge: .bottom))
                     }
                 }
+                .animation(.spring(), value: chatHistory.isEmpty)
+                .animation(.spring(), value: currentState)
                 
                 Spacer()
                 inputBar
@@ -124,7 +233,7 @@ struct CloudyFlowView: View {
         }
     }
     
-    // MARK: - Data Fetching Logic
+    // MARK: - Data Fetching (REAL BACKEND LOGIC)
     private func loadBackendMissions() async {
         guard missions.isEmpty else { return }
         
@@ -132,6 +241,7 @@ struct CloudyFlowView: View {
         defer { isLoading = false }
         
         do {
+            // ✅ RESTORED: Calling your ChildHomeService
             let tasks = try await ChildHomeService.shared.fetchSchedule(date: Date())
             
             // Filter: Only show tasks NOT approved and NOT pending
@@ -161,7 +271,7 @@ struct CloudyFlowView: View {
                 )
             }
         } catch {
-            print("Failed to load missions for chatbot: \(error)")
+            print("Failed to load missions: \(error)")
         }
     }
     
@@ -174,9 +284,13 @@ struct CloudyFlowView: View {
                     .foregroundColor(.white)
                 
                 HStack {
+                    // Back Button Logic
                     Button(action: {
                         withAnimation {
-                            if case .missionDetail = currentState {
+                            if !chatHistory.isEmpty {
+                                chatHistory.removeAll()
+                                isInputFocused = false
+                            } else if case .missionDetail = currentState {
                                 currentState = .missionCluster
                             } else if currentState == .missionCluster {
                                 currentState = .chatWelcome
@@ -185,9 +299,9 @@ struct CloudyFlowView: View {
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(currentState == .chatWelcome ? .clear : .white)
+                            .foregroundColor((currentState == .chatWelcome && chatHistory.isEmpty) ? .clear : .white)
                     }
-                    .disabled(currentState == .chatWelcome)
+                    .disabled(currentState == .chatWelcome && chatHistory.isEmpty)
                     
                     Spacer()
                     
@@ -206,7 +320,7 @@ struct CloudyFlowView: View {
                 .fill(Color.white.opacity(0.15))
                 .frame(height: 0.5)
         }
-        .padding(.top, 10)
+        .padding(.top, -50) // ✅ INCREASED PADDING FOR NOTCH
     }
     
     // MARK: - Input Bar
@@ -215,29 +329,79 @@ struct CloudyFlowView: View {
             HStack {
                 TextField("", text: $textInput)
                     .placeholder(when: textInput.isEmpty) {
-                        Text("Ask me !").foregroundColor(.gray)
+                        Text("Ask me about tasks!").foregroundColor(.gray)
                     }
                     .foregroundColor(.black)
+                    .focused($isInputFocused)
+                    .onSubmit {
+                        performSendMessage()
+                    }
             }
             .padding(14)
             .background(Color.white)
             .cornerRadius(25)
             
-            Button(action: {}) {
+            Button(action: performSendMessage) {
                 ZStack {
                     Circle()
-                        .fill(Color.accentPurple)
+                        .fill(textInput.isEmpty ? Color.gray.opacity(0.5) : Color.accentPurple)
                         .frame(width: 50, height: 50)
-                    Image(systemName: "paperplane")
-                        .font(.system(size: 22))
-                        .foregroundColor(.white)
-                        .offset(x: -2, y: 2)
+                    
+                    if isAIThinking {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                            .offset(x: -2, y: 2)
+                    }
                 }
             }
+            .disabled(textInput.isEmpty || isAIThinking)
         }
         .padding(.horizontal)
         .padding(.top, 10)
         .padding(.bottom, 20)
+    }
+    
+    // MARK: - AI Action Logic
+    func performSendMessage() {
+        guard !textInput.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        
+        let userText = textInput
+        textInput = ""
+        isInputFocused = false
+        
+        withAnimation {
+            chatHistory.append(ChatMessage(text: userText, isUser: true))
+        }
+        
+        isAIThinking = true
+        
+        Task {
+            do {
+                // Fetch simulated rewards (or replace with ChildHomeService.shared.getCoins() if available)
+                let currentRewards = 150
+                
+                let response = try await CloudyAIService.shared.sendMessage(
+                    userQuery: userText,
+                    missions: missions,
+                    rewardsBalance: currentRewards
+                )
+                
+                await MainActor.run {
+                    withAnimation {
+                        chatHistory.append(ChatMessage(text: response, isUser: false))
+                        isAIThinking = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    chatHistory.append(ChatMessage(text: "My cloud signal is weak... try again later!", isUser: false))
+                    isAIThinking = false
+                }
+            }
+        }
     }
 }
 
@@ -249,6 +413,7 @@ struct WelcomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
+                // ✅ RESTORED ASSET IMAGE
                 Image("cloudyy_logo")
                     .resizable()
                     .scaledToFit()
@@ -359,6 +524,7 @@ struct MissionClusterView: View {
                 } else {
                     // Floating Bubbles Area
                     ZStack {
+                        // ✅ RESTORED CLOUD BASKET IMAGE
                         Image("cloudBasket")
                             .resizable()
                             .scaledToFit()
@@ -392,12 +558,9 @@ struct MissionClusterView: View {
     }
 }
 
-// MARK: - DETAIL VIEW (Logic Injected, UI Preserved)
 struct MissionDetailView: View {
     @Binding var currentState: AppState
     let mission: Mission
-    
-    // ✅ BINDINGS FOR NAVIGATION & STATE
     @Binding var completedMissionIDs: Set<UUID>
     @Binding var dissolvingMissionID: UUID?
     
@@ -477,7 +640,7 @@ struct MissionDetailView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // Cloud & Speech Bubble with Tail
+                    // ✅ RESTORED CLOUD UMBRELLA DECORATION
                     ZStack(alignment: .bottomTrailing) {
                         Image("cloudUmbrella")
                             .resizable()
@@ -551,15 +714,13 @@ struct MissionDetailView: View {
                 }
                 .padding(.top, 20)
             }
-            .blur(radius: isUploading ? 2 : 0) // Blur background when uploading
+            .blur(radius: isUploading ? 2 : 0)
         }
-        // ✅ CAMERA INTEGRATION
         .fullScreenCover(isPresented: $showCamera) {
             CameraView(selectedImage: $capturedImage)
         }
     }
     
-    // MARK: - Logic
     func handleDoneTap() {
         if mission.requiresPhoto && capturedImage == nil {
             showCamera = true
@@ -574,25 +735,20 @@ struct MissionDetailView: View {
             do {
                 var finalPhotoUrl: String? = nil
                 
-                // Upload Photo if present
                 if let img = capturedImage, let childId = ChildSessionManager.shared.currentChildId {
                     finalPhotoUrl = try await ChildHomeService.shared.uploadProof(image: img, childId: childId)
                 }
                 
-                // Submit Task to Supabase
                 try await ChildHomeService.shared.submitTask(taskId: mission.id, photoUrl: finalPhotoUrl)
                 
-                // ✅ SUCCESS: Navigate Back
                 await navigateBackToHome()
             } catch {
                 print("Error submitting: \(error)")
-                // ✅ FAILURE: Force Navigate Back (To solve sticking issue)
                 await navigateBackToHome()
             }
         }
     }
     
-    // Helper to handle safe UI updates + Navigation
     @MainActor
     func navigateBackToHome() {
         isUploading = false
@@ -605,7 +761,82 @@ struct MissionDetailView: View {
     }
 }
 
-// MARK: - 4. Effects & Helpers (Bubbles)
+// MARK: - 4. Chat UI Components
+
+struct AIChatScrollView: View {
+    let messages: [ChatMessage]
+    let isThinking: Bool
+    
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(messages) { message in
+                        ChatBubbleRow(message: message)
+                            .id(message.id)
+                    }
+                    
+                    if isThinking {
+                        HStack {
+                            Text("Cloudyy is thinking...")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                                .italic()
+                            Spacer()
+                        }
+                        .padding(.leading, 20)
+                    }
+                    
+                    Color.clear.frame(height: 60)
+                }
+                .padding(.top, 20)
+            }
+            .onChange(of: messages.count) { _ in
+                if let lastId = messages.last?.id {
+                    withAnimation {
+                        proxy.scrollTo(lastId, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct ChatBubbleRow: View {
+    let message: ChatMessage
+    
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            if !message.isUser {
+                // ✅ RESTORED CLOUDY LOGO
+                Image("cloudyy_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 35, height: 35)
+                    .background(Circle().fill(Color.white.opacity(0.2)))
+            }
+            
+            Text(message.text)
+                .font(.system(size: 16))
+                .foregroundColor(message.isUser ? .white : .black.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    message.isUser
+                    ? Color.accentPurple
+                    : Color.chatLightBg
+                )
+                .cornerRadius(18, corners: message.isUser ? [.topLeft, .topRight, .bottomLeft] : [.topLeft, .topRight, .bottomRight])
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            
+            if !message.isUser { Spacer() }
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: message.isUser ? .trailing : .leading)
+    }
+}
+
+// MARK: - 5. Effects & Helpers
 
 struct GlassyBubble: View {
     let mission: Mission
@@ -694,10 +925,18 @@ extension View {
                 self
             }
         }
+    
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
 }
 
-struct CloudyFlowView_Previews: PreviewProvider {
-    static var previews: some View {
-        CloudyFlowView()
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
     }
 }

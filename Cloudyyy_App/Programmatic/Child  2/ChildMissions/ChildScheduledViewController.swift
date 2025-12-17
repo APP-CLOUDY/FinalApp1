@@ -70,11 +70,7 @@ final class KidAgendaViewController: UIViewController {
 
     // MARK: - Data Properties
     private var activeDate: Date = Date()
-    
-    // Stores all tasks fetched from DB for the selected date
     private var allTasksForDate: [ScheduleTaskModel] = []
-    
-    // Stores the tasks currently visible based on the Filter (All/To Do/Done)
     private var visibleTasks: [ScheduleTaskModel] = []
 
     // MARK: - Helpers
@@ -87,25 +83,20 @@ final class KidAgendaViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // Formatters Setup
         dayNumberFormatter.dateFormat = "d"
         monthNameFormatter.dateFormat = "MMM"
 
-        // UI Setup
         configureGradientBackground()
         configureHeaderSection()
         configureDatesStripSection()
         configureFilterControl()
         configureAgendaList()
 
-        // Initial Data Setup
         populateCurrentMonthDates()
         rebuildDateButtons()
         
-        // Select Today by default
         select(date: Date(), animated: false)
         
-        // ✅ NEW: Listen for Chatbot Completion
         NotificationCenter.default.addObserver(self, selector: #selector(handleTaskCompletionRefresh), name: .taskDidComplete, object: nil)
     }
     
@@ -113,7 +104,6 @@ final class KidAgendaViewController: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
     
-    // ✅ NEW: Refresh when Chatbot finishes a task
     @objc private func handleTaskCompletionRefresh() {
         print("🔄 Schedule Screen received update notification")
         fetchTasks(for: activeDate)
@@ -123,7 +113,6 @@ final class KidAgendaViewController: UIViewController {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer.frame = view.bounds
 
-        // Keep selected date centered
         if let index = indexOfDate(activeDate), index < dateSelectionButtons.count {
             center(dateButton: dateSelectionButtons[index], animated: false)
         }
@@ -131,14 +120,12 @@ final class KidAgendaViewController: UIViewController {
 
     // MARK: - Data Fetching
     private func fetchTasks(for date: Date) {
-        // Fetch from Backend using the Service
         _Concurrency.Task {
             do {
                 let tasks = try await ChildHomeService.shared.fetchSchedule(date: date)
-                
                 await MainActor.run {
                     self.allTasksForDate = tasks
-                    self.applyFilterAndRender() // Apply current filter (All/To Do/Done)
+                    self.applyFilterAndRender()
                 }
             } catch {
                 print("Error fetching schedule: \(error)")
@@ -159,20 +146,14 @@ final class KidAgendaViewController: UIViewController {
         let index = statusFilterControl.selectedSegmentIndex
         
         switch index {
-        case 1: // "To Do" Tab
-            // Show only items that have NOT been submitted
-            visibleTasks = allTasksForDate.filter {
-                $0.submission_status == nil
-            }
-            
-        case 2: // "Done" Tab
-            // ✅ CHANGED: Show Approved OR Pending (Waiting for parent)
+        case 1: // "To Do"
+            visibleTasks = allTasksForDate.filter { $0.submission_status == nil }
+        case 2: // "Done"
             visibleTasks = allTasksForDate.filter {
                 let status = $0.submission_status?.lowercased()
                 return status == "approved" || status == "pending"
             }
-            
-        default: // "All" Tab
+        default: // "All"
             visibleTasks = allTasksForDate
         }
         
@@ -180,7 +161,6 @@ final class KidAgendaViewController: UIViewController {
     }
 
     private func renderAgendaCards() {
-        // Clear previous cards
         agendaVerticalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         if visibleTasks.isEmpty {
@@ -191,25 +171,46 @@ final class KidAgendaViewController: UIViewController {
         noTasksLabel.isHidden = true
 
         for task in visibleTasks {
-            // Initialize the Panel with the task model
+            // 1. Create Card
             let card = KidAgendaItemPanel(task: task)
             
-            // Layout constraints for the card
+            // 2. Apply Dynamic Color Logic (Strip changes color)
+            configureCardAppearance(card: card, task: task)
+            
+            // 3. Add to Stack
             card.heightAnchor.constraint(equalToConstant: 84).isActive = true
             agendaVerticalStack.addArrangedSubview(card)
         }
 
-        // Bottom spacer to ensure last item isn't hidden behind tab bar
         let spacer = UIView()
         spacer.heightAnchor.constraint(equalToConstant: 50).isActive = true
         agendaVerticalStack.addArrangedSubview(spacer)
+    }
+    
+    // ✅ DYNAMIC COLOR LOGIC
+    private func configureCardAppearance(card: KidAgendaItemPanel, task: ScheduleTaskModel) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let checkDate = calendar.startOfDay(for: activeDate)
+        
+        let isSubmitted = (task.submission_status != nil)
+        
+        if isSubmitted {
+            // GREEN: Task is done/submitted
+            card.setStatusColor(.systemGreen)
+        } else if checkDate < today {
+            // RED: Past Date & Not Done (Missed)
+            card.setStatusColor(.systemRed)
+        } else {
+            // YELLOW: Today/Future & Not Done
+            card.setStatusColor(.systemYellow)
+        }
     }
 
     // MARK: - Date Logic
     private func populateCurrentMonthDates() {
         currentMonthDates.removeAll()
         let today = Date()
-        // Generate dates for -2 days to +14 days
         for i in -2...14 {
             if let date = gregorianCalendar.date(byAdding: .day, value: i, to: today) {
                 currentMonthDates.append(date)
@@ -221,7 +222,6 @@ final class KidAgendaViewController: UIViewController {
         datesHorizontalStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         dateSelectionButtons.removeAll()
 
-        // Spacers for centering
         let leftSpace = UIView(); leftSpace.widthAnchor.constraint(equalToConstant: view.bounds.width/2 - 44).isActive = true
         datesHorizontalStack.addArrangedSubview(leftSpace)
 
@@ -269,17 +269,14 @@ final class KidAgendaViewController: UIViewController {
         activeDate = date
         guard let index = indexOfDate(date) else { return }
 
-        // Update Selection UI
         for (i, btn) in dateSelectionButtons.enumerated() {
             btn.backgroundColor = (i == index) ? UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1) : UIColor.white.withAlphaComponent(0.05)
         }
 
-        // Scroll to center
         if index < dateSelectionButtons.count {
             center(dateButton: dateSelectionButtons[index], animated: animated)
         }
 
-        // Fetch Data
         fetchTasks(for: date)
     }
 
@@ -301,20 +298,7 @@ final class KidAgendaViewController: UIViewController {
         select(date: currentMonthDates[index], animated: true)
     }
 
-    // MARK: - Navigation Actions (Placeholders)
-    @objc private func didTapApprovals() {
-        print("Approvals Tapped")
-    }
-    
-    @objc private func didTapNotifications() {
-        print("Notifications Tapped")
-    }
-    
-    @objc private func didTapProfile() {
-        print("Profile Tapped")
-    }
-
-    // MARK: - UI Configuration Boilerplate
+    // MARK: - UI Configuration
     private func configureGradientBackground() {
         backgroundGradientLayer.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
