@@ -29,7 +29,7 @@ final class ProfileService: Sendable {
     // MARK: - Fetch User Profile
     func fetchUserProfile() async throws -> UserProfile {
         // FIX: Removed '?' because 'session' is non-optional
-        let userId = client.auth.session.user.id
+        let userId = try await client.auth.session.user.id
         
         let profile: UserProfile = try await client.database
             .from("users")
@@ -45,7 +45,7 @@ final class ProfileService: Sendable {
     // MARK: - Update Avatar ID
     func updateAvatar(avatarName: String) async throws {
         // FIX: Removed '?' here as well
-        let userId = client.auth.session.user.id
+        let userId = try await client.auth.session.user.id
         
         try await client.database
             .from("users")

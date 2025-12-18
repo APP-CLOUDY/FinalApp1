@@ -69,7 +69,8 @@ final class FamilyService: Sendable {
     /// Fetches the Family Name and ID based on the current logged-in user
     func fetchCurrentFamily() async throws -> FamilyInfo {
         // 1. Get Auth User ID
-        let userId = client.auth.session.user.id
+        // ✅ NEW (Fixed)
+        let userId = try await client.auth.session.user.id
         
         // 2. Find which family this user belongs to
         struct MemberRow: Decodable { let family_id: UUID }
