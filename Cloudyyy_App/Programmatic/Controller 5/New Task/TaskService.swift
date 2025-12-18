@@ -7,7 +7,7 @@ struct CreateTaskParams: Encodable, Sendable{
     let description_input: String?
     let points_input: Int
     let priority_input: String
-    let repeat_rule_input: RepeatRulePayload?
+    let frequency_input: String
     let list_id_input: UUID
     let child_ids_input: [UUID]
     let due_date_input: String?
@@ -20,7 +20,7 @@ struct CreateTaskParams: Encodable, Sendable{
         case description_input
         case points_input
         case priority_input
-        case repeat_rule_input      // ✅ FIX
+        case frequency_input     // ✅ FIX
         case list_id_input
         case child_ids_input
         case due_date_input
@@ -34,7 +34,7 @@ struct CreateTaskParams: Encodable, Sendable{
         try container.encode(description_input, forKey: .description_input)
         try container.encode(points_input, forKey: .points_input)
         try container.encode(priority_input, forKey: .priority_input)
-        try container.encode(repeat_rule_input, forKey: .repeat_rule_input)
+        try container.encode(frequency_input, forKey: .frequency_input)
         try container.encode(list_id_input, forKey: .list_id_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(due_date_input, forKey: .due_date_input)
@@ -53,8 +53,8 @@ struct UpdateTaskParams: Encodable,Sendable {
     let frequency_input: String
     let list_id_input: UUID
     let child_ids_input: [UUID]
-    let due_date_input: String
-    let due_time_input: String
+    let due_date_input: String?
+    let due_time_input: String?
     let approval_required_input: Bool
 
 
@@ -119,14 +119,13 @@ struct ScheduleTaskModel: Decodable {
     let description: String?
     let points: Int
     let priority: String?
-    let submission_status: String?
-    let repeat_rule: RepeatRulePayload?
+    let frequency: String?
     let due_date: String?
+    let submission_status: String?   // ✅ ADD THIS
     let approval_required: Bool?
-
-    let list_id: UUID        // ✅ REQUIRED
-    let list_name: String    // ✅ REQUIRED for UI
+    let list_name: String
 }
+
 
 
 // MARK: - Service Class
@@ -144,14 +143,12 @@ final class TaskService {
         description: String?,
         points: Int,
         priority: String,
-        repeatRule: RepeatRule?,    // ✅
+        frequency: String,      // ✅ SIMPLE
         listId: UUID,
         assignTo: [UUID],
         dueDate: Date?,
         approvalRequired: Bool
-    ) async throws -> UUID
-    
-    {
+    ) async throws -> UUID{
         
         var dateString: String? = nil
         var timeString: String? = nil
@@ -169,67 +166,74 @@ final class TaskService {
         }
         
         let params = CreateTaskParams(
-            title_input: title,
-            description_input: description,
-            points_input: points,
-            priority_input: priority,
-            repeat_rule_input: repeatRule?.toPayload(),
-            list_id_input: listId,
-            child_ids_input: assignTo,
-            due_date_input: dateString,
-            due_time_input: timeString,
-            approval_required_input: approvalRequired
-        )
-        
-        
-        
-        let responses: [TaskResponse] = try await client
-            .rpc("create_new_task", params: params)
-            .execute()
-            .value
-        
-        guard let response = responses.first else {
-            throw NSError(
-                domain: "TaskService",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No task returned"]
+                title_input: title,
+                description_input: description,
+                points_input: points,
+                priority_input: priority,
+                frequency_input: frequency,
+                list_id_input: listId,
+                child_ids_input: assignTo,
+                due_date_input: dateString,
+                due_time_input: timeString,
+                approval_required_input: approvalRequired
             )
-        }
         
-        await MainActor.run {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("DataChanged"),
-                object: nil
-            )
-        }
         
-        return response.task_id
-    }
+        let response: TaskResponse = try await client
+                .rpc("create_task", params: params)
+                .execute()
+                .value
+
+            guard response.status == "success" else {
+                throw NSError(domain: "TaskService", code: -1)
+            }
+
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
+            }
+
+            return response.task_id
+        }
     
     // 2. Fetch Schedule (Unchanged)
     func fetchSchedule(for childId: UUID, date: Date) async throws -> [ScheduleTaskModel] {
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)! // 🔥 CRITICAL
+
+        let normalizedDate = calendar.startOfDay(for: date)
+
         let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let params: [String: String] = ["child_id_input": childId.uuidString, "target_date": formatter.string(from: date)]
-        return try await client.rpc("get_child_schedule", params: params).execute().value
+
+        let params = [
+            "child_id_input": childId.uuidString,
+            "target_date": formatter.string(from: normalizedDate)
+        ]
+
+        print("📅 NORMALIZED DATE SENT:", formatter.string(from: normalizedDate))
+
+        return try await client
+            .rpc("get_child_schedule", params: params)
+            .execute()
+            .value
     }
-    
+
     func updateTask(
         taskId: UUID,
         title: String,
         description: String?,
         points: Int,
         priority: String,
-        repeatRule: RepeatRule?,
+        frequency_input: String,
         listId: UUID,
         childIds: [UUID],
         date: Date,
         approvalRequired: Bool
     ) async throws {
-        
-        let frequency = repeatRule?.displayText.lowercased() ?? "once"
-        
+              
         let formatter = DateFormatter()
         
         let dateFormatter = DateFormatter()
@@ -248,7 +252,7 @@ final class TaskService {
             description_input: description,
             points_input: points,
             priority_input: priority,
-            frequency_input: frequency,
+            frequency_input: frequency_input,
             list_id_input: listId,                  // ✅ FIX
             child_ids_input: childIds,
             due_date_input: dateFormatter.string(from: date),
@@ -258,7 +262,7 @@ final class TaskService {
         
         
         
-        try await client.rpc("update_existing_task", params: params).execute()
+        try await client.rpc("update_task_with_assignments", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
     }
     
@@ -298,7 +302,7 @@ final class TaskService {
                     "p_name": name
                 ]
             )
-            .single()
+
             .execute()
             .value
         
@@ -312,12 +316,13 @@ final class TaskService {
 extension ScheduleTaskModel {
 
     var frequencyText: String {
-        RepeatRule.fromPayload(repeat_rule).displayText
+        frequency ?? "Once"
     }
 
     var dueDateText: String {
         due_date ?? "No date"
     }
 }
+
 
 

@@ -8,9 +8,18 @@ struct AddChildResponse: Decodable, Sendable {
     let join_code: String
 }
 
+struct AddChildParams: Sendable {
+    let name_input: String
+    let nickname_input: String?
+    let birth_date_input: String
+    let gender_input: String
+}
+
+nonisolated extension AddChildParams: Encodable {}
+
 // MARK: - Service Class
 
-final class ChildService: Sendable {
+final class ChildService {
     static let shared = ChildService()
     
     // Access the shared client
@@ -19,30 +28,27 @@ final class ChildService: Sendable {
     }
     
     func addChild(name: String, nickname: String?, dob: Date, gender: String) async throws -> String {
-        
-        // 1. Format Date to String (YYYY-MM-DD)
+
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let dobString = formatter.string(from: dob)
-        
-        // 2. Create Parameters Dictionary
-        // CRITICAL FIX: We explicitly define this as [String: String]
-        // This fixes the "Type 'Any' cannot conform to 'Encodable'" error.
-        let params: [String: String] = [
-            "name_input": name,
-            "nickname_input": nickname ?? "",
-            "birth_date_input": dobString,
-            "gender_input": gender
-        ]
-        
-        // 3. Call the Remote Procedure (RPC)
+
+        // ✅ FIX: Allow NULL properly
+        let params = AddChildParams(
+            name_input: name,
+            nickname_input: nickname,   // ← NULL if nil (PERFECT)
+            birth_date_input: dobString,
+            gender_input: gender
+        )
+
+
         let response: AddChildResponse = try await client
             .database
             .rpc("add_child_to_family", params: params)
             .execute()
             .value
-            
+
         return response.join_code
     }
 }

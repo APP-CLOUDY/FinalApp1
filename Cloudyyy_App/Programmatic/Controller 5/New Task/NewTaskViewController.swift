@@ -19,19 +19,8 @@ class NewTaskViewController: UIViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    private var repeatRule: RepeatRule?
+    private var frequency: String = "Once"
     private var familyId: UUID?
-
-
-    private func openCustomFrequency() {
-           let vc = CustomClaimLimitViewController()
-           vc.onSave = { [weak self] rule, label in
-               self?.repeatRule = rule
-               self?.frequencyRow.setDetail(label)
-           }
-           navigationController?.pushViewController(vc, animated: true)
-       }
-
 
     // MARK: - UI Components
     private let scrollView = UIScrollView()
@@ -40,9 +29,7 @@ class NewTaskViewController: UIViewController {
     private let gradient = CAGradientLayer()
     private var selectedListId: UUID?
     private var taskLists: [TaskListModel] = []
-
-
-
+    
     private let titleNotesView =
         CombinedTitleNotesView(
             titlePlaceholder: "Title *",
@@ -52,11 +39,20 @@ class NewTaskViewController: UIViewController {
 
     private let priorityRow = SelectRow(title: "Priority")
     private let pointsRow = PointsRow()
-    private let dateRow = SelectRow(title: "Date & Time")
+    private let dateRow = SelectRow(title: "Due Date")
     private let frequencyRow = SelectRow(title: "Frequency")
     private let listRow = SelectRow(title: "List")
-    private let approvalRow = ApprovalToggleRow(title: "Approval Required")
+    private let approvalRow = ApprovalToggleRow(title: "Approval")
     private let assignedRow = SelectRow(title: "Assigned To")
+    
+    private func setupInitialListMenu() {
+        listRow.setMenu(
+            UIMenu(children: [
+                UIAction(title: "Loading…", attributes: .disabled) { _ in }
+            ])
+        )
+    }
+
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -75,6 +71,7 @@ class NewTaskViewController: UIViewController {
         
         // Setup Static Menus (Priority, Frequency, List)
         setupStaticMenus()
+        setupInitialListMenu()
         
         // FETCH DATA: Get real children from DB for Dynamic Menu
         fetchChildren()
@@ -294,19 +291,16 @@ class NewTaskViewController: UIViewController {
         frequencyRow.setMenu(
             UIMenu(children: [
                 UIAction(title: "Once") { [weak self] _ in
-                    self?.repeatRule = .once
+                    self?.frequency = "Once"
                     self?.frequencyRow.setDetail("Once")
                 },
                 UIAction(title: "Daily") { [weak self] _ in
-                    self?.repeatRule = .daily
+                    self?.frequency = "Daily"
                     self?.frequencyRow.setDetail("Daily")
                 },
                 UIAction(title: "Weekly") { [weak self] _ in
-                    self?.repeatRule = .weekly(nil)
+                    self?.frequency = "Weekly"
                     self?.frequencyRow.setDetail("Weekly")
-                },
-                UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
-                    self?.openCustomFrequency()
                 }
             ])
         )
@@ -479,6 +473,25 @@ class NewTaskViewController: UIViewController {
             showAlert("Please fill all required fields")
             return
         }
+        
+        let frequencyValue = frequencyRow.detailText ?? "Once"
+        
+        // 🔥 HARD GUARANTEE: always assign at least one child
+        if assignedSelections.isEmpty {
+            if let firstChild = childrenList.first {
+                assignedSelections = [firstChild.id]
+            }
+        }
+        
+        // 🔥 HARD RULE: if frequency is not Daily, force a date
+        if selectedDate == nil && frequencyValue.lowercased() != "daily" {
+            self.showAlert("Please select a due date")
+            return
+        }
+
+
+        print("Creating task with child IDs:", assignedSelections)
+
 
         _Concurrency.Task {
             do {
@@ -487,7 +500,7 @@ class NewTaskViewController: UIViewController {
                     description: titleNotesView.notesText,
                     points: pointsRow.countValue,
                     priority: priorityRow.detailText ?? "Medium",
-                    repeatRule: repeatRule,
+                    frequency: frequencyValue,
                     listId: listId,
                     assignTo: Array(assignedSelections),
                     dueDate: selectedDate,

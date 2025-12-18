@@ -25,7 +25,7 @@ final class ScheduleTaskCard: UIView {
     // MARK: - Setup
     private func setupUI(task: ScheduleTaskModel) {
 
-        layer.cornerRadius = 16
+        layer.cornerRadius = 16 
         clipsToBounds = true
 
         // Stripe
@@ -99,22 +99,26 @@ final class ScheduleTaskCard: UIView {
         applyStatusColor(task)
     }
 
-    // MARK: - Status Color
     private func applyStatusColor(_ task: ScheduleTaskModel) {
-        let status = task.submission_status ?? "todo"
 
         let softRed = UIColor(red: 255/255, green: 99/255, blue: 71/255, alpha: 1)
         let softYellow = UIColor(red: 255/255, green: 217/255, blue: 61/255, alpha: 1)
         let softGreen = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)
 
-        switch status {
-        case "approved":
-            leadingStripe.backgroundColor = softGreen
-        case "pending":
+        if let status = task.submission_status?.lowercased() {
+            switch status {
+            case "approved":
+                leadingStripe.backgroundColor = softGreen
+            case "pending":
+                leadingStripe.backgroundColor = softYellow
+            default:
+                leadingStripe.backgroundColor = softRed
+            }
+        } else {
+            // 🔥 NEW TASK (not submitted yet)
             leadingStripe.backgroundColor = softYellow
-        default:
-            leadingStripe.backgroundColor = softRed
         }
     }
+
 }
 

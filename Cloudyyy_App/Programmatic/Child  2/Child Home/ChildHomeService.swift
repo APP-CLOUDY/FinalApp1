@@ -85,8 +85,18 @@ final class ChildHomeService: Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         
         let params = ChildScheduleParams(child_id_input: childId, target_date: formatter.string(from: date))
-        
-        return try await client.database.rpc("get_child_schedule", params: params).execute().value
+        let response = try await client
+            .rpc("get_child_schedule", params: params)
+            .execute()
+
+        let data = response.data   // ✅ NOT optional
+
+        return try JSONDecoder().decode(
+            [ScheduleTaskModelChild].self,
+            from: data
+        )
+
+
     }
     
     // MARK: - Upload Proof (Image)

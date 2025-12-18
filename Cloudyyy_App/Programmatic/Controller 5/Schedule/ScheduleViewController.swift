@@ -60,6 +60,7 @@ final class ScheduleViewController: UIViewController {
     
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
+    
 
     
    
@@ -89,6 +90,8 @@ final class ScheduleViewController: UIViewController {
 
         generateDatesForCurrentMonth()
         buildDateButtons()
+        select(date: Date(), animated: false)
+
         fetchKidsAndLoad()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
@@ -166,7 +169,18 @@ final class ScheduleViewController: UIViewController {
     private func fetchTasks(for kid: ChildModel, date: Date) {
             _Concurrency.Task {
                 do {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd"
+
+                    print("🟡 SCHEDULE DEBUG")
+                    print("Child ID:", kid.id)
+                    print("Target date:", formatter.string(from: date))
+
                     let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
+
+                    print("🟢 Tasks returned:", tasks.count)
+                    print(tasks)
+
                     
                     await MainActor.run {
                         print("✅ Fetched \(tasks.count) tasks") // Check Console
@@ -192,13 +206,29 @@ final class ScheduleViewController: UIViewController {
     
     private func applyFilterAndRender() {
         let index = filterControl.selectedSegmentIndex
+
         switch index {
-        case 1: displayedTasks = allTasksForDate.filter { $0.submission_status == nil }
-        case 2: displayedTasks = allTasksForDate.filter { $0.submission_status == "pending" || $0.submission_status == "approved" }
-        default: displayedTasks = allTasksForDate
+
+        case 1:
+            // ✅ Completed = approved
+            displayedTasks = allTasksForDate.filter {
+                $0.submission_status?.lowercased() == "approved"
+            }
+
+        case 2:
+            // ✅ Not done = pending OR not submitted
+            displayedTasks = allTasksForDate.filter {
+                $0.submission_status == nil ||
+                $0.submission_status?.lowercased() == "pending"
+            }
+
+        default:
+            displayedTasks = allTasksForDate
         }
+
         renderTasks(displayedTasks)
     }
+
 
     private func renderTasks(_ tasks: [ScheduleTaskModel]) {
         tasksStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -321,7 +351,7 @@ final class ScheduleViewController: UIViewController {
     }
 
     private func select(date: Date, animated: Bool) {
-        selectedDate = date
+        selectedDate = Calendar.current.startOfDay(for: date)
         for (i, btn) in dateButtons.enumerated() {
             if i < allDatesOfMonth.count && calendar.isDate(allDatesOfMonth[i], inSameDayAs: date) {
                 btn.backgroundColor = UIColor(red: 56/255, green: 123/255, blue: 255/255, alpha: 1)

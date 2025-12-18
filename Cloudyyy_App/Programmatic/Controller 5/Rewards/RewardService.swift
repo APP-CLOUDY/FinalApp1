@@ -12,10 +12,17 @@ struct CreateRewardParams: Encodable, Sendable {
     let child_ids_input: [UUID]
     let image_url_input: String?
     let claim_limit_input: String?
-    let sub_type_input: String?
+    let reward_sub_type_input: String?
 
     enum CodingKeys: String, CodingKey {
-        case title_input, description_input, points_input, category_input, child_ids_input, image_url_input, claim_limit_input, sub_type_input
+        case title_input
+        case description_input
+        case points_input
+        case category_input
+        case child_ids_input
+        case image_url_input
+        case claim_limit_input
+        case reward_sub_type_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -27,10 +34,9 @@ struct CreateRewardParams: Encodable, Sendable {
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
-        try container.encode(sub_type_input, forKey: .sub_type_input)
+        try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
     }
 }
-
 struct UpdateRewardParams: Encodable, Sendable {
     let reward_id_input: UUID
     let title_input: String
@@ -40,12 +46,20 @@ struct UpdateRewardParams: Encodable, Sendable {
     let image_url_input: String?
     let claim_limit_input: String?
     let child_ids_input: [UUID]
-    let sub_type_input: String?
-    
+    let reward_sub_type_input: String?
+
     enum CodingKeys: String, CodingKey {
-        case reward_id_input, title_input, description_input, points_input, category_input, image_url_input, claim_limit_input, child_ids_input, sub_type_input
+        case reward_id_input
+        case title_input
+        case description_input
+        case points_input
+        case category_input
+        case image_url_input
+        case claim_limit_input
+        case child_ids_input
+        case reward_sub_type_input
     }
-    
+
     nonisolated func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(reward_id_input, forKey: .reward_id_input)
@@ -56,9 +70,10 @@ struct UpdateRewardParams: Encodable, Sendable {
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
-        try container.encode(sub_type_input, forKey: .sub_type_input)
+        try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
     }
 }
+
 
 struct DeleteRewardParams: Encodable, Sendable {
     let reward_id_input: UUID
@@ -105,6 +120,7 @@ struct RewardItemModel: Decodable, Sendable {
     let claim_limit: String?
     let reward_sub_type: String?
 }
+
 
 // MARK: - 3. Service Class
 
@@ -168,10 +184,18 @@ final class RewardService: Sendable {
         }
         
         let params = CreateRewardParams(
-            title_input: title, description_input: description, points_input: points, category_input: category, child_ids_input: children, image_url_input: imageUrl, claim_limit_input: claimLimit, sub_type_input: subType
+            title_input: title,
+            description_input: description,
+            points_input: points,
+            category_input: category,
+            child_ids_input: children,
+            image_url_input: imageUrl,
+            claim_limit_input: claimLimit,
+            reward_sub_type_input: subType
         )
+
         
-        let response: RewardResponse = try await client.database.rpc("create_new_reward", params: params).execute().value
+        let response: RewardResponse = try await client.database.rpc("create_reward", params: params).execute().value
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
         return response.reward_id
     }
@@ -190,7 +214,15 @@ final class RewardService: Sendable {
         }
         
         let params = UpdateRewardParams(
-            reward_id_input: rewardId, title_input: title, description_input: description, points_input: points, category_input: category, image_url_input: finalImageUrl, claim_limit_input: claimLimit, child_ids_input: children, sub_type_input: subType
+            reward_id_input: rewardId,
+            title_input: title,
+            description_input: description,
+            points_input: points,
+            category_input: category,
+            image_url_input: finalImageUrl,
+            claim_limit_input: claimLimit,
+            child_ids_input: children,
+            reward_sub_type_input: subType
         )
         
         try await client.rpc("update_existing_reward", params: params).execute()

@@ -30,7 +30,7 @@ struct ProgressEffortModel: Decodable, Sendable {
 }
 
 // MARK: - Service
-final class ProgressService: Sendable {
+final class ProgressService {
     static let shared = ProgressService()
     
     private var client: SupabaseClient {

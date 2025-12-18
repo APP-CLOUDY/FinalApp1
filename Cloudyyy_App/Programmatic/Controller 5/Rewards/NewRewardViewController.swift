@@ -18,6 +18,8 @@ final class NewRewardViewController: UIViewController {
     }
     private var existingImageUrl: String? // To keep track if we don't upload a new one
     
+    private var selectedClaimLimit: String?
+
     // MARK: - UI Base Containers
     private let customHeaderView = UIView()
     private let scrollView = UIScrollView()
@@ -103,18 +105,7 @@ final class NewRewardViewController: UIViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    // MARK: - Custom Claim Limit (Repeat)
 
-    private func openCustomFrequency() {
-        let vc = CustomClaimLimitViewController()
-        vc.onSave = { [weak self] rule, preview in
-            self?.claimLimitRow.setDetail(preview) // UI text
-        }
-        navigationController?.pushViewController(vc, animated: true)
-    }
-
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
@@ -164,7 +155,7 @@ final class NewRewardViewController: UIViewController {
             
             // 2. Set Category manually
             if category == "Spring On" { segment.selectedSegmentIndex = 0 }
-            else if category == "Dream it" { segment.selectedSegmentIndex = 1 }
+            else if category == "Dream It" { segment.selectedSegmentIndex = 1 }
             else { segment.selectedSegmentIndex = 2 } // Quick
             
             // 3. Populate Fields
@@ -174,7 +165,7 @@ final class NewRewardViewController: UIViewController {
                 springInput.titleText = item.title
                 springInput.notesText = item.description ?? ""
                 
-            case "Dream it":
+            case "Dream It":
                 dreamInput.titleText = item.title
                 dreamInput.notesText = item.description ?? ""
                 
@@ -186,7 +177,11 @@ final class NewRewardViewController: UIViewController {
             existingImageUrl = item.image_url
             
             // ✅ Populate Extra Fields (Claim Limit & Type)
-            if let limit = item.claim_limit { claimLimitRow.setDetail(limit) }
+            if let limit = item.claim_limit {
+                selectedClaimLimit = limit
+                claimLimitRow.setDetail(limit)
+            }
+
             if let type = item.reward_sub_type { rewardTypeRow.setDetail(type) }
             
             // Load existing image if available
@@ -200,7 +195,7 @@ final class NewRewardViewController: UIViewController {
             
             // Set points based on category view
             if category == "Spring On" { pointsSpring.countValue = item.points }
-            else if category == "Dream it" { pointsDream.countValue = item.points }
+            else if category == "Dream It" { pointsDream.countValue = item.points }
             else { pointsQuick.countValue = item.points }
             
             deleteButton.isHidden = false
@@ -403,38 +398,39 @@ final class NewRewardViewController: UIViewController {
                     
                     UIAction(title: "Once") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Once")
+                        self?.selectedClaimLimit = "Once"
                     },
                     
                     UIAction(title: "Daily") { [weak self] _ in
+                        self?.selectedClaimLimit = "Daily"
                         self?.claimLimitRow.setDetail("Daily")
                     },
+
                     
                     UIAction(title: "Weekdays") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Weekdays")
+                        self?.selectedClaimLimit = "Weekdays"
                     },
                     
                     UIAction(title: "Weekends") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Weekends")
+                        self?.selectedClaimLimit = "Weekends"
                     },
                     
                     UIAction(title: "Weekly") { [weak self] _ in
+                        self?.selectedClaimLimit = "Weekly"
                         self?.claimLimitRow.setDetail("Weekly")
                     },
+
                     
                     UIAction(title: "Monthly") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Monthly")
+                        self?.selectedClaimLimit = "Monthly"
                     },
                     
                     UIAction(title: "Yearly") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Yearly")
-                    },
-                    
-                    // 👇 Custom at bottom (looks like Reminders)
-                    UIAction(
-                        title: "Custom",
-                        image: UIImage(systemName: "plus")
-                    ) { [weak self] _ in
-                        self?.openCustomFrequency()
+                        self?.selectedClaimLimit = "Yearly"
                     }
 
                 ])
@@ -673,7 +669,7 @@ final class NewRewardViewController: UIViewController {
             categoryName = "Spring On"
             points = pointsSpring.countValue
         case 1:
-            categoryName = "Dream it"
+            categoryName = "Dream It"
             points = pointsDream.countValue
         case 2:
             categoryName = "Quick Rewards"
@@ -698,7 +694,11 @@ final class NewRewardViewController: UIViewController {
         // -----------------------------------------
         // 3️⃣ Extra Fields
         // -----------------------------------------
-        let claimLimit: String? = (categoryName == "Quick Rewards") ? claimLimitRow.detailText : nil
+        let claimLimit: String? =
+            categoryName == "Quick Rewards"
+            ? selectedClaimLimit
+            : nil
+
         let subType = rewardTypeRow.detailText
         
         let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last

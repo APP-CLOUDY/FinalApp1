@@ -14,15 +14,18 @@ final class TaskFormViewController: UIViewController {
     private var childrenList: [ChildModel] = []
     private var assignedSelections = Set<UUID>()
     private var selectedDate: Date?
-    private var repeatRule: RepeatRule?
     
-    private func repeatRuleDisplayString(from value: Any?) -> String {
-        // Accepts either String or RepeatRule and returns a string for UI
-        if let s = value as? String { return s }
-        // Fallback: try common enum names
-        if let r = value { return String(describing: r) }
-        return "Once"
+    private func normalizedFrequency(from uiValue: String?) -> String {
+        switch uiValue {
+        case "Once":    return "once"
+        case "Daily":   return "daily"
+        case "Weekly":  return "weekly"
+        case "Monthly": return "monthly"
+        case "Yearly":  return "yearly"
+        default:        return "once"
+        }
     }
+
 
     // MARK: - UI
     private let scrollView = UIScrollView()
@@ -112,16 +115,18 @@ final class TaskFormViewController: UIViewController {
 
         pointsRow.countValue = task.points
         priorityRow.setDetail(task.priority ?? "Medium")
-        
-        let uiRule = RepeatRule.fromPayload(task.repeat_rule)
-        repeatRule = uiRule
-        frequencyRow.setDetail(uiRule.displayText)
-
+        frequencyRow.setDetail(task.frequency ?? "Once")
 
         listRow.setDetail(task.list_name)
         approvalRow.setOn(task.approval_required ?? false)
-        selectedListId = task.list_id
+
+        // ✅ FIX: derive list_id from list_name
+        if let list = taskLists.first(where: { $0.name == task.list_name }) {
+            selectedListId = list.id
+        }
     }
+
+
     private func loadTaskLists() {
         guard let familyId else { return }
 
@@ -287,14 +292,8 @@ final class TaskFormViewController: UIViewController {
                         self?.frequencyRow.setDetail(value)
                     }
                 }
-                + [
-                    UIAction(title: "Custom", image: UIImage(systemName: "plus")) { [weak self] _ in
-                        self?.openCustomFrequency()
-                    }
-                ]
             )
         )
-
         refreshListMenu()
     }
 
@@ -411,6 +410,8 @@ final class TaskFormViewController: UIViewController {
         }
 
         let approval = approvalRow.isOn
+        let frequencyValue = normalizedFrequency(from: frequencyRow.detailText)
+        
 
         _Concurrency.Task {
             do {
@@ -421,7 +422,7 @@ final class TaskFormViewController: UIViewController {
                         description: titleNotesView.notesText,
                         points: pointsRow.countValue,
                         priority: priorityRow.detailText ?? "Medium",
-                        repeatRule: repeatRule,          // ✅ RepeatRule?
+                        frequency: frequencyValue,
                         listId: listId,
                         assignTo: Array(assignedSelections),
                         dueDate: selectedDate,
@@ -435,7 +436,7 @@ final class TaskFormViewController: UIViewController {
                         description: titleNotesView.notesText,
                         points: pointsRow.countValue,
                         priority: priorityRow.detailText ?? "Medium",
-                        repeatRule: repeatRule,          // ✅ RepeatRule?
+                        frequency_input: frequencyValue,
                         listId: listId,
                         childIds: Array(assignedSelections),
                         date: selectedDate ?? Date(),
@@ -482,16 +483,6 @@ final class TaskFormViewController: UIViewController {
 
         present(vc, animated: true)
     }
-    private func openCustomFrequency() {
-        let vc = CustomClaimLimitViewController()
-        vc.onSave = { [weak self] rule, label in
-            self?.repeatRule = rule
-            self?.frequencyRow.setDetail(label)
-        }
-        navigationController?.pushViewController(vc, animated: true)
-    }
-
-
     private func openCustomList() {
         let vc = CustomListViewController()
 

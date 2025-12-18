@@ -5,8 +5,8 @@ import Supabase
 // Used by get_family_dashboard()
 
 struct DashboardData: Decodable, Sendable {
-    let family_id: UUID
-    let family_name: String
+    let family_id: UUID?
+    let family_name: String?
     let parents: [ParentModel]
     let children: [ChildModel]
 }
