@@ -24,12 +24,12 @@ class NewTaskViewController: UIViewController {
 
 
     private func openCustomFrequency() {
-           let vc = CustomClaimLimitViewController()
-           vc.onSave = { [weak self] rule, label in
-               self?.repeatRule = rule
-               self?.frequencyRow.setDetail(label)
-           }
-           navigationController?.pushViewController(vc, animated: true)
+            let vc = CustomClaimLimitViewController()
+            vc.onSave = { [weak self] rule, label in
+                self?.repeatRule = rule
+                self?.frequencyRow.setDetail(label)
+            }
+            navigationController?.pushViewController(vc, animated: true)
        }
 
 
@@ -90,11 +90,15 @@ class NewTaskViewController: UIViewController {
     private func fetchChildren() {
         _Concurrency.Task {
             do {
+                // 1. Fetch children from dashboard
                 let data = try await FamilyService.shared.fetchDashboard()
+                
+                // 2. Fetch current family ID separately
+                let familyInfo = try await FamilyService.shared.fetchCurrentFamily()
 
                 await MainActor.run {
                     self.childrenList = data.children
-                    self.familyId = data.family_id   // ✅ THIS FIXES LIST & DATE
+                    self.familyId = familyInfo.id   // ✅ Use ID from fetchCurrentFamily()
                     self.handleAssignedToVisibility()
                 }
 
@@ -102,7 +106,7 @@ class NewTaskViewController: UIViewController {
                 await self.loadTaskLists()
 
             } catch {
-                print("Error fetching children:", error)
+                print("Error fetching children/family:", error)
             }
         }
     }
@@ -128,7 +132,7 @@ class NewTaskViewController: UIViewController {
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
             UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
-        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint = CGPoint(x: 1, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
     }
@@ -325,8 +329,8 @@ class NewTaskViewController: UIViewController {
 
             _Concurrency.Task {
                 let list = try await TaskService.shared.createTaskList(
-                    name: name,          // ✅ String
-                    familyId: familyId   // ✅ UUID
+                    name: name,           // ✅ String
+                    familyId: familyId    // ✅ UUID
                 )
 
                 await MainActor.run {
@@ -473,9 +477,8 @@ class NewTaskViewController: UIViewController {
             return
         }
 
-        guard let listId = selectedListId,
-              !assignedSelections.isEmpty
-        else {
+        // Modified guard to allow listId to be optional (nil)
+        guard !assignedSelections.isEmpty else {
             showAlert("Please fill all required fields")
             return
         }
@@ -488,7 +491,7 @@ class NewTaskViewController: UIViewController {
                     points: pointsRow.countValue,
                     priority: priorityRow.detailText ?? "Medium",
                     repeatRule: repeatRule,
-                    listId: listId,
+                    listId: selectedListId, // Passing optional UUID
                     assignTo: Array(assignedSelections),
                     dueDate: selectedDate,
                     approvalRequired: approvalRow.isOn
@@ -514,8 +517,8 @@ class NewTaskViewController: UIViewController {
     }
     
     private func showAlert(_ msg: String) {
-           let a = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
-           a.addAction(.init(title: "OK", style: .default))
-           present(a, animated: true)
+         let a = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
+         a.addAction(.init(title: "OK", style: .default))
+         present(a, animated: true)
        }
    }

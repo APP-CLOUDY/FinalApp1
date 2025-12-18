@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 
 // MARK: - 1. Request Models
-struct CreateTaskParams: Encodable, Sendable{
+struct CreateTaskParams: Encodable, Sendable {
     let title_input: String
     let description_input: String?
     let points_input: Int
@@ -14,13 +14,12 @@ struct CreateTaskParams: Encodable, Sendable{
     let due_time_input: String?
     let approval_required_input: Bool
 
-
     enum CodingKeys: String, CodingKey {
         case title_input
         case description_input
         case points_input
         case priority_input
-        case repeat_rule_input      // ✅ FIX
+        case repeat_rule_input
         case list_id_input
         case child_ids_input
         case due_date_input
@@ -43,8 +42,7 @@ struct CreateTaskParams: Encodable, Sendable{
     }
 }
 
-
-struct UpdateTaskParams: Encodable,Sendable {
+struct UpdateTaskParams: Encodable, Sendable {
     let task_id_input: UUID
     let title_input: String
     let description_input: String?
@@ -57,7 +55,6 @@ struct UpdateTaskParams: Encodable,Sendable {
     let due_time_input: String
     let approval_required_input: Bool
 
-
     enum CodingKeys: String, CodingKey {
         case task_id_input
         case title_input
@@ -65,7 +62,7 @@ struct UpdateTaskParams: Encodable,Sendable {
         case points_input
         case priority_input
         case frequency_input
-        case list_id_input           // ✅ FIX
+        case list_id_input
         case child_ids_input
         case due_date_input
         case due_time_input
@@ -88,7 +85,6 @@ struct UpdateTaskParams: Encodable,Sendable {
     }
 }
 
-// ... DeleteTaskParams and FetchAssignmentParams remain the same ...
 struct DeleteTaskParams: Encodable, Sendable {
     let task_id_input: UUID
     enum CodingKeys: String, CodingKey { case task_id_input }
@@ -112,8 +108,8 @@ struct TaskResponse: Decodable, Sendable {
     let status: String
 }
 
-// Keep your ScheduleTaskModel as is (with Optionals)
-struct ScheduleTaskModel: Decodable {
+// Schedule Model
+struct ScheduleTaskModel: Decodable, Sendable, Identifiable {
     let id: UUID
     let title: String
     let description: String?
@@ -124,34 +120,37 @@ struct ScheduleTaskModel: Decodable {
     let due_date: String?
     let approval_required: Bool?
 
-    let list_id: UUID        // ✅ REQUIRED
-    let list_name: String    // ✅ REQUIRED for UI
+    let list_id: UUID
+    let list_name: String
 }
 
+// Task List Model (Added based on usage)
+//struct TaskListModel: Decodable, Sendable, Identifiable {
+//    let id: UUID
+//    let name: String
+//}
 
 // MARK: - Service Class
 
-final class TaskService {
+final class TaskService: Sendable {
     static let shared = TaskService()
     
     private var client: SupabaseClient {
         return SupabaseManager.shared.client
     }
     
-    // 1. Create Task (Updated signature)
+    // 1. Create Task
     func createTask(
         title: String,
         description: String?,
         points: Int,
         priority: String,
-        repeatRule: RepeatRule?,    // ✅
+        repeatRule: RepeatRule?,
         listId: UUID,
-        assignTo: [UUID],
+        assignTo children: [UUID],
         dueDate: Date?,
         approvalRequired: Bool
-    ) async throws -> UUID
-    
-    {
+    ) async throws -> UUID {
         
         var dateString: String? = nil
         var timeString: String? = nil
@@ -175,15 +174,14 @@ final class TaskService {
             priority_input: priority,
             repeat_rule_input: repeatRule?.toPayload(),
             list_id_input: listId,
-            child_ids_input: assignTo,
+            child_ids_input: children,
             due_date_input: dateString,
             due_time_input: timeString,
             approval_required_input: approvalRequired
         )
         
-        
-        
         let responses: [TaskResponse] = try await client
+            .database
             .rpc("create_new_task", params: params)
             .execute()
             .value
@@ -206,15 +204,16 @@ final class TaskService {
         return response.task_id
     }
     
-    // 2. Fetch Schedule (Unchanged)
+    // 2. Fetch Schedule
     func fetchSchedule(for childId: UUID, date: Date) async throws -> [ScheduleTaskModel] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let params: [String: String] = ["child_id_input": childId.uuidString, "target_date": formatter.string(from: date)]
-        return try await client.rpc("get_child_schedule", params: params).execute().value
+        return try await client.database.rpc("get_child_schedule", params: params).execute().value
     }
     
+    // 3. Update Task
     func updateTask(
         taskId: UUID,
         title: String,
@@ -230,8 +229,6 @@ final class TaskService {
         
         let frequency = repeatRule?.displayText.lowercased() ?? "once"
         
-        let formatter = DateFormatter()
-        
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -240,8 +237,6 @@ final class TaskService {
         timeFormatter.dateFormat = "HH:mm:ss"
         timeFormatter.locale = Locale(identifier: "en_US_POSIX")
         
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        
         let params = UpdateTaskParams(
             task_id_input: taskId,
             title_input: title,
@@ -249,31 +244,30 @@ final class TaskService {
             points_input: points,
             priority_input: priority,
             frequency_input: frequency,
-            list_id_input: listId,                  // ✅ FIX
+            list_id_input: listId,
             child_ids_input: childIds,
             due_date_input: dateFormatter.string(from: date),
             due_time_input: timeFormatter.string(from: date),
             approval_required_input: approvalRequired
         )
         
-        
-        
-        try await client.rpc("update_existing_task", params: params).execute()
+        try await client.database.rpc("update_existing_task", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
     }
     
     // 4. Delete Task
     func deleteTask(taskId: UUID) async throws {
         let params = DeleteTaskParams(task_id_input: taskId)
-        try await client.rpc("delete_task_by_id", params: params).execute()
+        try await client.database.rpc("delete_task_by_id", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
     }
     
     // 5. Fetch Assignments
     func fetchAssignments(for taskId: UUID) async throws -> [UUID] {
         let params = FetchAssignmentParams(task_id_input: taskId)
-        return try await client.rpc("get_task_assignments", params: params).execute().value
+        return try await client.database.rpc("get_task_assignments", params: params).execute().value
     }
+    
     // MARK: - Task Lists
     func fetchTaskLists(familyId: UUID) async throws -> [TaskListModel] {
         try await client
@@ -291,6 +285,7 @@ final class TaskService {
         }
         
         let response: RPCResponse = try await client
+            .database
             .rpc(
                 "create_or_get_task_list",
                 params: [
@@ -308,9 +303,8 @@ final class TaskService {
         )
     }
 }
-    
-extension ScheduleTaskModel {
 
+extension ScheduleTaskModel {
     var frequencyText: String {
         RepeatRule.fromPayload(repeat_rule).displayText
     }
@@ -319,5 +313,3 @@ extension ScheduleTaskModel {
         due_date ?? "No date"
     }
 }
-
-
