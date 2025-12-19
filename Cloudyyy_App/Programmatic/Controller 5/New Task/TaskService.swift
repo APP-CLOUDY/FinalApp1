@@ -43,7 +43,6 @@ struct CreateTaskParams: Encodable, Sendable{
     }
 }
 
-
 struct UpdateTaskParams: Encodable,Sendable {
     let task_id_input: UUID
     let title_input: String

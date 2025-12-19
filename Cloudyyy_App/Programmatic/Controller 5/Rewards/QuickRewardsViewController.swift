@@ -160,7 +160,7 @@ final class QuickRewardsViewController: UIViewController {
 
         for (index, item) in list.enumerated() {
             let card = RewardLargeCards(item: item, currentBalance: currentBalance)
-            card.widthAnchor.constraint(equalToConstant: 160).isActive = true
+            card.widthAnchor.constraint(equalToConstant: 130).isActive = true
             
             card.isUserInteractionEnabled = true
             let tap = UITapGestureRecognizer(target: self, action: #selector(handleCardTap(_:)))
@@ -284,7 +284,7 @@ final class QuickRewardsViewController: UIViewController {
             activeScroll.topAnchor.constraint(equalTo: activeLabel.bottomAnchor, constant: 12),
             activeScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             activeScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            activeScroll.heightAnchor.constraint(equalToConstant: 220),
+            activeScroll.heightAnchor.constraint(equalToConstant: 160),
             
             activeStack.leadingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.leadingAnchor),
             activeStack.trailingAnchor.constraint(equalTo: activeScroll.contentLayoutGuide.trailingAnchor, constant: -20),
@@ -325,63 +325,73 @@ final class QuickRewardsViewController: UIViewController {
 // MARK: - Reward Large Card (For Active)
 // ======================================================
 final class RewardLargeCards: UIView {
-    private let titleLabel = UILabel(); private let costLabel = UILabel();
-    private let progressView = UIProgressView(progressViewStyle: .bar);
-    private let progressLabel = UILabel(); private let iconView = UILabel()
-    
+
+    private let titleLabel = UILabel()
+    private let costLabel = UILabel()
+    private let progressView = UIProgressView(progressViewStyle: .bar)
+    private let progressLabel = UILabel()
+
     init(item: RewardDetailItem, currentBalance: Int) {
-        super.init(frame: .zero);
-        backgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1);
-        layer.cornerRadius = 20; clipsToBounds = true
-        
-        iconView.text = "🎁";
-        iconView.font = .systemFont(ofSize: 80);
-        iconView.alpha = 0.05; iconView.translatesAutoresizingMaskIntoConstraints = false; addSubview(iconView)
-        titleLabel.text = item.title;
-        titleLabel.font = .systemFont(ofSize: 18, weight: .bold);
-        titleLabel.textColor = .white; titleLabel.numberOfLines = 2;
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false;
-        addSubview(titleLabel)
-        
-        costLabel.text = "\(item.points) ⭐️";
-        costLabel.font = .systemFont(ofSize: 14, weight: .semibold);
-        costLabel.textColor = UIColor.white.withAlphaComponent(0.7);
-        costLabel.translatesAutoresizingMaskIntoConstraints = false;
-        addSubview(costLabel)
-        
-        let totalCost = Float(item.points > 0 ? item.points : 1); let progress = Float(currentBalance) / totalCost
-        progressView.progress = min(progress, 1.0);
-        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.1);
-        progressView.progressTintColor = UIColor(red: 255/255, green: 140/255, blue: 100/255, alpha: 1);
-        progressView.layer.cornerRadius = 2;
-        progressView.clipsToBounds = true;
-        progressView.translatesAutoresizingMaskIntoConstraints = false;
-        addSubview(progressView)
-        
+        super.init(frame: .zero)
+
+        backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        layer.cornerRadius = 16
+        clipsToBounds = true
+
+        // Title
+        titleLabel.text = item.title
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        titleLabel.textColor = .white
+        titleLabel.numberOfLines = 2
+
+        // Cost
+        costLabel.text = "\(item.points) ⭐️"
+        costLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        costLabel.textColor = UIColor.white.withAlphaComponent(0.6)
+
+        // Progress
+        let total = max(item.points, 1)
+        let progress = Float(currentBalance) / Float(total)
+        progressView.progress = min(progress, 1)
+        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.15)
+        progressView.progressTintColor = .systemYellow
+        progressView.layer.cornerRadius = 2
+        progressView.clipsToBounds = true
+
+        // Progress label
         if currentBalance >= item.points {
-            progressLabel.text = "Ready!";
+            progressLabel.text = "Ready to redeem"
             progressLabel.textColor = .systemYellow
         } else {
-            let needed = item.points - currentBalance; progressLabel.text = "\(needed) more stars";
-            progressLabel.textColor = UIColor.white.withAlphaComponent(0.5) };
-        progressLabel.font = .systemFont(ofSize: 11, weight: .medium);
-        progressLabel.translatesAutoresizingMaskIntoConstraints = false;
-        addSubview(progressLabel)
-        
-        
-        NSLayoutConstraint.activate([iconView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 10),
-                                     iconView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 10),
-                                     titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-                                     titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-                                     titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-                                     costLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
-                                     costLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-                                     progressView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
-                                     progressView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-                                     progressView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16), progressView.heightAnchor.constraint(equalToConstant: 4),
-                                     progressLabel.bottomAnchor.constraint(equalTo: progressView.topAnchor, constant: -6), progressLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16)])
+            progressLabel.text = "\(item.points - currentBalance) more stars"
+            progressLabel.textColor = UIColor.white.withAlphaComponent(0.45)
+        }
+        progressLabel.font = .systemFont(ofSize: 11, weight: .medium)
+
+        let stack = UIStackView(arrangedSubviews: [
+            titleLabel,
+            costLabel,
+            progressLabel,
+            progressView
+        ])
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
+            progressView.heightAnchor.constraint(equalToConstant: 4)
+        ])
     }
-    required init?(coder: NSCoder) { fatalError() }
+
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
 }
 
 // ======================================================
