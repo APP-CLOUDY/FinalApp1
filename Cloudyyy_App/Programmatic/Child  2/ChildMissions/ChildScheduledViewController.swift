@@ -124,7 +124,7 @@ final class KidAgendaViewController: UIViewController {
             do {
                 let tasks = try await ChildHomeService.shared.fetchSchedule(date: date)
                 await MainActor.run {
-                    self.allTasksForDate = tasks as! [ScheduleTaskModelChild]
+                    self.allTasksForDate = tasks
                     self.applyFilterAndRender()
                 }
             } catch {

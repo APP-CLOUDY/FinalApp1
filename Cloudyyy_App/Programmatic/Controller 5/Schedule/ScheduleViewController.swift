@@ -57,18 +57,13 @@ final class ScheduleViewController: UIViewController {
     private let dayFormatter = DateFormatter()
     private let monthFormatter = DateFormatter()
 
-    
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
-    
-
-    
-   
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .clear
+        view.backgroundColor = .black // Default fallback
 
         dayFormatter.dateFormat = "d"
         monthFormatter.dateFormat = "MMM"
@@ -77,15 +72,16 @@ final class ScheduleViewController: UIViewController {
         setupHeader()
         setupDatesStrip()
         setupFilter()
-        setupHintLabel() // Add Hint Label to layout
+        setupHintLabel()
         setupTasksList()
         
         // Header Actions
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         header.showProfileButton(true)
         header.onProfileTapped = { [weak self] in
-            let vc = ParentProfileViewController()
-            self?.navigationController?.pushViewController(vc, animated: true)
+            // Make sure ParentProfileViewController exists or remove this
+            // let vc = ParentProfileViewController()
+            // self?.navigationController?.pushViewController(vc, animated: true)
         }
 
         generateDatesForCurrentMonth()
@@ -94,6 +90,7 @@ final class ScheduleViewController: UIViewController {
 
         fetchKidsAndLoad()
         
+        // Observer for updates (e.g., when a task is created/edited)
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
         
         NotificationCenter.default.addObserver(
@@ -102,18 +99,19 @@ final class ScheduleViewController: UIViewController {
             name: .selectedKidChanged,
             object: nil
         )
-
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        // Refresh data on appear
         if let kid = selectedKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
+        // Keep selected date centered
         if let idx = indexOfDate(selectedDate), idx < dateButtons.count {
             centerDateButton(dateButtons[idx], animated: false)
         }
@@ -125,16 +123,16 @@ final class ScheduleViewController: UIViewController {
 
     // MARK: - Data Logic
     private func fetchKidsAndLoad() {
-        _Concurrency.Task {
+        Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
 
                 await MainActor.run {
                     self.kids = data.children
-
                     let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
                     header.setKids(uiKids)
 
+                    // Auto-select first kid
                     if let first = kids.first {
                         selectKid(first)
                     } else {
@@ -147,57 +145,40 @@ final class ScheduleViewController: UIViewController {
         }
     }
     
-    
     private func selectKid(_ kid: ChildModel) {
         self.selectedKid = kid
-        
         let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
         header.setSelectedKid(uiKid)
-
         fetchTasks(for: kid, date: selectedDate)
     }
 
     @objc private func handleSelectedKidChanged(_ notification: Notification) {
         guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
-
         if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
             selectKid(realKid)
         }
     }
     
-    
     private func fetchTasks(for kid: ChildModel, date: Date) {
-            _Concurrency.Task {
-                do {
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-MM-dd"
+        Task {
+            do {
+                // ✅ Calling the Updated TaskService
+                let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
 
-                    print("🟡 SCHEDULE DEBUG")
-                    print("Child ID:", kid.id)
-                    print("Target date:", formatter.string(from: date))
-
-                    let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
-
-                    print("🟢 Tasks returned:", tasks.count)
-                    print(tasks)
-
-                    
-                    await MainActor.run {
-                        print("✅ Fetched \(tasks.count) tasks") // Check Console
-                        self.allTasksForDate = tasks
-                        self.applyFilterAndRender()
-                    }
-                } catch {
-                    print("❌ Error fetching schedule: \(error)")
-                    await MainActor.run {
-                        // Show Alert so you can see the error on screen
-                        let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: "OK", style: .default))
-                        self.present(alert, animated: true)
-                    }
+                await MainActor.run {
+                    print("✅ Parent Schedule: Fetched \(tasks.count) tasks for \(kid.name)")
+                    self.allTasksForDate = tasks
+                    self.applyFilterAndRender()
+                }
+            } catch {
+                print("❌ Error fetching schedule: \(error)")
+                await MainActor.run {
+                    self.allTasksForDate = []
+                    self.applyFilterAndRender()
                 }
             }
         }
+    }
     
     // MARK: - Filtering & Rendering
     @objc private func filterChanged(_ sender: UISegmentedControl) {
@@ -208,27 +189,21 @@ final class ScheduleViewController: UIViewController {
         let index = filterControl.selectedSegmentIndex
 
         switch index {
-
-        case 1:
-            // ✅ Completed = approved
+        case 1: // Completed
             displayedTasks = allTasksForDate.filter {
                 $0.submission_status?.lowercased() == "approved"
             }
-
-        case 2:
-            // ✅ Not done = pending OR not submitted
+        case 2: // Not Done
             displayedTasks = allTasksForDate.filter {
                 $0.submission_status == nil ||
                 $0.submission_status?.lowercased() == "pending"
             }
-
-        default:
+        default: // All
             displayedTasks = allTasksForDate
         }
 
         renderTasks(displayedTasks)
     }
-
 
     private func renderTasks(_ tasks: [ScheduleTaskModel]) {
         tasksStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -242,8 +217,8 @@ final class ScheduleViewController: UIViewController {
             
             for (index, t) in tasks.enumerated() {
                 let card = ScheduleTaskCard(task: t)
-                tasksStack.addArrangedSubview(card)
                 card.heightAnchor.constraint(equalToConstant: 90).isActive = true
+                tasksStack.addArrangedSubview(card)
                 
                 // Add Tap Gesture for Edit
                 card.isUserInteractionEnabled = true
@@ -265,30 +240,24 @@ final class ScheduleViewController: UIViewController {
         let task = displayedTasks[sender.taskIndex]
         
         let vc = TaskFormViewController()
-        vc.mode = .edit(task) // Enable Edit Mode
+        vc.mode = .edit(task) // ✅ Pass data to Edit Form
         
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
 
-    // MARK: - Kids Menu & Date Logic (Standard)
+    // MARK: - Kids Menu & Date Logic
     private func showKidsMenu() {
         guard !kids.isEmpty else { return }
-
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
-
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
-
         menu.onKidSelected = { selectedUiKid in
             SelectedKidStore.shared.updateKid(selectedUiKid)
         }
-
-
         menu.show(in: self.view, anchor: header.childButton)
     }
-
 
     private func generateDatesForCurrentMonth() {
         allDatesOfMonth.removeAll()
@@ -308,6 +277,7 @@ final class ScheduleViewController: UIViewController {
             dateButtons.append(button)
             datesStack.addArrangedSubview(button)
         }
+        // Spacers for center alignment
         let leftSpacer = UIView(); leftSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
         datesStack.insertArrangedSubview(leftSpacer, at: 0)
         let rightSpacer = UIView(); rightSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
@@ -358,6 +328,8 @@ final class ScheduleViewController: UIViewController {
             } else { btn.backgroundColor = UIColor(white: 1, alpha: 0.03) }
         }
         if let idx = indexOfDate(date) { centerDateButton(dateButtons[idx], animated: animated) }
+        
+        // Fetch new data for the selected date
         if let kid = selectedKid { fetchTasks(for: kid, date: date) }
     }
 
@@ -453,7 +425,6 @@ final class ScheduleViewController: UIViewController {
         view.addSubview(emptyLabel); emptyLabel.isHidden = true
 
         NSLayoutConstraint.activate([
-            // Layout relative to Hint Label now
             tasksContainer.topAnchor.constraint(equalTo: hintLabel.bottomAnchor, constant: 8),
             tasksContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
             tasksContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),

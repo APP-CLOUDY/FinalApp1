@@ -4,6 +4,8 @@ final class ScheduleTaskCard: UIView {
 
     // MARK: - UI
     private let leadingStripe = UIView()
+    
+    // Ensure you have your GlassView class. If not, swap this for a regular UIView.
     private let glass = GlassView(style: .row, cornerRadius: 16)
 
     private let titleLabel = UILabel()
@@ -25,7 +27,7 @@ final class ScheduleTaskCard: UIView {
     // MARK: - Setup
     private func setupUI(task: ScheduleTaskModel) {
 
-        layer.cornerRadius = 16 
+        layer.cornerRadius = 16
         clipsToBounds = true
 
         // Stripe
@@ -43,6 +45,7 @@ final class ScheduleTaskCard: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         // Time / Frequency
+        // Uses the extension we added to ScheduleTaskModel
         timeLabel.font = .systemFont(ofSize: 13)
         timeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
         timeLabel.text = "\(task.points) Points • \(task.frequencyText)"
@@ -55,7 +58,8 @@ final class ScheduleTaskCard: UIView {
         categoryIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
         categoryIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
 
-        categoryLabel.text = "Task"
+        // ✅ FIX: Use the actual list name from the database (e.g. "Morning", "Chores")
+        categoryLabel.text = task.list_name ?? "General"
         categoryLabel.font = .systemFont(ofSize: 12, weight: .medium)
         categoryLabel.textColor = UIColor.white.withAlphaComponent(0.5)
 
@@ -115,10 +119,8 @@ final class ScheduleTaskCard: UIView {
                 leadingStripe.backgroundColor = softRed
             }
         } else {
-            // 🔥 NEW TASK (not submitted yet)
+            // New Task (Not submitted yet)
             leadingStripe.backgroundColor = softYellow
         }
     }
-
 }
-

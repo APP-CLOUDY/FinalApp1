@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 
 // MARK: - 1. Request Models
-struct CreateTaskParams: Encodable, Sendable{
+struct CreateTaskParams: Encodable, Sendable {
     let title_input: String
     let description_input: String?
     let points_input: Int
@@ -14,13 +14,12 @@ struct CreateTaskParams: Encodable, Sendable{
     let due_time_input: String?
     let approval_required_input: Bool
 
-
     enum CodingKeys: String, CodingKey {
         case title_input
         case description_input
         case points_input
         case priority_input
-        case frequency_input     // ✅ FIX
+        case frequency_input
         case list_id_input
         case child_ids_input
         case due_date_input
@@ -43,8 +42,7 @@ struct CreateTaskParams: Encodable, Sendable{
     }
 }
 
-
-struct UpdateTaskParams: Encodable,Sendable {
+struct UpdateTaskParams: Encodable, Sendable {
     let task_id_input: UUID
     let title_input: String
     let description_input: String?
@@ -57,7 +55,6 @@ struct UpdateTaskParams: Encodable,Sendable {
     let due_time_input: String?
     let approval_required_input: Bool
 
-
     enum CodingKeys: String, CodingKey {
         case task_id_input
         case title_input
@@ -65,7 +62,7 @@ struct UpdateTaskParams: Encodable,Sendable {
         case points_input
         case priority_input
         case frequency_input
-        case list_id_input           // ✅ FIX
+        case list_id_input
         case child_ids_input
         case due_date_input
         case due_time_input
@@ -88,7 +85,6 @@ struct UpdateTaskParams: Encodable,Sendable {
     }
 }
 
-// ... DeleteTaskParams and FetchAssignmentParams remain the same ...
 struct DeleteTaskParams: Encodable, Sendable {
     let task_id_input: UUID
     enum CodingKeys: String, CodingKey { case task_id_input }
@@ -112,8 +108,8 @@ struct TaskResponse: Decodable, Sendable {
     let status: String
 }
 
-// Keep your ScheduleTaskModel as is (with Optionals)
-struct ScheduleTaskModel: Decodable {
+// ✅ UPDATED MODEL: Matches 'get_child_schedule' SQL output exactly
+struct ScheduleTaskModel: Decodable, Identifiable {
     let id: UUID
     let title: String
     let description: String?
@@ -121,12 +117,12 @@ struct ScheduleTaskModel: Decodable {
     let priority: String?
     let frequency: String?
     let due_date: String?
-    let submission_status: String?   // ✅ ADD THIS
+    
+    // New fields required for the View
+    let submission_status: String?
     let approval_required: Bool?
-    let list_name: String
+    let list_name: String? // Changed to optional to be safe
 }
-
-
 
 // MARK: - Service Class
 
@@ -137,18 +133,18 @@ final class TaskService {
         return SupabaseManager.shared.client
     }
     
-    // 1. Create Task (Updated signature)
+    // 1. Create Task
     func createTask(
         title: String,
         description: String?,
         points: Int,
         priority: String,
-        frequency: String,      // ✅ SIMPLE
+        frequency: String,
         listId: UUID,
         assignTo: [UUID],
         dueDate: Date?,
         approvalRequired: Bool
-    ) async throws -> UUID{
+    ) async throws -> UUID {
         
         var dateString: String? = nil
         var timeString: String? = nil
@@ -166,40 +162,39 @@ final class TaskService {
         }
         
         let params = CreateTaskParams(
-                title_input: title,
-                description_input: description,
-                points_input: points,
-                priority_input: priority,
-                frequency_input: frequency,
-                list_id_input: listId,
-                child_ids_input: assignTo,
-                due_date_input: dateString,
-                due_time_input: timeString,
-                approval_required_input: approvalRequired
-            )
-        
+            title_input: title,
+            description_input: description,
+            points_input: points,
+            priority_input: priority,
+            frequency_input: frequency,
+            list_id_input: listId,
+            child_ids_input: assignTo,
+            due_date_input: dateString,
+            due_time_input: timeString,
+            approval_required_input: approvalRequired
+        )
         
         let response: TaskResponse = try await client
-                .rpc("create_task", params: params)
-                .execute()
-                .value
+            .rpc("create_task", params: params)
+            .execute()
+            .value
 
-            guard response.status == "success" else {
-                throw NSError(domain: "TaskService", code: -1)
-            }
-
-            await MainActor.run {
-                NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
-            }
-
-            return response.task_id
+        guard response.status == "success" else {
+            throw NSError(domain: "TaskService", code: -1)
         }
+
+        await MainActor.run {
+            NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
+        }
+
+        return response.task_id
+    }
     
-    // 2. Fetch Schedule (Unchanged)
+    // ✅ 2. Fetch Schedule (UPDATED)
     func fetchSchedule(for childId: UUID, date: Date) async throws -> [ScheduleTaskModel] {
 
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)! // 🔥 CRITICAL
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
 
         let normalizedDate = calendar.startOfDay(for: date)
 
@@ -213,14 +208,17 @@ final class TaskService {
             "target_date": formatter.string(from: normalizedDate)
         ]
 
-        print("📅 NORMALIZED DATE SENT:", formatter.string(from: normalizedDate))
+        print("📅 Fetching Parent Schedule for:", formatter.string(from: normalizedDate))
 
-        return try await client
+        // Decodes strictly to [ScheduleTaskModel]
+        let response = try await client
             .rpc("get_child_schedule", params: params)
             .execute()
-            .value
+            
+        return try JSONDecoder().decode([ScheduleTaskModel].self, from: response.data)
     }
 
+    // 3. Update Task
     func updateTask(
         taskId: UUID,
         title: String,
@@ -233,9 +231,7 @@ final class TaskService {
         date: Date,
         approvalRequired: Bool
     ) async throws {
-              
-        let formatter = DateFormatter()
-        
+            
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -244,8 +240,6 @@ final class TaskService {
         timeFormatter.dateFormat = "HH:mm:ss"
         timeFormatter.locale = Locale(identifier: "en_US_POSIX")
         
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        
         let params = UpdateTaskParams(
             task_id_input: taskId,
             title_input: title,
@@ -253,14 +247,12 @@ final class TaskService {
             points_input: points,
             priority_input: priority,
             frequency_input: frequency_input,
-            list_id_input: listId,                  // ✅ FIX
+            list_id_input: listId,
             child_ids_input: childIds,
             due_date_input: dateFormatter.string(from: date),
             due_time_input: timeFormatter.string(from: date),
             approval_required_input: approvalRequired
         )
-        
-        
         
         try await client.rpc("update_task_with_assignments", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
@@ -278,6 +270,7 @@ final class TaskService {
         let params = FetchAssignmentParams(task_id_input: taskId)
         return try await client.rpc("get_task_assignments", params: params).execute().value
     }
+
     // MARK: - Task Lists
     func fetchTaskLists(familyId: UUID) async throws -> [TaskListModel] {
         try await client
@@ -302,7 +295,6 @@ final class TaskService {
                     "p_name": name
                 ]
             )
-
             .execute()
             .value
         
@@ -312,9 +304,9 @@ final class TaskService {
         )
     }
 }
-    
-extension ScheduleTaskModel {
 
+// Helper Extension
+extension ScheduleTaskModel {
     var frequencyText: String {
         frequency ?? "Once"
     }
@@ -322,7 +314,8 @@ extension ScheduleTaskModel {
     var dueDateText: String {
         due_date ?? "No date"
     }
+    
+    var listNameText: String {
+        list_name ?? "General"
+    }
 }
-
-
-

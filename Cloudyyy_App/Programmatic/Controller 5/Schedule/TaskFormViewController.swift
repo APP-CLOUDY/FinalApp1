@@ -110,22 +110,23 @@ final class TaskFormViewController: UIViewController {
     }
     
     private func populate(_ task: ScheduleTaskModel) {
-        titleNotesView.titleText = task.title
-        titleNotesView.notesText = task.description ?? ""
+            titleNotesView.titleText = task.title
+            titleNotesView.notesText = task.description ?? ""
 
-        pointsRow.countValue = task.points
-        priorityRow.setDetail(task.priority ?? "Medium")
-        frequencyRow.setDetail(task.frequency ?? "Once")
+            pointsRow.countValue = task.points
+            priorityRow.setDetail(task.priority ?? "Medium")
+            frequencyRow.setDetail(task.frequency ?? "Once")
 
-        listRow.setDetail(task.list_name)
-        approvalRow.setOn(task.approval_required ?? false)
+            // 🔴 CHANGE THIS LINE: Add '?? "General"' to fix the error
+            listRow.setDetail(task.list_name ?? "General")
+            
+            approvalRow.setOn(task.approval_required ?? false)
 
-        // ✅ FIX: derive list_id from list_name
-        if let list = taskLists.first(where: { $0.name == task.list_name }) {
-            selectedListId = list.id
+            // ✅ FIX: derive list_id from list_name
+            if let list = taskLists.first(where: { $0.name == task.list_name }) {
+                selectedListId = list.id
+            }
         }
-    }
-
 
     private func loadTaskLists() {
         guard let familyId else { return }
@@ -392,70 +393,81 @@ final class TaskFormViewController: UIViewController {
         present(alert, animated: true)
     }
     @objc private func doneTapped() {
-        let title = titleNotesView.titleText.trimmingCharacters(in: .whitespaces)
+            let title = titleNotesView.titleText.trimmingCharacters(in: .whitespaces)
 
-        guard !title.isEmpty else {
-            showAlert("Please enter a title")
-            return
-        }
+            guard !title.isEmpty else {
+                showAlert("Please enter a title")
+                return
+            }
 
-        guard let listId = selectedListId else {
-            showAlert("Please select a list")
-            return
-        }
+            guard let listId = selectedListId else {
+                showAlert("Please select a list")
+                return
+            }
 
-        guard !assignedSelections.isEmpty else {
-            showAlert("Assign at least one child")
-            return
-        }
+            // ✅ FIX: Auto-select if there is only one child
+            var targetChildren: [UUID] = []
+            
+            if childrenList.count == 1 {
+                // If only 1 child exists, force assign them (since UI is hidden)
+                targetChildren = [childrenList[0].id]
+            } else {
+                // Otherwise use what the user manually selected
+                targetChildren = Array(assignedSelections)
+            }
 
-        let approval = approvalRow.isOn
-        let frequencyValue = normalizedFrequency(from: frequencyRow.detailText)
-        
+            // ✅ Now check the calculated list, not just the UI selection
+            guard !targetChildren.isEmpty else {
+                showAlert("Assign at least one child")
+                return
+            }
 
-        _Concurrency.Task {
-            do {
-                switch mode {
-                case .create:
-                    _ = try await TaskService.shared.createTask(
-                        title: title,
-                        description: titleNotesView.notesText,
-                        points: pointsRow.countValue,
-                        priority: priorityRow.detailText ?? "Medium",
-                        frequency: frequencyValue,
-                        listId: listId,
-                        assignTo: Array(assignedSelections),
-                        dueDate: selectedDate,
-                        approvalRequired: approval
-                    )
+            let approval = approvalRow.isOn
+            let frequencyValue = normalizedFrequency(from: frequencyRow.detailText)
+            
 
-                case .edit(let task):
-                    try await TaskService.shared.updateTask(
-                        taskId: task.id,
-                        title: title,
-                        description: titleNotesView.notesText,
-                        points: pointsRow.countValue,
-                        priority: priorityRow.detailText ?? "Medium",
-                        frequency_input: frequencyValue,
-                        listId: listId,
-                        childIds: Array(assignedSelections),
-                        date: selectedDate ?? Date(),
-                        approvalRequired: approval
-                    )
-                }
+            _Concurrency.Task {
+                do {
+                    switch mode {
+                    case .create:
+                        _ = try await TaskService.shared.createTask(
+                            title: title,
+                            description: titleNotesView.notesText,
+                            points: pointsRow.countValue,
+                            priority: priorityRow.detailText ?? "Medium",
+                            frequency: frequencyValue,
+                            listId: listId,
+                            assignTo: targetChildren, // 👈 Use the fixed array
+                            dueDate: selectedDate,
+                            approvalRequired: approval
+                        )
 
-                await MainActor.run {
-                    self.dismiss(animated: true)
-                }
+                    case .edit(let task):
+                        try await TaskService.shared.updateTask(
+                            taskId: task.id,
+                            title: title,
+                            description: titleNotesView.notesText,
+                            points: pointsRow.countValue,
+                            priority: priorityRow.detailText ?? "Medium",
+                            frequency_input: frequencyValue,
+                            listId: listId,
+                            childIds: targetChildren, // 👈 Use the fixed array
+                            date: selectedDate ?? Date(),
+                            approvalRequired: approval
+                        )
+                    }
 
-            } catch {
-                await MainActor.run {
-                    self.showAlert(error.localizedDescription)
+                    await MainActor.run {
+                        self.dismiss(animated: true)
+                    }
+
+                } catch {
+                    await MainActor.run {
+                        self.showAlert(error.localizedDescription)
+                    }
                 }
             }
         }
-    }
-
 
     private func openDatePicker() {
         let vc = UIViewController()
