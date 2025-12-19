@@ -19,6 +19,9 @@ final class NewRewardViewController: UIViewController {
     private var existingImageUrl: String? // To keep track if we don't upload a new one
     
     private var selectedClaimLimit: String?
+    
+    private let approvalRow = ApprovalToggleRow(title: "Approval")
+
 
     // MARK: - UI Base Containers
     private let customHeaderView = UIView()
@@ -152,6 +155,11 @@ final class NewRewardViewController: UIViewController {
         case .edit(let item, let category):
             // 1. Hide Segment (Locked Category)
             segment.isHidden = true
+            
+            if let approval = item.approval_required {
+                approvalRow.setOn(approval)
+            }
+
             
             // 2. Set Category manually
             if category == "Spring On" { segment.selectedSegmentIndex = 0 }
@@ -373,6 +381,8 @@ final class NewRewardViewController: UIViewController {
         claimLimitRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
         assignedToRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
         rewardTypeRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
+        approvalRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
+
         
         uploadBox.heightAnchor.constraint(equalToConstant: 160).isActive = true
         select3DBox.heightAnchor.constraint(equalToConstant: 160).isActive = true
@@ -386,7 +396,7 @@ final class NewRewardViewController: UIViewController {
         
         dreamViews  = [subtitleLabel, dreamInput, pointsDream] + assignedBlock + [select3DBox]
         
-        quickViews  = [subtitleLabel, quickInput, pointsQuick, claimLimitRow, rewardTypeRow]
+        quickViews  = [subtitleLabel, quickInput, pointsQuick, approvalRow , claimLimitRow, rewardTypeRow]
         + assignedBlock
         
     }
@@ -605,6 +615,7 @@ final class NewRewardViewController: UIViewController {
 
         UIView.animate(withDuration: 0.25) {
             viewsToAnimate.forEach { $0.alpha = 1 }
+            self.view.layoutIfNeeded()
         }
     }
 
@@ -691,6 +702,7 @@ final class NewRewardViewController: UIViewController {
             return
         }
         
+        
         // -----------------------------------------
         // 3️⃣ Extra Fields
         // -----------------------------------------
@@ -701,9 +713,21 @@ final class NewRewardViewController: UIViewController {
 
         let subType = rewardTypeRow.detailText
         
+        let approvalRequired =
+            categoryName == "Quick Rewards"
+            ? approvalRow.isOn
+            : nil
+
+        
         let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last
         doneBtn?.isEnabled = false
         doneBtn?.setTitle("Saving...", for: .normal)
+        
+        // ✅ SAFETY: auto-assign all children if none selected
+        if childrenList.count > 1 && assignedSelections.isEmpty {
+            assignedSelections = Set(childrenList.map { $0.id })
+        }
+
         
         // -----------------------------------------
         // 4️⃣ Network Call (Create or Edit)
@@ -720,7 +744,8 @@ final class NewRewardViewController: UIViewController {
                         assignTo: Array(assignedSelections),
                         image: selectedImage,
                         claimLimit: claimLimit,
-                        subType: subType
+                        subType: subType,
+                        approvalRequired:    approvalRequired
                     )
                     
                 case .edit(let item, _):
@@ -734,7 +759,8 @@ final class NewRewardViewController: UIViewController {
                         image: selectedImage,
                         existingImageUrl: existingImageUrl,
                         claimLimit: claimLimit,
-                        subType: subType
+                        subType: subType,
+                        approvalRequired:    approvalRequired
                     )
                 }
                 

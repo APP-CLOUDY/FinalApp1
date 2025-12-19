@@ -13,6 +13,7 @@ struct CreateRewardParams: Encodable, Sendable {
     let image_url_input: String?
     let claim_limit_input: String?
     let reward_sub_type_input: String?
+    let approval_required_input: Bool?
 
     enum CodingKeys: String, CodingKey {
         case title_input
@@ -23,6 +24,7 @@ struct CreateRewardParams: Encodable, Sendable {
         case image_url_input
         case claim_limit_input
         case reward_sub_type_input
+        case approval_required_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -35,6 +37,7 @@ struct CreateRewardParams: Encodable, Sendable {
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
+        try container.encode(approval_required_input, forKey: .approval_required_input)
     }
 }
 struct UpdateRewardParams: Encodable, Sendable {
@@ -47,6 +50,7 @@ struct UpdateRewardParams: Encodable, Sendable {
     let claim_limit_input: String?
     let child_ids_input: [UUID]
     let reward_sub_type_input: String?
+    let approval_required_input: Bool?
 
     enum CodingKeys: String, CodingKey {
         case reward_id_input
@@ -58,6 +62,7 @@ struct UpdateRewardParams: Encodable, Sendable {
         case claim_limit_input
         case child_ids_input
         case reward_sub_type_input
+        case approval_required_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -71,6 +76,7 @@ struct UpdateRewardParams: Encodable, Sendable {
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
+        try container.encode(approval_required_input, forKey: .approval_required_input)
     }
 }
 
@@ -119,6 +125,7 @@ struct RewardItemModel: Decodable, Sendable {
     let image_url: String?
     let claim_limit: String?
     let reward_sub_type: String?
+    let approval_required: Bool? = nil
 }
 
 
@@ -176,13 +183,23 @@ final class RewardService: Sendable {
     
     // MARK: - CRUD
     
-    func createReward(title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, claimLimit: String?, subType: String?) async throws -> UUID {
-        
+    func createReward(
+        title: String,
+        description: String,
+        points: Int,
+        category: String,
+        assignTo children: [UUID],
+        image: UIImage?,
+        claimLimit: String?,
+        subType: String?,
+        approvalRequired: Bool?
+    ) async throws -> UUID {
+
         var imageUrl: String? = nil
         if let img = image {
             imageUrl = try? await uploadImage(img)
         }
-        
+
         let params = CreateRewardParams(
             title_input: title,
             description_input: description,
@@ -191,16 +208,36 @@ final class RewardService: Sendable {
             child_ids_input: children,
             image_url_input: imageUrl,
             claim_limit_input: claimLimit,
-            reward_sub_type_input: subType
+            reward_sub_type_input: subType,
+            approval_required_input: approvalRequired
         )
 
-        
-        let response: RewardResponse = try await client.database.rpc("create_reward", params: params).execute().value
-        await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }
-        return response.reward_id
+        // ✅ DECODE AS ARRAY
+        let response: [RewardResponse] =
+            try await client.database
+                .rpc("create_reward", params: params)
+                .execute()
+                .value
+
+        guard let first = response.first else {
+            throw NSError(
+                domain: "CreateRewardError",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Empty response from create_reward"]
+            )
+        }
+
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("DataChanged"),
+                object: nil
+            )
+        }
+
+        return first.reward_id
     }
-    
-    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?) async throws {
+
+    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?, approvalRequired:Bool?) async throws {
         
         var finalImageUrl = existingImageUrl
         
@@ -222,7 +259,8 @@ final class RewardService: Sendable {
             image_url_input: finalImageUrl,
             claim_limit_input: claimLimit,
             child_ids_input: children,
-            reward_sub_type_input: subType
+            reward_sub_type_input: subType,
+            approval_required_input: approvalRequired
         )
         
         try await client.rpc("update_existing_reward", params: params).execute()

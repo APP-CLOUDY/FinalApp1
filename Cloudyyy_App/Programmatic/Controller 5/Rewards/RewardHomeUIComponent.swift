@@ -1,8 +1,8 @@
 //
-//  RewardUIComponents.swift
+//  RewardHomeUIComponents.swift
 //  Cloudyyy_App
 //
-//  Created by user@10 on 16/11/25.
+//  Created by user@10 on 18/12/25.
 //
 
 import Foundation
