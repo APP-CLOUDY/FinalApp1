@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6F00F3222EF3E3180034B8D4 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F00F3212EF3E3180034B8D4 /* WidgetKit.framework */; };
+		6F00F3242EF3E3180034B8D4 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F00F3232EF3E3180034B8D4 /* SwiftUI.framework */; };
+		6F00F3312EF3E3190034B8D4 /* CloudyyyWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6F00F31F2EF3E3180034B8D4 /* CloudyyyWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6FEB0F892ECEC76100DEF8E4 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 6FEB0F882ECEC76100DEF8E4 /* Lottie */; };
 		6FEB0FC52ECEDA4100DEF8E4 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 6FEB0FC42ECEDA4100DEF8E4 /* Auth */; };
 		6FEB0FC72ECEDA4100DEF8E4 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 6FEB0FC62ECEDA4100DEF8E4 /* Functions */; };
@@ -17,6 +20,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		6F00F32F2EF3E3190034B8D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6FF3D35C2EBB34820022B8BC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F00F31E2EF3E3180034B8D4;
+			remoteInfo = CloudyyyWidgetExtension;
+		};
 		6FF3D37B2EBB34840022B8BC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 6FF3D35C2EBB34820022B8BC /* Project object */;
@@ -33,13 +43,37 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		6F00F3362EF3E3190034B8D4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6F00F3312EF3E3190034B8D4 /* CloudyyyWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		6F00F31F2EF3E3180034B8D4 /* CloudyyyWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CloudyyyWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6F00F3212EF3E3180034B8D4 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		6F00F3232EF3E3180034B8D4 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		6FF3D3642EBB34820022B8BC /* Cloudyyy_App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cloudyyy_App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FF3D37A2EBB34840022B8BC /* Cloudyyy_AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Cloudyyy_AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FF3D3842EBB34840022B8BC /* Cloudyyy_AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Cloudyyy_AppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6F00F3352EF3E3190034B8D4 /* Exceptions for "CloudyyyWidget" folder in "CloudyyyWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6F00F31E2EF3E3180034B8D4 /* CloudyyyWidgetExtension */;
+		};
 		6FF3D38C2EBB34840022B8BC /* Exceptions for "Cloudyyy_App" folder in "Cloudyyy_App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -50,6 +84,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		6F00F3252EF3E3180034B8D4 /* CloudyyyWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6F00F3352EF3E3190034B8D4 /* Exceptions for "CloudyyyWidget" folder in "CloudyyyWidgetExtension" target */,
+			);
+			path = CloudyyyWidget;
+			sourceTree = "<group>";
+		};
 		6FF3D3662EBB34820022B8BC /* Cloudyyy_App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -71,6 +113,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		6F00F31C2EF3E3180034B8D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6F00F3242EF3E3180034B8D4 /* SwiftUI.framework in Frameworks */,
+				6F00F3222EF3E3180034B8D4 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6FF3D3612EBB34820022B8BC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -102,12 +153,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6F00F3202EF3E3180034B8D4 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6F00F3212EF3E3180034B8D4 /* WidgetKit.framework */,
+				6F00F3232EF3E3180034B8D4 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		6FF3D35B2EBB34820022B8BC = {
 			isa = PBXGroup;
 			children = (
 				6FF3D3662EBB34820022B8BC /* Cloudyyy_App */,
 				6FF3D37D2EBB34840022B8BC /* Cloudyyy_AppTests */,
 				6FF3D3872EBB34840022B8BC /* Cloudyyy_AppUITests */,
+				6F00F3252EF3E3180034B8D4 /* CloudyyyWidget */,
+				6F00F3202EF3E3180034B8D4 /* Frameworks */,
 				6FF3D3652EBB34820022B8BC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -118,6 +180,7 @@
 				6FF3D3642EBB34820022B8BC /* Cloudyyy_App.app */,
 				6FF3D37A2EBB34840022B8BC /* Cloudyyy_AppTests.xctest */,
 				6FF3D3842EBB34840022B8BC /* Cloudyyy_AppUITests.xctest */,
+				6F00F31F2EF3E3180034B8D4 /* CloudyyyWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -125,6 +188,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		6F00F31E2EF3E3180034B8D4 /* CloudyyyWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6F00F3322EF3E3190034B8D4 /* Build configuration list for PBXNativeTarget "CloudyyyWidgetExtension" */;
+			buildPhases = (
+				6F00F31B2EF3E3180034B8D4 /* Sources */,
+				6F00F31C2EF3E3180034B8D4 /* Frameworks */,
+				6F00F31D2EF3E3180034B8D4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6F00F3252EF3E3180034B8D4 /* CloudyyyWidget */,
+			);
+			name = CloudyyyWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = CloudyyyWidgetExtension;
+			productReference = 6F00F31F2EF3E3180034B8D4 /* CloudyyyWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		6FF3D3632EBB34820022B8BC /* Cloudyyy_App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6FF3D38D2EBB34840022B8BC /* Build configuration list for PBXNativeTarget "Cloudyyy_App" */;
@@ -132,10 +217,12 @@
 				6FF3D3602EBB34820022B8BC /* Sources */,
 				6FF3D3612EBB34820022B8BC /* Frameworks */,
 				6FF3D3622EBB34820022B8BC /* Resources */,
+				6F00F3362EF3E3190034B8D4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6F00F3302EF3E3190034B8D4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6FF3D3662EBB34820022B8BC /* Cloudyyy_App */,
@@ -207,9 +294,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					6F00F31E2EF3E3180034B8D4 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					6FF3D3632EBB34820022B8BC = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -244,11 +334,19 @@
 				6FF3D3632EBB34820022B8BC /* Cloudyyy_App */,
 				6FF3D3792EBB34840022B8BC /* Cloudyyy_AppTests */,
 				6FF3D3832EBB34840022B8BC /* Cloudyyy_AppUITests */,
+				6F00F31E2EF3E3180034B8D4 /* CloudyyyWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		6F00F31D2EF3E3180034B8D4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6FF3D3622EBB34820022B8BC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -273,6 +371,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		6F00F31B2EF3E3180034B8D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6FF3D3602EBB34820022B8BC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -297,6 +402,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		6F00F3302EF3E3190034B8D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F00F31E2EF3E3180034B8D4 /* CloudyyyWidgetExtension */;
+			targetProxy = 6F00F32F2EF3E3190034B8D4 /* PBXContainerItemProxy */;
+		};
 		6FF3D37C2EBB34840022B8BC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 6FF3D3632EBB34820022B8BC /* Cloudyyy_App */;
@@ -310,6 +420,68 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		6F00F3332EF3E3190034B8D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4S22BRN7BL;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CloudyyyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = CloudyyyWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.guruprasaath.Cloudyyy-App.CloudyyyWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6F00F3342EF3E3190034B8D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4S22BRN7BL;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CloudyyyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = CloudyyyWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.guruprasaath.Cloudyyy-App.CloudyyyWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		6FF3D38E2EBB34840022B8BC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -578,6 +750,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		6F00F3322EF3E3190034B8D4 /* Build configuration list for PBXNativeTarget "CloudyyyWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6F00F3332EF3E3190034B8D4 /* Debug */,
+				6F00F3342EF3E3190034B8D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		6FF3D35F2EBB34820022B8BC /* Build configuration list for PBXProject "Cloudyyy_App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
