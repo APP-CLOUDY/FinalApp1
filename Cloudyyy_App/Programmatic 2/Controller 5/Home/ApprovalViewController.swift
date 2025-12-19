@@ -72,7 +72,7 @@ final class ApprovalViewController: UIViewController {
         fetchKids()
 
         segmentControl.selectedSegmentIndex = 0
-        loadMockDataIfNeeded()
+        fetchApprovalData()
 
         NotificationCenter.default.addObserver(
             self,
@@ -94,8 +94,9 @@ final class ApprovalViewController: UIViewController {
     @objc private func selectedKidChanged() {
         guard let selectedKid = SelectedKidStore.shared.selectedKid else { return }
         header.setSelectedKid(selectedKid)
-        tableView.reloadData()
+        fetchApprovalData()
     }
+
 
 
     // MARK: - Setup
@@ -186,31 +187,9 @@ final class ApprovalViewController: UIViewController {
 
     // MARK: - Data
     @objc private func segmentChanged() {
-        tableView.reloadData()
+        fetchApprovalData()
     }
 
-    private func loadMockDataIfNeeded() {
-        guard pendingData.isEmpty else { return }
-
-        pendingData = [
-            [
-                "id": UUID().uuidString,
-                "title": "Task",
-                "subtitle": "Clean your room",
-                "date": "Requested on 12/12",
-                "points": "50 ⭐️",
-                "photo_url": "https://picsum.photos/300"
-            ],
-            [
-                "id": UUID().uuidString,
-                "title": "Task",
-                "subtitle": "Finish homework",
-                "date": "Requested on 11/12",
-                "points": "30 ⭐️",
-                "photo_url": ""
-            ]
-        ]
-    }
 
     private func approveItem(at indexPath: IndexPath) {
         let item = pendingData.remove(at: indexPath.row)
@@ -223,6 +202,37 @@ final class ApprovalViewController: UIViewController {
         declinedData.insert(item, at: 0)
         tableView.deleteRows(at: [indexPath], with: .automatic)
     }
+    
+    private func fetchApprovalData() {
+        guard let selectedKid = SelectedKidStore.shared.selectedKid,
+              let childId = UUID(uuidString: selectedKid.id) else { return }
+
+        Task {
+            do {
+                switch segmentControl.selectedSegmentIndex {
+                case 0: // Pending
+                    pendingData = try await ApprovalService.shared.fetchPending(childId: childId)
+
+                case 1: // Approved
+                    approvedData = try await ApprovalService.shared.fetchApproved(childId: childId)
+
+                case 2: // Declined / Redeemed
+                    declinedData = try await ApprovalService.shared.fetchRedeemed(childId: childId)
+
+                default:
+                    break
+                }
+
+                await MainActor.run {
+                    tableView.reloadData()
+                }
+
+            } catch {
+                print("❌ Failed to fetch approval data:", error)
+            }
+        }
+    }
+
 }
 
         // MARK: - TableView
