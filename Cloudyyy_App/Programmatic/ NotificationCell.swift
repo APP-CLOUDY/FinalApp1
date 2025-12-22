@@ -150,16 +150,62 @@ final class NotificationCell: UITableViewCell {
 
     // MARK: - Configure
 
-    func configure(with model: AppNotification) {
-        titleLabel.text = model.category
-        messageLabel.text = model.message
-        timeLabel.text = model.timeAgo
-        unreadDot.isHidden = !model.isUnread
+    // ... (Your Init and Setup code remains exactly the same) ...
 
-        let configImage = UIImage(systemName: model.symbolName) ?? UIImage(systemName: "bell")
-        iconImageView.image = configImage
+        // MARK: - Configure
 
-        // Emphasize unread rows
-        roundedBackground.alpha = model.isUnread ? 1.0 : 0.85
+        func configure(with model: AppNotification) {
+            titleLabel.text = model.category
+            messageLabel.text = model.message
+            timeLabel.text = model.timeAgo
+            unreadDot.isHidden = !model.isUnread
+
+            // 1. Set the Icon
+            let configImage = UIImage(systemName: model.symbolName) ?? UIImage(systemName: "bell")
+            iconImageView.image = configImage
+
+            // 2. Apply Dynamic Styling (Colors)
+            let style = styleForCategory(model.category)
+            
+            // Icon color
+            iconImageView.tintColor = style.color
+            
+            // Container background (same color but transparent)
+            iconContainer.backgroundColor = style.color.withAlphaComponent(0.15)
+            
+            // Unread state opacity
+            roundedBackground.alpha = model.isUnread ? 1.0 : 0.6
+            
+            // Optional: Highlight border for critical items
+            if model.category == "Approval Needed" && model.isUnread {
+                roundedBackground.layer.borderWidth = 1
+                roundedBackground.layer.borderColor = UIColor.systemOrange.withAlphaComponent(0.3).cgColor
+            } else {
+                roundedBackground.layer.borderWidth = 0
+            }
+        }
+        
+        // MARK: - Private Styling Helper
+        
+        private func styleForCategory(_ category: String) -> (color: UIColor, effect: String) {
+            switch category {
+            case "Approval Needed":
+                return (.systemOrange, "Critical") // Attention grabbing
+                
+            case "Reward Redeemed":
+                return (.systemYellow, "Gold") // Premium feel
+                
+            case "On Fire!", "Dream Goal":
+                return (.systemPurple, "Magic") // Special/Gamified
+                
+            case "Task Completed":
+                return (.systemGreen, "Success") // Positive reinforcement
+                
+            case "Missed Task":
+                return (.systemRed, "Alert") // Warning
+                
+            default:
+                return (.white, "Standard") // Default system notification
+            }
+        }
     }
-}

@@ -22,12 +22,65 @@ final class NotificationViewController: UIViewController {
     private var gradientLayer: CAGradientLayer?
 
     private var notifications: [AppNotification] = [
-        AppNotification(category: "Mission Assigned", message: "Complete Homework", timeAgo: "34 minutes ago", isUnread: true, symbolName: "book.circle"),
-        AppNotification(category: "Mission Assigned", message: "Clean the room", timeAgo: "15 minutes ago", isUnread: true, symbolName: "bell"),
-        AppNotification(category: "Mission Assigned", message: "Go Jogging", timeAgo: "52 minutes ago", isUnread: false, symbolName: "figure.walk"),
-        AppNotification(category: "Rewards", message: "30 Points Added", timeAgo: "35 minutes ago", isUnread: false, symbolName: "gift"),
-        AppNotification(category: "Rewards", message: "100 Points Spent", timeAgo: "24 minutes ago", isUnread: false, symbolName: "star")
-    ]
+            // 1. APPROVAL NEEDED (High Priority)
+            // Child marked a big chore done, Parent needs to check it physically.
+            AppNotification(
+                category: "Approval Needed",
+                message: "Rohan marked 'Clean Bedroom' as done. Verify to award 50 points.",
+                timeAgo: "2 minutes ago",
+                isUnread: true,
+                symbolName: "checkmark.shield.fill" // Shield implies security/verification
+            ),
+
+            // 2. REWARD REDEMPTION (Action Required)
+            // Child spent points. Parent needs to know immediately to grant the reward.
+            AppNotification(
+                category: "Reward Redeemed",
+                message: "Sarah spent 200 coins on 'Extra 1 Hour iPad Time'.",
+                timeAgo: "15 minutes ago",
+                isUnread: true,
+                symbolName: "gift.fill"
+            ),
+
+            // 3. TASK COMPLETION (Info only)
+            // Small chores that don't need verification (auto-approved).
+            AppNotification(
+                category: "Task Completed",
+                message: "Rohan finished 'Brush Teeth' (Morning).",
+                timeAgo: "1 hour ago",
+                isUnread: false,
+                symbolName: "checkmark.circle"
+            ),
+
+            // 4. GAMIFICATION / STREAK
+            // Positive reinforcement updates.
+            AppNotification(
+                category: "On Fire!",
+                message: "Sarah just hit a 7-day chore streak!",
+                timeAgo: "3 hours ago",
+                isUnread: false,
+                symbolName: "flame.fill"
+            ),
+
+            // 5. DREAM IT / GOAL PROGRESS
+            // Specific to your "Dream It" feature (collecting parts).
+            AppNotification(
+                category: "Dream Goal",
+                message: "Rohan collected a new part for 'New Bicycle'!",
+                timeAgo: "Yesterday",
+                isUnread: false,
+                symbolName: "puzzlepiece.extension.fill"
+            ),
+            
+            // 6. MISSED TASK (Accountability)
+            AppNotification(
+                category: "Missed Task",
+                message: "Sarah forgot 'Pack School Bag' yesterday.",
+                timeAgo: "Yesterday",
+                isUnread: false,
+                symbolName: "exclamationmark.circle"
+            )
+        ]
 
     private lazy var originalNotifications = notifications
 
