@@ -219,7 +219,7 @@ final class FamilyName: UIViewController {
                     self.nextButton.alpha = 1.0
                     
                     let vc = AddChild()
-                    // vc.familyId = familyId
+                    vc.familyId = familyId
                     self.navigationController?.pushViewController(vc, animated: true)
                 }
             } catch {

@@ -10,6 +10,9 @@ final class Addchildform: UIViewController {
 
     // MARK: - Data Properties
     private var selectedDate: Date = Date()
+    
+    // ✅ CRITICAL UPDATE: Add this variable to receive the Family ID
+    var familyId: UUID?
 
     // MARK: - Views
 
@@ -357,15 +360,17 @@ final class Addchildform: UIViewController {
         
         _Concurrency.Task {
             do {
+                // ✅ CRITICAL UPDATE: Passing familyId to the service
                 let joinCode = try await ChildService.shared.addChild(
                     name: name,
                     nickname: nick,
                     dob: self.selectedDate,
-                    gender: gender
+                    gender: gender,
+                    familyId: self.familyId // <--- Pass the ID here!
                 )
-              
+            
                 print("Success! Child Added. Code: \(joinCode)")
-              
+            
                 await MainActor.run {
                     self.doneButton.isEnabled = true
                     self.doneButton.setTitle("Done", for: .normal)
@@ -586,4 +591,3 @@ private extension NSLayoutConstraint {
         return self
     }
 }
-
