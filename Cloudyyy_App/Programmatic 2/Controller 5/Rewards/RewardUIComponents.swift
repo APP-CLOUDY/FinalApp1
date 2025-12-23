@@ -74,7 +74,7 @@ final class CombinedTitleNotesView: UIView, UITextViewDelegate {
         }
     }
 
-    init(titlePlaceholder: String = "Title", notesPlaceholder: String = "Description (Optional)") {
+    init(titlePlaceholder: String = "Title * ", notesPlaceholder: String = "Description (Optional)") {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 

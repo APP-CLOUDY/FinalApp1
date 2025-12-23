@@ -422,7 +422,7 @@ public final class GlassButton: UIButton {
 }
 
 // MARK: - Role segmented factory
-public func makeRoleSegmentedControl(items: [String] = ["Mom", "Dad"]) -> UISegmentedControl {
+public func makeRoleSegmentedControl(items: [String] = ["Mom", "Dad" , "Guardian"]) -> UISegmentedControl {
     let sc = UISegmentedControl(items: items)
     sc.translatesAutoresizingMaskIntoConstraints = false
     sc.selectedSegmentIndex = 0

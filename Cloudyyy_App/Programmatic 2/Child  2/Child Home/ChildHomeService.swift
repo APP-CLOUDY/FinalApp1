@@ -22,7 +22,7 @@ struct ScheduleTaskModelChild: Decodable, Sendable, Identifiable {
     let due_date: String?
 }
 
-struct ChildHomeStats: Decodable, Sendable {
+struct ChildProgressStats: Decodable, Sendable {
     let total_tasks: Int
     let completed_tasks: Int
     let progress_percent: Double
@@ -68,7 +68,7 @@ final class ChildHomeService: Sendable {
     }
     
     // MARK: - Fetch Stats
-    func fetchStats() async throws -> ChildHomeStats {
+    func fetchProgressStats() async throws -> ChildProgressStats{
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401, userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
         }
@@ -139,5 +139,75 @@ final class ChildHomeService: Sendable {
             
         print("✅ Task \(taskId) submitted.")
     }
+    
+    // MARK: - Home Dashboard (Streak + Missions)
+    func fetchHomeDashboardStats() async throws -> ChildHomeStats {
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            throw NSError(domain: "ChildApp", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
+        }
+
+        return try await client
+            .rpc(
+                "get_child_home_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+    }
+
+    // MARK: - Reward Stats
+    func fetchRewardStats() async throws -> ChildRewardStats {
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            throw NSError(domain: "ChildApp", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
+        }
+
+        return try await client
+            .rpc(
+                "get_child_reward_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+    }
+    // MARK: - Rewards Home (Streak + Missions)
+    func fetchChildHomeStats(childId: UUID) async throws -> ChildHomeStats {
+        try await client
+            .rpc(
+                "get_child_home_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+    }
+
+    // MARK: - Rewards Coins
+    func fetchChildRewardStats(childId: UUID) async throws -> ChildRewardStats {
+        try await client
+            .rpc(
+                "get_child_reward_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+    }
+
+    // MARK: - Child Progress (Dashboard)
+    func fetchStats() async throws -> ChildProgressStats {
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            throw NSError(domain: "ChildApp", code: 401)
+        }
+
+        return try await client
+            .rpc(
+                "get_child_progress_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+    }
+
+    
 }
 

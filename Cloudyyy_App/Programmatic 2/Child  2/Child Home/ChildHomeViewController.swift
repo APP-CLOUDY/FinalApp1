@@ -91,7 +91,7 @@ final class ChildHomeViewController: UIViewController {
         }
     }
     
-    private func updateProgressUI(stats: ChildHomeStats) {
+    private func updateProgressUI(stats: ChildProgressStats) {
         // Update Habits Progress Bar based on today's tasks
         let progress = Float(stats.progress_percent)
         

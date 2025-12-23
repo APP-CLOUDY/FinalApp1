@@ -37,7 +37,10 @@ struct CreateRewardParams: Encodable, Sendable {
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
-        try container.encode(approval_required_input, forKey: .approval_required_input)
+        if let approval = approval_required_input {
+            try container.encode(approval, forKey: .approval_required_input)
+        }
+
     }
 }
 struct UpdateRewardParams: Encodable, Sendable {
@@ -76,7 +79,10 @@ struct UpdateRewardParams: Encodable, Sendable {
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
-        try container.encode(approval_required_input, forKey: .approval_required_input)
+        if let approval = approval_required_input {
+            try container.encode(approval, forKey: .approval_required_input)
+        }
+
     }
 }
 
