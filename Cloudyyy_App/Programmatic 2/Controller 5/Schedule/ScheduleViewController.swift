@@ -18,10 +18,12 @@ final class ScheduleViewController: UIViewController {
         c.selectedSegmentIndex = 0
         c.translatesAutoresizingMaskIntoConstraints = false
         c.selectedSegmentTintColor = .white
+        c.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
+        c.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
         return c
     }()
     
-    // NEW: Hint Label
+    // Hint Label
     private let hintLabel: UILabel = {
         let l = UILabel()
         l.text = "Click a task to edit details"
@@ -63,7 +65,7 @@ final class ScheduleViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black // Default fallback
+        view.backgroundColor = .black
 
         dayFormatter.dateFormat = "d"
         monthFormatter.dateFormat = "MMM"
@@ -78,19 +80,15 @@ final class ScheduleViewController: UIViewController {
         // Header Actions
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         header.showProfileButton(true)
-        header.onProfileTapped = { [weak self] in
-            // Make sure ParentProfileViewController exists or remove this
-            // let vc = ParentProfileViewController()
-            // self?.navigationController?.pushViewController(vc, animated: true)
-        }
-
+        
+        // Generate Calendar
         generateDatesForCurrentMonth()
         buildDateButtons()
         select(date: Date(), animated: false)
 
         fetchKidsAndLoad()
         
-        // Observer for updates (e.g., when a task is created/edited)
+        // Observer for updates
         NotificationCenter.default.addObserver(self, selector: #selector(handleDataChange), name: NSNotification.Name("DataChanged"), object: nil)
         
         NotificationCenter.default.addObserver(
@@ -104,14 +102,12 @@ final class ScheduleViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
-        // Refresh data on appear
         if let kid = selectedKid { fetchTasks(for: kid, date: selectedDate) }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
-        // Keep selected date centered
         if let idx = indexOfDate(selectedDate), idx < dateButtons.count {
             centerDateButton(dateButtons[idx], animated: false)
         }
@@ -132,7 +128,6 @@ final class ScheduleViewController: UIViewController {
                     let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
                     header.setKids(uiKids)
 
-                    // Auto-select first kid
                     if let first = kids.first {
                         selectKid(first)
                     } else {
@@ -159,27 +154,21 @@ final class ScheduleViewController: UIViewController {
         }
     }
     
-    private func fetchTasks(for kid: ChildModel, date: Date) {
+    func fetchTasks(for kid: ChildModel, date: Date) {
         Task {
             do {
-                // ✅ Calling the Updated TaskService
                 let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
-
+                print("Successfully fetched \(tasks.count) tasks") // ✅ ADD THIS
+                
                 await MainActor.run {
-                    print("✅ Parent Schedule: Fetched \(tasks.count) tasks for \(kid.name)")
                     self.allTasksForDate = tasks
                     self.applyFilterAndRender()
                 }
             } catch {
-                print("❌ Error fetching schedule: \(error)")
-                await MainActor.run {
-                    self.allTasksForDate = []
-                    self.applyFilterAndRender()
-                }
+                print("❌ FETCH ERROR: \(error)") // ✅ THIS WILL SHOW DECODING ERRORS
             }
         }
     }
-    
     // MARK: - Filtering & Rendering
     @objc private func filterChanged(_ sender: UISegmentedControl) {
         applyFilterAndRender()
@@ -216,8 +205,10 @@ final class ScheduleViewController: UIViewController {
             hintLabel.isHidden = false
             
             for (index, t) in tasks.enumerated() {
+                // ✅ Use your custom card here
                 let card = ScheduleTaskCard(task: t)
-                card.heightAnchor.constraint(equalToConstant: 90).isActive = true
+                
+                // Note: No fixed height constraint needed because your card uses full auto-layout
                 tasksStack.addArrangedSubview(card)
                 
                 // Add Tap Gesture for Edit
@@ -235,19 +226,18 @@ final class ScheduleViewController: UIViewController {
     
     class TaskTapGesture: UITapGestureRecognizer { var taskIndex: Int = 0 }
     
-    // MARK: - OPEN EDIT SCREEN
     @objc private func cardTapped(_ sender: TaskTapGesture) {
         let task = displayedTasks[sender.taskIndex]
         
         let vc = TaskFormViewController()
-        vc.mode = .edit(task) // ✅ Pass data to Edit Form
+        vc.mode = .edit(task)
         
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
 
-    // MARK: - Kids Menu & Date Logic
+    // MARK: - Menu & Date Logic
     private func showKidsMenu() {
         guard !kids.isEmpty else { return }
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
@@ -277,7 +267,6 @@ final class ScheduleViewController: UIViewController {
             dateButtons.append(button)
             datesStack.addArrangedSubview(button)
         }
-        // Spacers for center alignment
         let leftSpacer = UIView(); leftSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
         datesStack.insertArrangedSubview(leftSpacer, at: 0)
         let rightSpacer = UIView(); rightSpacer.widthAnchor.constraint(equalToConstant: view.bounds.width / 2 - 44).isActive = true
@@ -329,7 +318,6 @@ final class ScheduleViewController: UIViewController {
         }
         if let idx = indexOfDate(date) { centerDateButton(dateButtons[idx], animated: animated) }
         
-        // Fetch new data for the selected date
         if let kid = selectedKid { fetchTasks(for: kid, date: date) }
     }
 
@@ -337,8 +325,7 @@ final class ScheduleViewController: UIViewController {
         guard let superview = button.superview else { return }
         let btnFrame = superview.convert(button.frame, to: datesScroll)
         let scrollCenter = datesScroll.bounds.width / 2
-        var offsetX = btnFrame.midX - scrollCenter
-        offsetX = max(0, min(offsetX, datesScroll.contentSize.width - datesScroll.bounds.width))
+        let offsetX = max(0, min(btnFrame.midX - scrollCenter, datesScroll.contentSize.width - datesScroll.bounds.width))
         datesScroll.setContentOffset(CGPoint(x: offsetX, y: 0), animated: animated)
     }
     
@@ -348,7 +335,7 @@ final class ScheduleViewController: UIViewController {
         select(date: allDatesOfMonth[idx], animated: true)
     }
 
-    // MARK: - UI Setup
+    // MARK: - Layout Setup
     private func setupGradient() {
         gradient.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -401,10 +388,6 @@ final class ScheduleViewController: UIViewController {
             filterControl.heightAnchor.constraint(equalToConstant: 38)
         ])
         filterControl.backgroundColor = UIColor.white.withAlphaComponent(0.08)
-        filterControl.selectedSegmentTintColor = UIColor.white.withAlphaComponent(0.20)
-        filterControl.setTitleTextAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.75), .font: UIFont.systemFont(ofSize: 15, weight: .medium)], for: .normal)
-        filterControl.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 15, weight: .semibold)], for: .selected)
-        filterControl.layer.cornerRadius = 19; filterControl.clipsToBounds = true
     }
     
     private func setupHintLabel() {

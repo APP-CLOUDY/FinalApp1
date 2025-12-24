@@ -14,6 +14,8 @@ final class AddChild: UIViewController {
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
+    
+    var familyId: UUID?
 
     // ADDED: Logo Image View
     private let logoImageView: UIImageView = {
@@ -337,7 +339,7 @@ final class AddChild: UIViewController {
 
     private func childSelected() {
         let vc = Addchildform()
+        vc.familyId = self.familyId
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-

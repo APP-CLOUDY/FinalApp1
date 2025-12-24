@@ -8,18 +8,14 @@ class NewTaskViewController: UIViewController {
     // Stores selected Child IDs (Supports Multi-Select)
     private var assignedSelections = Set<UUID>()
     
-    
     private var selectedDate: Date?
-    // MARK: - Initialization
-    init() {
-        super.init(nibName: nil, bundle: nil)
-        self.modalPresentationStyle = .fullScreen
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
     private var frequency: String = "Once"
+    
+    // ✅ Custom Repeat Variables
+    private var repeatInterval: Int = 1
+    private var repeatEndDate: Date? = nil
+    private var repeatDays: [Int]? = nil
+    
     private var familyId: UUID?
 
     // MARK: - UI Components
@@ -27,19 +23,69 @@ class NewTaskViewController: UIViewController {
     private let contentView = UIView()
     private let stack = UIStackView()
     private let gradient = CAGradientLayer()
+    
+    // Data Source for Lists
     private var selectedListId: UUID?
     private var taskLists: [TaskListModel] = []
     
-    private let titleNotesView =
-        CombinedTitleNotesView(
-            titlePlaceholder: "Title *",
-            notesPlaceholder: "Description (Optional)"
-        )
-
+    // Form Rows
+    private let titleNotesView = CombinedTitleNotesView(
+        titlePlaceholder: "Title *",
+        notesPlaceholder: "Description (Optional)"
+    )
 
     private let priorityRow = SelectRow(title: "Priority")
     private let pointsRow = PointsRow()
-    private let dateRow = SelectRow(title: "Due Date")
+    
+    private let dateRow = SelectRow(title: "Date & Time")
+    
+    private lazy var dateSectionStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.isHidden = true
+        stack.alpha = 0
+        return stack
+    }()
+    
+    private lazy var datePicker: UIDatePicker = {
+        let picker = UIDatePicker()
+        picker.datePickerMode = .dateAndTime
+        picker.preferredDatePickerStyle = .inline
+        picker.tintColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        picker.overrideUserInterfaceStyle = .dark
+        picker.backgroundColor = UIColor(white: 1, alpha: 0.1)
+        picker.layer.cornerRadius = 12
+        picker.layer.masksToBounds = true
+        picker.layer.borderWidth = 1
+        picker.layer.borderColor = UIColor.white.withAlphaComponent(0.15).cgColor
+        
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        
+        picker.addAction(UIAction(handler: { [weak self] _ in
+            self?.handleDateChanged()
+        }), for: .valueChanged)
+        
+        return picker
+    }()
+    
+    private lazy var dateDoneButton: UIButton = {
+        var config = UIButton.Configuration.filled()
+        config.title = "Done"
+        config.baseBackgroundColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        config.baseForegroundColor = .white
+        config.cornerStyle = .capsule
+        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20)
+        
+        let btn = UIButton(configuration: config)
+        btn.addAction(UIAction(handler: { [weak self] _ in
+            self?.toggleDateSection(show: false)
+        }), for: .touchUpInside)
+        
+        return btn
+    }()
+    
+    // --- Other Rows ---
     private let frequencyRow = SelectRow(title: "Frequency")
     private let listRow = SelectRow(title: "List")
     private let approvalRow = ApprovalToggleRow(title: "Approval")
@@ -48,11 +94,10 @@ class NewTaskViewController: UIViewController {
     private func setupInitialListMenu() {
         listRow.setMenu(
             UIMenu(children: [
-                UIAction(title: "Loading…", attributes: .disabled) { _ in }
+                UIAction(title: "Loading...", attributes: .disabled) { _ in }
             ])
         )
     }
-
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -69,13 +114,12 @@ class NewTaskViewController: UIViewController {
         applyDefaultValues()
         setupActions()
         
-        // Setup Static Menus (Priority, Frequency, List)
+        // Setup Static Menus (Priority & Frequency)
         setupStaticMenus()
         setupInitialListMenu()
         
-        // FETCH DATA: Get real children from DB for Dynamic Menu
+        // FETCH DATA
         fetchChildren()
-
     }
 
     override func viewDidLayoutSubviews() {
@@ -91,10 +135,9 @@ class NewTaskViewController: UIViewController {
 
                 await MainActor.run {
                     self.childrenList = data.children
-                    self.familyId = data.family_id   // ✅ THIS FIXES LIST & DATE
+                    self.familyId = data.family_id
                     self.handleAssignedToVisibility()
                 }
-
 
                 await self.loadTaskLists()
 
@@ -103,9 +146,6 @@ class NewTaskViewController: UIViewController {
             }
         }
     }
-
-
-
 
     // MARK: - UI Setup
     private func setupNavigationBar() {
@@ -131,35 +171,25 @@ class NewTaskViewController: UIViewController {
     }
     
     private func handleAssignedToVisibility() {
-
         let count = childrenList.count
-
-        // 1️⃣ No children → hide
         if count == 0 {
             assignedRow.isHidden = true
             return
         }
-
-        // 2️⃣ Only one child → auto-select & hide
         if count == 1 {
             let onlyChild = childrenList.first!
             assignedSelections = [onlyChild.id]
             assignedRow.isHidden = true
             return
         }
-
-        // 3️⃣ Multiple children → show selector
         assignedRow.isHidden = false
         updateAssignedMenu()
         updateAssignedLabel()
     }
 
-
     private func setupScrollView() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-
-        // ✅ IMPORTANT
         scrollView.backgroundColor = .clear
 
         NSLayoutConstraint.activate([
@@ -171,8 +201,6 @@ class NewTaskViewController: UIViewController {
 
         scrollView.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
-
-        // ✅ IMPORTANT
         contentView.backgroundColor = .clear
 
         NSLayoutConstraint.activate([
@@ -183,7 +211,6 @@ class NewTaskViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
     }
-
 
     private func setupStack() {
         contentView.addSubview(stack)
@@ -200,13 +227,21 @@ class NewTaskViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
         ])
         
+        let buttonWrapper = UIStackView(arrangedSubviews: [UIView(), dateDoneButton])
+        buttonWrapper.axis = .horizontal
+        buttonWrapper.distribution = .fill
+        
+        dateSectionStack.addArrangedSubview(datePicker)
+        dateSectionStack.addArrangedSubview(buttonWrapper)
+        
         let fields: [UIView] = [
             titleNotesView,
             pointsRow,
             assignedRow,
-            frequencyRow,   // ✅ Frequency instead of Claim Limit
+            frequencyRow,
             priorityRow,
             dateRow,
+            dateSectionStack,
             listRow,
             approvalRow
         ]
@@ -223,23 +258,15 @@ class NewTaskViewController: UIViewController {
             approvalRow,
             assignedRow
         ]
-
-        rows.forEach {
-            $0.heightAnchor.constraint(equalToConstant: 52).isActive = true
-        }
+        rows.forEach { $0.heightAnchor.constraint(equalToConstant: 52).isActive = true }
     }
-
     
     private func applyDefaultValues() {
         priorityRow.setDetail("Medium")
         frequencyRow.setDetail("Once")
-
-        if let general = taskLists.first(where: { $0.name == "General" }) {
-            listRow.setDetail(general.name)
-            selectedListId = general.id
-        }
     }
 
+    // MARK: - List Data Management
     private func loadTaskLists() async {
         guard let familyId else { return }
 
@@ -250,36 +277,85 @@ class NewTaskViewController: UIViewController {
                 self.taskLists = lists
                 self.refreshListMenu()
 
-                if let general = lists.first(where: { $0.name == "General" }) {
-                    self.selectedListId = general.id
-                    self.listRow.setDetail("General")
+                if self.selectedListId == nil {
+                    if let routine = lists.first(where: { $0.name == "Routine" }) {
+                        self.selectedListId = routine.id
+                        self.listRow.setDetail("Routine")
+                    } else if let general = lists.first(where: { $0.name == "General" }) {
+                        self.selectedListId = general.id
+                        self.listRow.setDetail("General")
+                    }
                 }
             }
         } catch {
             print("Failed to load task lists:", error)
         }
     }
+
     private func refreshListMenu() {
-        let actions = taskLists.map { list in
-            UIAction(title: list.name) { [weak self] _ in
-                self?.selectedListId = list.id
-                self?.listRow.setDetail(list.name)
+        let standardNames = ["Routine", "Learning", "Health"]
+        
+        let standardActions = standardNames.map { name in
+            UIAction(title: name) { [weak self] _ in
+                self?.handleStandardListSelection(name: name)
             }
         }
 
-        let custom = UIAction(
-            title: "Custom",
-            image: UIImage(systemName: "plus")
-        ) { [weak self] _ in
-            self?.openCustomList()
+        let customAction = UIAction(
+            title: "Custom...",
+            image: UIImage(systemName: "list.bullet.rectangle"),
+            handler: { [weak self] _ in
+                self?.openCustomListManager()
+            }
+        )
+        
+        let menuItems: [UIMenuElement] = standardActions + [UIMenu(options: .displayInline, children: [customAction])]
+        listRow.setMenu(UIMenu(children: menuItems))
+    }
+    
+    private func handleStandardListSelection(name: String) {
+        self.listRow.setDetail(name)
+        
+        if let existing = taskLists.first(where: { $0.name == name }) {
+            self.selectedListId = existing.id
+        } else {
+            createListSilently(name: name)
         }
-
-        listRow.setMenu(UIMenu(children: actions + [custom]))
+    }
+    
+    private func createListSilently(name: String) {
+        guard let familyId else { return }
+        Task {
+            do {
+                let list = try await TaskService.shared.createTaskList(name: name, familyId: familyId)
+                await MainActor.run {
+                    self.taskLists.append(list)
+                    self.selectedListId = list.id
+                }
+            } catch {
+                print("Error creating standard list:", error)
+            }
+        }
     }
 
-    // MARK: - Menus
-    private func setupStaticMenus() {
+    private func openCustomListManager() {
+        let vc = CustomListViewController()
+        vc.familyId = self.familyId
         
+        vc.onSelect = { [weak self] list in
+            self?.selectedListId = list.id
+            self?.listRow.setDetail(list.name)
+        }
+        
+        vc.onListChange = { [weak self] in
+            Task { await self?.loadTaskLists() }
+        }
+        
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    // MARK: - Frequency & Smart Label Logic
+    private func setupStaticMenus() {
         priorityRow.setMenu(
             UIMenu(children: ["None", "Low", "Medium", "High"].map { value in
                 UIAction(title: value) { [weak self] _ in
@@ -290,73 +366,118 @@ class NewTaskViewController: UIViewController {
         
         frequencyRow.setMenu(
             UIMenu(children: [
-                UIAction(title: "Once") { [weak self] _ in
-                    self?.frequency = "Once"
-                    self?.frequencyRow.setDetail("Once")
-                },
-                UIAction(title: "Daily") { [weak self] _ in
-                    self?.frequency = "Daily"
-                    self?.frequencyRow.setDetail("Daily")
-                },
-                UIAction(title: "Weekly") { [weak self] _ in
-                    self?.frequency = "Weekly"
-                    self?.frequencyRow.setDetail("Weekly")
-                }
+                UIAction(title: "Once") { [weak self] _ in self?.updateFrequency(value: "Once") },
+                UIAction(title: "Daily") { [weak self] _ in self?.updateFrequency(value: "Daily") },
+                UIAction(title: "Weekly") { [weak self] _ in self?.updateFrequency(value: "Weekly") },
+                UIAction(title: "Monthly") { [weak self] _ in self?.updateFrequency(value: "Monthly") },
+                UIAction(title: "Yearly") { [weak self] _ in self?.updateFrequency(value: "Yearly") },
+                UIMenu(options: .displayInline, children: [
+                    UIAction(title: "Custom...", image: UIImage(systemName: "repeat")) { [weak self] _ in
+                        self?.openCustomRepeat()
+                    }
+                ])
             ])
         )
     }
-    // MARK: - Custom Frequency
-
-    private func openCustomList() {
-        let vc = CustomListViewController()
-
-        vc.onSave = { [weak self] name in
-            guard let self else { return }
-            guard let familyId = self.familyId else {
-                self.showAlert("Family not found")
-                return
-            }
-
-            _Concurrency.Task {
-                let list = try await TaskService.shared.createTaskList(
-                    name: name,          // ✅ String
-                    familyId: familyId   // ✅ UUID
-                )
-
-                await MainActor.run {
-                    self.taskLists.append(list)
-                    self.refreshListMenu()
-                    self.selectedListId = list.id
-                    self.listRow.setDetail(list.name)
-                }
-            }
+    
+    // Updates frequency and resets custom fields if a standard option is picked
+    private func updateFrequency(value: String) {
+        self.frequency = value
+        
+        // Reset custom values when user picks standard "Daily" or "Weekly"
+        if value != "Custom" {
+            self.repeatInterval = 1
+            self.repeatEndDate = nil
+            self.repeatDays = nil
         }
-
-        navigationController?.pushViewController(vc, animated: true)
+        
+        updateDynamicFrequencyLabel()
+    }
+    
+    // ✅ Generates the "Smart Label" (e.g. "Every 2 Weeks on Mon, Fri")
+    private func updateDynamicFrequencyLabel() {
+        if frequency == "Once" {
+            frequencyRow.setDetail("Once")
+            return
+        }
+        
+        var summary = ""
+        
+        // 1. Handle Interval
+        if repeatInterval == 1 {
+            summary = frequency // "Daily", "Weekly"
+        } else {
+            var unit = frequency
+            if unit.hasSuffix("ly") { unit = String(unit.dropLast(2)) + "s" } // Weekly -> Weeks
+            if unit == "Dais" { unit = "Days" }
+            summary = "Every \(repeatInterval) \(unit)"
+        }
+        
+        // 2. Handle Days (Only if Weekly)
+        if frequency == "Weekly", let days = repeatDays, !days.isEmpty {
+            let daysMap = [1:"Mon", 2:"Tue", 3:"Wed", 4:"Thu", 5:"Fri", 6:"Sat", 7:"Sun"]
+            let sortedDays = days.sorted().compactMap { daysMap[$0] }
+            summary += " on " + sortedDays.joined(separator: ", ")
+        }
+        
+        // 3. Set the text
+        frequencyRow.setDetail(summary)
     }
 
-
-    private func saveListIfNeeded(_ list: String) {
-        let key = "custom_task_lists"
-        var lists = UserDefaults.standard.stringArray(forKey: key) ?? []
-        if !lists.contains(list) {
-            lists.append(list)
-            UserDefaults.standard.setValue(lists, forKey: key)
+    private func openCustomRepeat() {
+        let vc = CustomRepeatViewController()
+        
+        // ✅ Capture data from Custom Screen
+        vc.onSave = { [weak self] (freqValue, interval, days, endDate, _) in
+            self?.frequency = freqValue
+            self?.repeatInterval = interval
+            self?.repeatDays = days
+            self?.repeatEndDate = endDate
+            
+            // Generate the smart label
+            self?.updateDynamicFrequencyLabel()
+        }
+        
+        let nav = UINavigationController(rootViewController: vc)
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+        }
+        present(nav, animated: true)
+    }
+    
+    // MARK: - Actions
+    private func setupActions() {
+        dateRow.onTap = { [weak self] in
+            guard let self = self else { return }
+            let shouldShow = self.dateSectionStack.isHidden
+            self.toggleDateSection(show: shouldShow)
         }
     }
-
-    private func loadCustomLists() -> [String] {
-        UserDefaults.standard.stringArray(forKey: "custom_task_lists") ?? []
+    
+    private func toggleDateSection(show: Bool) {
+        if show && self.selectedDate == nil {
+            self.datePicker.date = Date()
+            self.handleDateChanged()
+        }
+        UIView.animate(withDuration: 0.3) {
+            self.dateSectionStack.isHidden = !show
+            self.dateSectionStack.alpha = show ? 1 : 0
+            self.stack.layoutIfNeeded()
+        }
     }
-
+    
+    private func handleDateChanged() {
+        self.selectedDate = datePicker.date
+        let df = DateFormatter()
+        df.dateFormat = "MMM d, h:mm a"
+        self.dateRow.setDetail(df.string(from: datePicker.date))
+    }
     
     // MARK: - Multi-Select Assignment Logic
     private func updateAssignedMenu() {
         if childrenList.isEmpty { return }
 
         var items: [UIMenuElement] = []
-
-        // 1️⃣ ALL / DESELECT option
         let allSelected = assignedSelections.count == childrenList.count
 
         let allAction = UIAction(
@@ -364,135 +485,87 @@ class NewTaskViewController: UIViewController {
             state: allSelected ? .on : .off
         ) { [weak self] _ in
             guard let self = self else { return }
-
             if allSelected {
                 self.assignedSelections.removeAll()
             } else {
                 self.assignedSelections = Set(self.childrenList.map { $0.id })
             }
-
             self.updateAssignedLabel()
             self.updateAssignedMenu()
         }
-
         items.append(allAction)
 
-        // 2️⃣ Individual children
         for child in childrenList {
             let selected = assignedSelections.contains(child.id)
-
             let action = UIAction(
                 title: child.name,
                 state: selected ? .on : .off
             ) { [weak self] _ in
                 guard let self = self else { return }
-
                 if selected {
                     self.assignedSelections.remove(child.id)
                 } else {
                     self.assignedSelections.insert(child.id)
                 }
-
                 self.updateAssignedLabel()
                 self.updateAssignedMenu()
             }
-
             items.append(action)
         }
-
-        assignedRow.setMenu(
-            UIMenu(title: "Select Children", options: .displayInline, children: items)
-        )
+        assignedRow.setMenu(UIMenu(title: "Select Children", options: .displayInline, children: items))
     }
 
     private func updateAssignedLabel() {
-
-        // Hidden when only one child
         if childrenList.count == 1 {
             assignedRow.setDetail("")
             return
         }
-
         if assignedSelections.isEmpty {
             assignedRow.setDetail("Select")
             return
         }
-
-        let names = childrenList
-            .filter { assignedSelections.contains($0.id) }
-            .map { $0.name }
-
+        let names = childrenList.filter { assignedSelections.contains($0.id) }.map { $0.name }
         assignedRow.setDetail(names.joined(separator: ", "))
     }
 
-
-    // MARK: - Actions
-    private func setupActions() {
-        dateRow.onTap = { [weak self] in self?.openDatePicker() }
-    }
-    
-    private func openDatePicker() {
-        let vc = UIViewController()
-        vc.view.backgroundColor = .systemBackground
-        if let sheet = vc.sheetPresentationController { sheet.detents = [.medium()] }
-        
-        let picker = UIDatePicker()
-        picker.datePickerMode = .dateAndTime
-        picker.preferredDatePickerStyle = .wheels
-        picker.translatesAutoresizingMaskIntoConstraints = false
-        vc.view.addSubview(picker)
-        
-        NSLayoutConstraint.activate([
-            picker.centerXAnchor.constraint(equalTo: vc.view.centerXAnchor),
-            picker.centerYAnchor.constraint(equalTo: vc.view.centerYAnchor)
-        ])
-        
-        picker.addAction(UIAction(handler: { [weak self] _ in
-            self?.selectedDate = picker.date
-            let df = DateFormatter(); df.dateFormat = "MMM d, h:mm a"
-            self?.dateRow.setDetail(df.string(from: picker.date))
-        }), for: .valueChanged)
-        
-        present(vc, animated: true)
-    }
-    
-
+    // MARK: - Final Submit
     @objc private func doneTapped() {
-
-        let title = titleNotesView.titleText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
+        let title = titleNotesView.titleText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             showAlert("Please enter a title")
             return
         }
-
-        guard let listId = selectedListId,
-              !assignedSelections.isEmpty
-        else {
-            showAlert("Please fill all required fields")
-            return
-        }
         
-        let frequencyValue = frequencyRow.detailText ?? "Once"
-        
-        // 🔥 HARD GUARANTEE: always assign at least one child
-        if assignedSelections.isEmpty {
-            if let firstChild = childrenList.first {
-                assignedSelections = [firstChild.id]
+        if selectedListId == nil {
+            if let routine = taskLists.first(where: { $0.name == "Routine" }) {
+                selectedListId = routine.id
+            } else {
+                selectedListId = taskLists.first?.id
             }
         }
+
+        guard let listId = selectedListId else {
+            showAlert("No Task List available")
+            return
+        }
         
-        // 🔥 HARD RULE: if frequency is not Daily, force a date
-        if selectedDate == nil && frequencyValue.lowercased() != "daily" {
-            self.showAlert("Please select a due date")
+        if assignedSelections.isEmpty, let firstChild = childrenList.first {
+            assignedSelections = [firstChild.id]
+        }
+        
+        if assignedSelections.isEmpty {
+            showAlert("Please assign to at least one child")
+            return
+        }
+        
+        if selectedDate == nil && frequency.lowercased() == "once" {
+            self.showAlert("Please select a date")
             return
         }
 
-
-        print("Creating task with child IDs:", assignedSelections)
-
-
+        print("Creating task...")
+        
+        // ✅ Submit with custom repeat fields
         _Concurrency.Task {
             do {
                 let taskId = try await TaskService.shared.createTask(
@@ -500,7 +573,13 @@ class NewTaskViewController: UIViewController {
                     description: titleNotesView.notesText,
                     points: pointsRow.countValue,
                     priority: priorityRow.detailText ?? "Medium",
-                    frequency: frequencyValue,
+                    frequency: self.frequency,
+                    
+                    // New Custom Fields
+                    repeatInterval: self.repeatInterval,
+                    repeatEndDate: self.repeatEndDate,
+                    repeatDays: self.repeatDays,
+                    
                     listId: listId,
                     assignTo: Array(assignedSelections),
                     dueDate: selectedDate,
@@ -520,15 +599,14 @@ class NewTaskViewController: UIViewController {
             }
         }
     }
-
     
     @objc private func cancelTapped() {
         dismiss(animated: true)
     }
     
     private func showAlert(_ msg: String) {
-           let a = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
-           a.addAction(.init(title: "OK", style: .default))
-           present(a, animated: true)
-       }
-   }
+        let a = UIAlertController(title: "Info", message: msg, preferredStyle: .alert)
+        a.addAction(.init(title: "OK", style: .default))
+        present(a, animated: true)
+    }
+}

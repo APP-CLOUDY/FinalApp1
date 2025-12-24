@@ -9,24 +9,14 @@ import Foundation
 import Supabase
 
 // MARK: - Response Model
-// We keep this struct for the RESPONSE only.
 struct AddChildResponse: Decodable, Sendable {
     let id: UUID
     let join_code: String
 }
 
-struct AddChildParams: Sendable {
-    let name_input: String
-    let nickname_input: String?
-    let birth_date_input: String
-    let gender_input: String
-}
-
-nonisolated extension AddChildParams: Encodable {}
-
 // MARK: - Service Class
 
-final class ChildService {
+final class ChildService: Sendable {
     static let shared = ChildService()
     
     // Access the shared client
@@ -34,22 +24,25 @@ final class ChildService {
         return SupabaseManager.shared.client
     }
     
-    func addChild(name: String, nickname: String?, dob: Date, gender: String) async throws -> String {
+    func addChild(name: String, nickname: String?, dob: Date, gender: String, familyId: UUID? = nil) async throws -> String {
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let dobString = formatter.string(from: dob)
 
-        // ✅ FIX: Allow NULL properly
-        let params = AddChildParams(
-            name_input: name,
-            nickname_input: nickname,   // ← NULL if nil (PERFECT)
-            birth_date_input: dobString,
-            gender_input: gender
-        )
+        // ✅ THE FIX: Use a simple Dictionary instead of a custom Struct.
+        // Swift Dictionaries are automatically safe for background threads.
+        // We convert the UUID to a String manually; Supabase handles the rest.
+        let params: [String: String?] = [
+            "name_input": name,
+            "nickname_input": nickname,
+            "birth_date_input": dobString,
+            "gender_input": gender,
+            "family_id_input": familyId?.uuidString // Convert UUID to String
+        ]
 
-
+        // Execute the RPC call
         let response: AddChildResponse = try await client
             .database
             .rpc("add_child_to_family", params: params)
@@ -59,5 +52,3 @@ final class ChildService {
         return response.join_code
     }
 }
-// Add Child
-

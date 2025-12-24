@@ -51,7 +51,7 @@ class FamGlassCardView: UIView {
 
 // MARK: - 2. Family View Controller
 class FamilyViewController: UIViewController {
-
+    
     // MARK: - UI Components
     
     private let backgroundGradientLayer = CAGradientLayer()
@@ -151,9 +151,9 @@ class FamilyViewController: UIViewController {
         btn.translatesAutoresizingMaskIntoConstraints = false
         return btn
     }()
-
+    
     // MARK: - Lifecycle
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackgroundGradient()
@@ -166,6 +166,10 @@ class FamilyViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // 🛠️ FIX: This removes the empty space at the top
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        
+        // Refresh data every time we show this screen
         fetchFamilyData()
     }
     
@@ -272,7 +276,7 @@ class FamilyViewController: UIViewController {
         addChildButton.addTarget(self, action: #selector(handleAddChild), for: .touchUpInside)
         doneButton.addTarget(self, action: #selector(handleDone), for: .touchUpInside)
     }
-
+    
     // MARK: - Data Fetching & UI Update
     
     private func fetchFamilyData() {
@@ -398,19 +402,30 @@ class FamilyViewController: UIViewController {
         
         return card
     }
-
+    
     // MARK: - Button Actions
     
     @objc private func handleAddChild() {
         let vc = Addchildform() // Ensure this class exists
         navigationController?.pushViewController(vc, animated: true)
     }
-    
     @objc private func handleDone() {
-//         Logic to switch to Tab Bar
-         let mainTabBar = AppTabBarController()
-         navigationController?.setViewControllers([mainTabBar], animated: true)
-        print("Done Tapped - Go to Dashboard")
+        // 1. Get the Window Scene
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
+            return
+        }
+        
+        // 2. Create your Main Tab Bar Controller
+        let mainTabBar = AppTabBarController()// Or AppTabBarController()
+        
+        // 3. Swap the Root View Controller with an animation
+        UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
+            window.rootViewController = mainTabBar
+        }, completion: nil)
+        
+        print("Done Tapped - Root Swapped to Dashboard")
     }
 }
 
+// AppTabBarController()

@@ -3,12 +3,13 @@ import UIKit
 final class SelectRow: UIView {
 
     // MARK: - UI
-    private let button = UIButton(type: .system)
+    // We use .custom to avoid default system flashing effects
+    private let button = UIButton(type: .custom)
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let chevron = UIImageView(image: UIImage(systemName: "chevron.down"))
 
-    // MARK: - Tap handler (for Date row etc.)
+    // MARK: - Tap handler
     var onTap: (() -> Void)?
 
     // MARK: - Init
@@ -25,24 +26,12 @@ final class SelectRow: UIView {
     // MARK: - Setup
     private func setupUI() {
         translatesAutoresizingMaskIntoConstraints = false
-        isUserInteractionEnabled = true
-
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.backgroundColor = UIColor.white.withAlphaComponent(0.06)
-        button.layer.cornerRadius = 12
-
-        // 🔥 IMPORTANT: manual tap handling
-        button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
-
-        addSubview(button)
-
-        NSLayoutConstraint.activate([
-            button.leadingAnchor.constraint(equalTo: leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: trailingAnchor),
-            button.topAnchor.constraint(equalTo: topAnchor),
-            button.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
+        
+        // 1. ✅ Apply Styling to SELF (The Container), not the button
+        self.backgroundColor = UIColor.white.withAlphaComponent(0.06)
+        self.layer.cornerRadius = 12
+        
+        // 2. Setup Labels (Visuals)
         titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
         titleLabel.textColor = .white
 
@@ -61,29 +50,41 @@ final class SelectRow: UIView {
         content.translatesAutoresizingMaskIntoConstraints = false
         content.axis = .horizontal
         content.spacing = 8
+        content.isUserInteractionEnabled = false // Let touches pass through to button
 
-        button.addSubview(content)
+        // 3. Add Visuals to SELF
+        addSubview(content)
 
         NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 16),
-            content.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -16),
-            content.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+
+        // 4. Setup Button as an INVISIBLE OVERLAY
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = .clear // Transparent
+        button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+
+        addSubview(button) // Add button LAST so it sits on top
+
+        NSLayoutConstraint.activate([
+            button.leadingAnchor.constraint(equalTo: leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: trailingAnchor),
+            button.topAnchor.constraint(equalTo: topAnchor),
+            button.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 
     // MARK: - Menu support
     func setMenu(_ menu: UIMenu) {
         button.menu = menu
-        button.showsMenuAsPrimaryAction = true   // ✅ ONLY when menu exists
-        button.isEnabled = true
+        button.showsMenuAsPrimaryAction = true
     }
 
     // MARK: - Tap handler
     @objc private func handleTap() {
-        // If menu exists, system handles it
         if button.menu != nil { return }
-
-        // Otherwise manual tap
         onTap?()
     }
 
@@ -96,4 +97,3 @@ final class SelectRow: UIView {
         detailLabel.text
     }
 }
-
