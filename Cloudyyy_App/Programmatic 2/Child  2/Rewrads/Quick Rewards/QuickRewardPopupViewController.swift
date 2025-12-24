@@ -1,4 +1,7 @@
 import UIKit
+import Supabase
+import PostgREST
+
 
 final class QuickRewardClaimPopupViewController: UIViewController {
 
@@ -16,7 +19,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     private let mascotImageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.image = UIImage(named: "cloudyy_logo")
+        iv.image = UIImage(named: "cloudyy_gift")
         iv.contentMode = .scaleAspectFit
         return iv
     }()
@@ -73,6 +76,46 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         lb.textAlignment = .center
         return lb
     }()
+    private func redeemReward(claimId: UUID) {
+        Task {
+            do {
+                try await SupabaseManager.shared.client
+                    .rpc(
+                        "redeem_reward",
+                        params: ["reward_claim_id_input": claimId.uuidString]
+                    )
+                    .execute()
+
+                await MainActor.run {
+                    self.dismiss(animated: true)
+                    NotificationCenter.default.post(
+                        name: .rewardRedeemed,
+                        object: nil
+                    )
+                }
+
+            } catch {
+                print("❌ Redeem failed:", error)
+                showError("Not enough stars")
+            }
+        }
+    }
+
+
+    private func showError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Oops 😅",
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+        DispatchQueue.main.async {
+            self.present(alert, animated: true)
+        }
+    }
+
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -251,17 +294,74 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     }
 
 
-    // MARK: - Actions
     @objc private func claimTapped() {
-        showConfetti()
 
-        // ⏱️ Let confetti play before dismiss
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            self.dismiss(animated: true) {
-                self.onClaim?()
-            }
+        // ⭐ Not enough points
+        if currentBalance < reward.cost {
+            showNotEnoughStarsPopup()
+            return
+        }
+
+        // 🟡 Needs approval → create pending claim
+        if reward.approvalRequired && reward.claimStatus == nil {
+            createPendingClaim()
+            showSentForApprovalPopup()
+            return
+        }
+
+        // 🔵 Approved or instant → redeem
+        if !reward.approvalRequired || reward.claimStatus == "approved" {
+            redeemApprovedReward()
+            return
         }
     }
 
-}
+    private func showNotEnoughStarsPopup() {
+        let alert = UIAlertController(
+            title: "Not enough stars ⭐",
+            message: "You need more stars to claim this reward.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    private func createPendingClaim() {
+        guard let claimId = reward.claimId else { return }
 
+        Task {
+            do {
+                try await SupabaseManager.shared.client
+                    .rpc(
+                        "create_pending_reward_claim",
+                        params: ["reward_claim_id_input": claimId.uuidString]
+                    )
+                    .execute()
+            } catch {
+                print("❌ Failed to create pending claim:", error)
+                showError("Something went wrong. Try again.")
+            }
+        }
+    }
+    private func showSentForApprovalPopup() {
+        let alert = UIAlertController(
+            title: "Sent for approval ⏳",
+            message: "Your reward request was sent to your parent for approval.",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            self.dismiss(animated: true)
+        })
+
+        present(alert, animated: true)
+    }
+    private func redeemApprovedReward() {
+        guard let claimId = reward.claimId else { return }
+
+        showConfetti()
+        redeemReward(claimId: claimId)
+
+        onClaim?()
+    }
+
+}

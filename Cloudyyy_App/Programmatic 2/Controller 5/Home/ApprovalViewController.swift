@@ -264,12 +264,37 @@ final class ApprovalViewController: UIViewController {
                 )
                 
                 cell.onApproveTapped = { [weak self] in
-                    self?.approveItem(at: indexPath)
+                    guard let self else { return }
+                    let item = self.pendingData[indexPath.row]
+
+                    Task {
+                        do {
+                            try await ApprovalService.shared.approve(item: item)
+                            await MainActor.run {
+                                self.approveItem(at: indexPath)
+                            }
+                        } catch {
+                            print("❌ Approve failed:", error)
+                        }
+                    }
                 }
-                
+
                 cell.onDeclineTapped = { [weak self] in
-                    self?.declineItem(at: indexPath)
+                    guard let self else { return }
+                    let item = self.pendingData[indexPath.row]
+
+                    Task {
+                        do {
+                            try await ApprovalService.shared.decline(item: item)
+                            await MainActor.run {
+                                self.declineItem(at: indexPath)
+                            }
+                        } catch {
+                            print("❌ Decline failed:", error)
+                        }
+                    }
                 }
+
                 
                 return cell
             }

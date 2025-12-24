@@ -39,14 +39,14 @@ final class RewardsViewController: UIViewController {
             .replacingOccurrences(of: " ", with: "_")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
-
+    
     
     private struct QuickRewardType {
         let key: String        // backend value
         let title: String      // UI label
         let image: String      // asset name
     }
-
+    
     private let allQuickRewardTypes: [QuickRewardType] = [
         .init(key: "icecream",      title: "Ice Cream",      image: "reward_icecream"),
         .init(key: "chocolate",     title: "Chocolate",      image: "reward_chocolate"),
@@ -58,37 +58,40 @@ final class RewardsViewController: UIViewController {
         .init(key: "toys",          title: "Toys",           image: "reward_toys"),
         .init(key: "surprise",      title: "Surprise",       image: "reward_surprise")
     ]
-
+    
     private func loadQuickRewards() async {
         guard let childId = ChildSessionManager.shared.currentChildId else { return }
-
+        
         do {
             let response = try await ChildRewardsService.shared.getChildRewards(
                 childId: childId,
                 category: "Quick Rewards"
             )
-
+            
             let backendGrouped = Dictionary(grouping: response.active) {
                 $0.reward_sub_type
             }
-
+            
             var items: [QuickRewardItem] = []
             var rewardsMap: [String: [AssignedQuickReward]] = [:]
-
+            
             for type in allQuickRewardTypes {
-
+                
                 let rewardsForType = backendGrouped[type.key] ?? []
-
-                let mappedRewards = rewardsForType.map {
+                
+                let mappedRewards = rewardsForType.map { item in
                     AssignedQuickReward(
-                        id: $0.id,
-                        title: $0.title,
-                        cost: $0.points,
+                        id: item.id,                 // reward_id
+                        claimId: item.claim_id,      // ✅ REQUIRED FOR REDEEM
+                        title: item.title,
+                        cost: item.points,
                         imageName: type.image,
-                        approvalRequired: $0.approval_required
+                        approvalRequired: item.approval_required,
+                        claimStatus: item.claim_status
                     )
                 }
-
+                
+                
                 items.append(
                     QuickRewardItem(
                         title: type.title,
@@ -96,7 +99,7 @@ final class RewardsViewController: UIViewController {
                         isEnabled: !mappedRewards.isEmpty   // 🔒 LOCKED FIX
                     )
                 )
-
+                
                 if !mappedRewards.isEmpty {
                     rewardsMap[type.title] = mappedRewards
                 }
@@ -105,23 +108,24 @@ final class RewardsViewController: UIViewController {
             let sortedItems = items.sorted {
                 ($0.isEnabled ? 0 : 1) < ($1.isEnabled ? 0 : 1)
             }
-
+            
             await MainActor.run {
                 self.quickItems = sortedItems
                 self.rewardsByCategory = rewardsMap
                 self.quickCollectionView.reloadData()
             }
-
+            
         } catch {
             print("❌ Failed to load quick rewards:", error)
         }
     }
-
+    
     @objc private func coinsTapped() {
-        let vc = CoinHistoryViewController() // or RewardsHistoryVC
-        vc.modalPresentationStyle = .pageSheet
-        present(vc, animated: true)
+        let vc = CoinHistoryViewController()
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
+
     
     private func addIdlePulse() {
         let pulse = CABasicAnimation(keyPath: "transform.scale")
@@ -396,8 +400,30 @@ final class RewardsViewController: UIViewController {
             await loadRewardsHomeData()
         }
         
+        loadStreakCount()
+        
     }
     
+    private func loadStreakCount() {
+        Task {
+            guard
+                let childIdString = SelectedKidStore.shared.selectedKid?.id,
+                let childId = UUID(uuidString: childIdString)
+            else {
+                print("❌ Invalid childId")
+                return
+            }
+
+            do {
+                let streak = try await StreakService.shared.getCurrentStreak(childId: childId)
+                streakCard.setStreak(streak)
+            } catch {
+                print("❌ Failed to load streak count:", error)
+            }
+        }
+    }
+
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
@@ -719,27 +745,13 @@ final class RewardsViewController: UIViewController {
         popup.currentBalance = rewardStats?.total_stars ?? 0
         
         popup.onClaim = { [weak self] in
-            guard let self else { return }
-            
             Task {
-                do {
-                    try await ChildRewardsService.shared.claimReward(
-                        rewardId: reward.id,
-                        childId: ChildSessionManager.shared.currentChildId!,
-                        approvalRequired: reward.approvalRequired
-                    )
-                    
-                    await self.loadRewardsHomeData()
-                    
-                } catch {
-                    print("❌ Claim failed:", error)
-                }
+                await self?.loadRewardsHomeData()
             }
         }
         
         present(popup, animated: true)
     }
-    
 }
 
 // MARK: - Collection View Extension
@@ -785,7 +797,10 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
         let item = quickItems[indexPath.item]
 
         guard item.isEnabled else {
-            present(LockedRewardPopupViewController(), animated: true)
+            let popup = LockedRewardPopupViewController()
+            popup.modalPresentationStyle = .overFullScreen
+            popup.modalTransitionStyle = .crossDissolve
+            present(popup, animated: true)
             return
         }
 
@@ -804,18 +819,4 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
     }
 }    // MARK: - TEMP Dummy Assigned Rewards (Replace with backend later)
    
-extension CoinHistoryViewController: UITableViewDataSource, UITableViewDelegate {
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        history.count
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CoinHistoryCell", for: indexPath) as! CoinHistoryCell
-        let item = history[indexPath.row]
-        cell.configure(title: item.title, points: item.points, date: item.date)
-        return cell
-    }
-}
-
 

@@ -748,7 +748,7 @@ final class NewRewardViewController: UIViewController {
         let approvalRequired =
             categoryName == "Quick Rewards"
             ? approvalRow.isOn
-            : nil
+            : false
 
         
         let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last
