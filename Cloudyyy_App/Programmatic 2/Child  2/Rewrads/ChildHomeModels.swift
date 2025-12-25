@@ -15,7 +15,7 @@ struct ChildHomeStats: Decodable {
     let pending_count: Int
     let allocated_count: Int
     let redeemed_count: Int
-    let current_streak: Int
+    let current_streak: Int?
     let week_status: [Bool]?
 }
 

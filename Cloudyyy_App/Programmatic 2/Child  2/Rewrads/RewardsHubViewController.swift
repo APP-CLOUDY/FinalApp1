@@ -33,31 +33,32 @@ final class RewardsViewController: UIViewController {
         return v
     }()
     
-    func normalizeQuickRewardSubtype(_ title: String) -> String {
+    static func normalizeQuickRewardSubtype(_ title: String) -> String {
         title
             .lowercased()
             .replacingOccurrences(of: " ", with: "_")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    
+
+
     
     private struct QuickRewardType {
         let key: String        // backend value
         let title: String      // UI label
         let image: String      // asset name
     }
-    
     private let allQuickRewardTypes: [QuickRewardType] = [
-        .init(key: "icecream",      title: "Ice Cream",      image: "reward_icecream"),
-        .init(key: "chocolate",     title: "Chocolate",      image: "reward_chocolate"),
-        .init(key: "snacks",        title: "Snacks",         image: "reward_treat"),
-        .init(key: "takeaway",      title: "Takeaway",       image: "reward_outside_food"),
-        .init(key: "tv_time",       title: "TV Time",        image: "reward_cartoon"),
-        .init(key: "gadget_time",   title: "Gadget Time",    image: "reward_screen_time"),
-        .init(key: "outdoor_play",  title: "Outdoor Play",   image: "reward_outdoor"),
-        .init(key: "toys",          title: "Toys",           image: "reward_toys"),
-        .init(key: "surprise",      title: "Surprise",       image: "reward_surprise")
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Ice Cream"), title: "Ice Cream", image: "reward_icecream"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Chocolate"), title: "Chocolate", image: "reward_chocolate"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Snacks"), title: "Snacks", image: "reward_treat"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Takeaway"), title: "Takeaway", image: "reward_outside_food"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("TV Time"), title: "TV Time", image: "reward_cartoon"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Gadget Time"), title: "Gadget Time", image: "reward_screen_time"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Outdoor Play"), title: "Outdoor Play", image: "reward_outdoor"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Toys"), title: "Toys", image: "reward_toys"),
+        .init(key: RewardsViewController.normalizeQuickRewardSubtype("Surprise"), title: "Surprise", image: "reward_surprise")
     ]
+
     
     private func loadQuickRewards() async {
         guard let childId = ChildSessionManager.shared.currentChildId else { return }
@@ -67,10 +68,29 @@ final class RewardsViewController: UIViewController {
                 childId: childId,
                 category: "Quick Rewards"
             )
-            
             let backendGrouped = Dictionary(grouping: response.active) {
-                $0.reward_sub_type
+                RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type ?? "")
             }
+
+            print("🔍 Backend reward_sub_types:")
+            response.active.forEach {
+                print(
+                    "→ NORMALIZED:",
+                    RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type ?? "")
+                )
+
+            }
+
+            print("🔑 Frontend keys:")
+            allQuickRewardTypes.forEach {
+                print("KEY:", $0.key)
+            }
+            print("🧪 FULL RESPONSE:", response)
+            print("🧪 ACTIVE COUNT:", response.active.count)
+            print("🧪 HISTORY COUNT:", response.history.count)
+            print("👶 CURRENT CHILD ID:", ChildSessionManager.shared.currentChildId ?? "nil")
+
+
             
             var items: [QuickRewardItem] = []
             var rewardsMap: [String: [AssignedQuickReward]] = [:]
@@ -406,11 +426,8 @@ final class RewardsViewController: UIViewController {
     
     private func loadStreakCount() {
         Task {
-            guard
-                let childIdString = SelectedKidStore.shared.selectedKid?.id,
-                let childId = UUID(uuidString: childIdString)
-            else {
-                print("❌ Invalid childId")
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ No child logged in")
                 return
             }
 
@@ -460,7 +477,7 @@ final class RewardsViewController: UIViewController {
         guard let homeStats = homeStats else { return }
         
         // 🔥 Streak number
-        streakCard.setStreak(homeStats.current_streak)
+        streakCard.setStreak(homeStats.current_streak ?? 0)
         
         // 📅 Weekly dots
         if let week = homeStats.week_status {

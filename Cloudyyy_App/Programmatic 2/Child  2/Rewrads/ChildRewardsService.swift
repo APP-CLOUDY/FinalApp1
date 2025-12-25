@@ -28,8 +28,6 @@ struct ChildRewardItem: Decodable {
     let claim_status: String?
 }
 
-
-
 // MARK: - Insert Payload (ENCODABLE – REQUIRED BY SUPABASE)
 
 struct RewardClaimInsert: Encodable {

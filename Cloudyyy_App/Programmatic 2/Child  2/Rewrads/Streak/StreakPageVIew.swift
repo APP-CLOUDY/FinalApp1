@@ -44,7 +44,9 @@ final class StreakPageView: UIViewController {
         navigationItem.title = "Streak 🔥"
 
         let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .clear   // important
+        appearance.shadowColor = .clear       // 🔥 removes the line
         appearance.titleTextAttributes = [
             .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 22, weight: .bold)
@@ -52,9 +54,12 @@ final class StreakPageView: UIViewController {
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
 
         navigationController?.navigationBar.tintColor = .white
+        navigationController?.navigationBar.isTranslucent = true
     }
+
 
     // MARK: - Layout
     private func setupLayout() {
@@ -100,26 +105,22 @@ final class StreakPageView: UIViewController {
 
     private func loadInitialMonth() {
         monthHeader.set(month: currentMonth, year: currentYear)
-
+        
         Task {
-            guard
-                let childIdString = SelectedKidStore.shared.selectedKid?.id,
-                let childId = UUID(uuidString: childIdString)
-            else {
-                print("❌ Invalid childId")
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ No child logged in")
                 return
             }
-
-
+            
             do {
                 let days = try await StreakService.shared.getMonthStreak(
                     childId: childId,
                     month: currentMonth,
                     year: currentYear
                 )
-
+                
                 completedDays = days
-
+                
                 calendarView.update(
                     month: currentMonth,
                     year: currentYear,
@@ -144,11 +145,30 @@ final class StreakPageView: UIViewController {
 
         monthHeader.set(month: currentMonth, year: currentYear)
 
-        calendarView.update(
-            month: currentMonth,
-            year: currentYear,
-            completed: completedDays
-        )
+        Task {
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ No child logged in")
+                return
+            }
+
+            do {
+                let days = try await StreakService.shared.getMonthStreak(
+                    childId: childId,
+                    month: currentMonth,
+                    year: currentYear
+                )
+
+                completedDays = days
+
+                calendarView.update(
+                    month: currentMonth,
+                    year: currentYear,
+                    completed: days
+                )
+            } catch {
+                print("❌ Failed to load streak month:", error)
+            }
+        }
     }
 
     // MARK: - Gradient
@@ -161,5 +181,10 @@ final class StreakPageView: UIViewController {
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(gradientLayer, at: 0)
     }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+    }
+
 }
 
