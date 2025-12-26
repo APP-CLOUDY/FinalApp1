@@ -152,6 +152,7 @@ struct MissionClusterView: View {
 }
 
 // MARK: - Detail View
+// MARK: - Detail View
 struct MissionDetailView: View {
     @Binding var currentState: AppState
     let mission: Mission
@@ -160,6 +161,8 @@ struct MissionDetailView: View {
     
     // Logic States
     @State private var showCamera = false
+    @State private var showSourceSelection = false // 👈 NEW: Controls the menu
+    @State private var sourceType: UIImagePickerController.SourceType = .camera // 👈 NEW: Tracks choice
     @State private var capturedImage: UIImage?
     @State private var isUploading = false
     
@@ -168,6 +171,7 @@ struct MissionDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
                     
+                    // Chat Bubble
                     ChatBubbleContainer {
                         HStack {
                             Image(systemName: "sparkles").foregroundColor(.purple)
@@ -215,7 +219,7 @@ struct MissionDetailView: View {
                     .cornerRadius(16)
                     .padding(.horizontal, 20)
                     
-                    // Photo Preview
+                    // Photo Preview (Shows image if taken)
                     if let img = capturedImage {
                         ZStack(alignment: .topTrailing) {
                             Image(uiImage: img)
@@ -223,25 +227,29 @@ struct MissionDetailView: View {
                                 .scaledToFit()
                                 .frame(height: 180)
                                 .cornerRadius(12)
+                                .frame(maxWidth: .infinity)
                             
                             Button(action: { capturedImage = nil }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.red)
                                     .background(Circle().fill(Color.white))
+                                    .font(.title2)
                             }
-                            .padding(6)
+                            .padding(8)
                         }
                         .padding(.horizontal, 20)
                     }
                     
-                    // Decoration
+                    // Decoration & Submit Button Area
                     ZStack(alignment: .bottomTrailing) {
+                        // The Cloud Umbrella Image
                         Image("cloudUmbrella")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 170)
                             .padding(.trailing, 20)
                         
+                        // Speech Bubble decoration
                         ZStack(alignment: .bottomTrailing) {
                             Text("Let me know, When\nyou are done!")
                                 .font(.system(size: 14, weight: .bold))
@@ -265,6 +273,7 @@ struct MissionDetailView: View {
                     .padding(.top, 50)
                     .padding(.trailing, 20)
                     
+                    // Buttons
                     HStack(spacing: 16) {
                         // Done/Submit Button
                         Button(action: handleDoneTap) {
@@ -310,18 +319,32 @@ struct MissionDetailView: View {
             }
             .blur(radius: isUploading ? 2 : 0)
         }
+        // 1. The Menu (Camera or Library)
+        .confirmationDialog("Choose Photo Source", isPresented: $showSourceSelection, titleVisibility: .visible) {
+            Button("Camera") {
+                self.sourceType = .camera
+                self.showCamera = true
+            }
+            Button("Photo Library") {
+                self.sourceType = .photoLibrary
+                self.showCamera = true
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        // 2. The Actual Picker
         .fullScreenCover(isPresented: $showCamera) {
-            // Placeholder: Add your CameraView here if you have one, or comment out if not needed yet
-            Text("Camera View Placeholder")
-            // CameraView(selectedImage: $capturedImage)
+            ImagePicker(selectedImage: $capturedImage, sourceType: sourceType)
+                .ignoresSafeArea()
         }
     }
     
     func handleDoneTap() {
+        // If photo required but not taken, Ask for Photo
         if mission.requiresPhoto && capturedImage == nil {
-            showCamera = true
+            showSourceSelection = true // 👈 Trigger the menu
             return
         }
+        // Otherwise, submit
         startSubmissionProcess()
     }
     

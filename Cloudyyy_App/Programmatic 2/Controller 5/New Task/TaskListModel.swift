@@ -1,14 +1,14 @@
+////
+////  TaskListModel.swift
+////  Cloudyyy_App
+////
+////  Created by user@10 on 17/12/25.
+////
 //
-//  TaskListModel.swift
-//  Cloudyyy_App
+//import Foundation
 //
-//  Created by user@10 on 17/12/25.
+//struct TaskListModel: Decodable, Identifiable {
+//    let id: UUID
+//    let name: String
+//}
 //
-
-import Foundation
-
-struct TaskListModel: Decodable, Identifiable {
-    let id: UUID
-    let name: String
-}
-

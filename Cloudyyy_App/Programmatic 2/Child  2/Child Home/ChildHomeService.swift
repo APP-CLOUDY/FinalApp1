@@ -77,27 +77,50 @@ final class ChildHomeService: Sendable {
     }
     
     // MARK: - Fetch Schedule
-    func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return [] }
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        
-        let params = ChildScheduleParams(child_id_input: childId, target_date: formatter.string(from: date))
-        let response = try await client
-            .rpc("get_child_schedule", params: params)
-            .execute()
+    // MARK: - Fetch Schedule (Debug Version)
+        func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
+            // 1. Check Child ID
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ DEBUG: No Child ID found in SessionManager!")
+                return []
+            }
+            
+            // 2. Format Date
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            let dateString = formatter.string(from: date)
+            
+            print("🔍 DEBUG: Fetching for Child: \(childId)")
+            print("🔍 DEBUG: Target Date: \(dateString)")
+            
+            let params = ChildScheduleParams(child_id_input: childId, target_date: dateString)
+            
+            do {
+                // 3. Call Database
+                let response = try await client
+                    .rpc("get_child_schedule", params: params)
+                    .execute()
+                
+                let data = response.data
+                
+                // 4. Print Raw Response
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("📦 DEBUG: Raw JSON from DB: \(jsonString)")
+                }
 
-        let data = response.data   // ✅ NOT optional
-
-        return try JSONDecoder().decode(
-            [ScheduleTaskModelChild].self,
-            from: data
-        )
-
-
-    }
+                let tasks = try JSONDecoder().decode(
+                    [ScheduleTaskModelChild].self,
+                    from: data
+                )
+                print("✅ DEBUG: Decoded \(tasks.count) tasks.")
+                return tasks
+                
+            } catch {
+                print("❌ DEBUG: Error calling Supabase: \(error)")
+                throw error
+            }
+        }
     
     // MARK: - Upload Proof (Image)
     func uploadProof(image: UIImage, childId: UUID) async throws -> String {
@@ -210,4 +233,3 @@ final class ChildHomeService: Sendable {
 
     
 }
-

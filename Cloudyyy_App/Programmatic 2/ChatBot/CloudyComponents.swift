@@ -116,21 +116,13 @@ struct GlassyBubble: View {
 }
 
 struct FloatingMissionItem: View {
-    let mission: Mission
-    @State private var xOffset: CGFloat = 0
-    @State private var yOffset: CGFloat = 0
+    // ⚠️ CRITICAL UPDATE: Uses @ObservedObject so it moves with physics
+    @ObservedObject var mission: Mission
     
     var body: some View {
         GlassyBubble(mission: mission)
-            .offset(x: mission.x + xOffset, y: mission.y + yOffset)
-            .onAppear {
-                withAnimation(.easeInOut(duration: Double.random(in: 3...6)).repeatForever(autoreverses: true)) {
-                    xOffset = CGFloat.random(in: -10...10)
-                }
-                withAnimation(.easeInOut(duration: Double.random(in: 2...5)).repeatForever(autoreverses: true)) {
-                    yOffset = CGFloat.random(in: -15...15)
-                }
-            }
+            // Uses the real-time physics position from the ViewModel
+            .offset(x: mission.x, y: mission.y)
     }
 }
 

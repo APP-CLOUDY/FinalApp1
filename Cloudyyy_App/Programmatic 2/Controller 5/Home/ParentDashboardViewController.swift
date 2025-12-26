@@ -153,7 +153,7 @@ extension Color {
         }
         
         private func fetchCharts(for kid: ChildModel) {
-            _Concurrency.Task {
+            Task {
                 do {
                     let wData = try await HomeService.shared.fetchChartData(
                         for: kid.id,
@@ -166,16 +166,39 @@ extension Color {
                     )
 
                     await MainActor.run {
-
-                        // ✅ WEEKLY → Mon–Sun
-                        self.weeklyChartPoints = wData.map {
-                            DashboardChartPoint(
-                                label: $0.day,                  // Mon, Tue, Wed…
-                                completed: $0.completed_count,  // ✅ FIRST
-                                assigned: $0.pending_count      // ✅ SECOND
-                            )
+                        
+                        // --- 🌟 FIX FOR MISSING DAYS STARTS HERE 🌟 ---
+                        
+                        // 1. Define the exact order of days you want on the X-Axis
+                        let allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                        
+                        // 2. Create a dictionary for easier lookup of the API data
+                        //    (Key: "Mon", Value: The data object)
+                        let dataDict = Dictionary(uniqueKeysWithValues: wData.map { ($0.day, $0) })
+                        
+                        // 3. Map through 'allDays' to ensure we have exactly 7 points.
+                        //    If data exists for a day, use it. If not, create a 0-value point.
+                        self.weeklyChartPoints = allDays.map { dayStr in
+                            if let foundData = dataDict[dayStr] {
+                                // API has data for this day
+                                return DashboardChartPoint(
+                                    label: dayStr,
+                                    completed: foundData.completed_count,
+                                    assigned: foundData.pending_count
+                                )
+                            } else {
+                                // API has NO data for this day -> Return 0/0 (Empty Bar)
+                                return DashboardChartPoint(
+                                    label: dayStr,
+                                    completed: 0,
+                                    assigned: 0
+                                )
+                            }
                         }
+                        
+                        // --- 🌟 FIX ENDS HERE 🌟 ---
 
+                        // 2. Process Monthly Data (Keep as is)
                         self.monthlyChartPoints = mData.enumerated().map { index, item in
                             DashboardChartPoint(
                                 label: "Week \(index + 1)",
@@ -184,10 +207,27 @@ extension Color {
                             )
                         }
 
-
-
-                        // ✅ SHOW CURRENT SEGMENT DATA
                         self.updateChart()
+                        
+                        // 3. Sync Overview Card (The fix we added previously)
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "E"
+                        let todayString = formatter.string(from: Date())
+                        
+                        if let todayData = self.weeklyChartPoints.first(where: { $0.label == todayString }) {
+                            let correctDone = todayData.completed
+                            let correctPending = todayData.assigned
+                            let correctTotal = correctDone + correctPending
+                            let progress = correctTotal > 0 ? CGFloat(correctDone) / CGFloat(correctTotal) : 0.0
+                            
+                            self.overviewCard.configure(
+                                missionsDone: correctDone,
+                                missionsTotal: correctTotal,
+                                redeemedText: "",
+                                progress: progress,
+                                animated: true
+                            )
+                        }
                     }
 
                 } catch {

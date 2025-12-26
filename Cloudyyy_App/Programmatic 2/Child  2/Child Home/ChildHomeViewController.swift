@@ -28,18 +28,11 @@ final class ChildHomeViewController: UIViewController {
     private let powerLabel = UILabel()
     private let powerSubLabel = UILabel()
 
-    // 6. Progress Section
+    // 6. Dynamic Progress Section
     private let achievementsTitle = UILabel()
     
-    private let habitIcon = UIImageView()
-    private let habitLabel = UILabel()
-    private let habitProgress = UIProgressView(progressViewStyle: .default)
-    private let habitPercentLabel = UILabel()
-
-    private let extraIcon = UIImageView()
-    private let extraLabel = UILabel()
-    private let extraProgress = UIProgressView(progressViewStyle: .default)
-    private let extraPercentLabel = UILabel()
+    // ⚡️ NEW: StackView to hold dynamic task categories
+    private let achievementsStackView = UIStackView()
     
     // 7. Padding View
     private let bottomPaddingView = UIView()
@@ -55,11 +48,10 @@ final class ChildHomeViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Ensure nav bar is hidden on Home.
         navigationController?.setNavigationBarHidden(true, animated: animated)
         startFloatingAnimation()
         
-        // ✅ NEW: Fetch Real Data when view appears
+        // Fetch Real Data when view appears
         fetchAndDisplayData()
     }
 
@@ -71,41 +63,153 @@ final class ChildHomeViewController: UIViewController {
     
     // MARK: - Data Logic (Backend Connection)
     private func fetchAndDisplayData() {
-        // 1. Update Name Tag (From Session)
+        // 1. Update Name
         if let name = ChildSessionManager.shared.currentChildName {
             greetingLabel.text = "Hello \(name)."
         }
         
-        // 2. Update Progress (From Database)
-        _Concurrency.Task {
+        // 2. Fetch Tasks to build Dynamic Progress Bars
+        Task {
             do {
-                // Fetch stats using the corrected ChildHomeService
-                let stats = try await ChildHomeService.shared.fetchStats()
+                // We fetch the SCHEDULE (List of tasks) instead of just Stats
+                // This lets us calculate progress per Category (List Name)
+                let tasks = try await ChildHomeService.shared.fetchSchedule(date: Date())
                 
                 await MainActor.run {
-                    self.updateProgressUI(stats: stats)
+                    self.updateDynamicProgressUI(tasks: tasks)
                 }
             } catch {
-                print("Error loading stats: \(error)")
+                print("Error loading schedule: \(error)")
             }
         }
     }
     
-    private func updateProgressUI(stats: ChildProgressStats) {
-        // Update Habits Progress Bar based on today's tasks
-        let progress = Float(stats.progress_percent)
+    // ⚡️ NEW: Group tasks by list name and render progress bars
+    private func updateDynamicProgressUI(tasks: [ScheduleTaskModelChild]) {
+        // 1. Clear previous rows (if any)
+        achievementsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        // Animate the bar
-        habitProgress.setProgress(progress, animated: true)
+        if tasks.isEmpty {
+            let emptyLabel = UILabel()
+            emptyLabel.text = "No tasks assigned today! 🎉"
+            emptyLabel.textColor = .white.withAlphaComponent(0.7)
+            emptyLabel.textAlignment = .center
+            achievementsStackView.addArrangedSubview(emptyLabel)
+            return
+        }
         
-        // Update text percentage
-        habitPercentLabel.text = "\(Int(progress * 100))%"
+        // 2. Group by List Name (e.g., "Chore", "Homework")
+        // Dictionary: ["Chore": [Task1, Task2], "Homework": [Task3]]
+        let groupedTasks = Dictionary(grouping: tasks) { $0.list_name ?? "General" }
         
-        // Mirror to Extra Curricular bar (since we are calculating total daily progress)
-        extraProgress.setProgress(progress, animated: true)
-        extraPercentLabel.text = "\(Int(progress * 100))%"
+        // 3. Create a Row for each Group
+        for (categoryName, categoryTasks) in groupedTasks {
+            let total = Float(categoryTasks.count)
+            // Count Completed (Status is 'approved' or 'pending' means child did it)
+            let completed = Float(categoryTasks.filter {
+                let s = $0.submission_status ?? "new"
+                return s == "approved" || s == "pending"
+            }.count)
+            
+            let progress = total > 0 ? (completed / total) : 0.0
+            
+            // Generate the Row View
+            let rowView = createProgressRow(
+                title: categoryName,
+                progress: progress,
+                color: getColorForCategory(categoryName),
+                iconName: getIconForCategory(categoryName)
+            )
+            
+            achievementsStackView.addArrangedSubview(rowView)
+        }
+    }
+
+    // MARK: - Helper: Create Single Progress Row
+    private func createProgressRow(title: String, progress: Float, color: UIColor, iconName: String) -> UIView {
+        let container = UIView()
+        container.heightAnchor.constraint(equalToConstant: 60).isActive = true
         
-        print("Child Dashboard Updated: \(stats.completed_tasks)/\(stats.total_tasks) tasks completed")
+        // Icon
+        let iconImg = UIImageView()
+        iconImg.image = UIImage(systemName: iconName)
+        iconImg.tintColor = color
+        iconImg.contentMode = .scaleAspectFit
+        iconImg.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Label
+        let label = UILabel()
+        label.text = title
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Progress Bar
+        let progressBar = UIProgressView(progressViewStyle: .default)
+        progressBar.progress = progress
+        progressBar.progressTintColor = color
+        progressBar.trackTintColor = UIColor(white: 1, alpha: 0.2)
+        progressBar.layer.cornerRadius = 4
+        progressBar.clipsToBounds = true
+        progressBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Percent Label
+        let percentLabel = UILabel()
+        percentLabel.text = "\(Int(progress * 100))%"
+        percentLabel.textColor = .white
+        percentLabel.font = .systemFont(ofSize: 14, weight: .bold)
+        percentLabel.textAlignment = .right
+        percentLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(iconImg)
+        container.addSubview(label)
+        container.addSubview(progressBar)
+        container.addSubview(percentLabel)
+        
+        NSLayoutConstraint.activate([
+            // Icon
+            iconImg.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            iconImg.topAnchor.constraint(equalTo: container.topAnchor),
+            iconImg.widthAnchor.constraint(equalToConstant: 30),
+            iconImg.heightAnchor.constraint(equalToConstant: 30),
+            
+            // Label
+            label.centerYAnchor.constraint(equalTo: iconImg.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: iconImg.trailingAnchor, constant: 12),
+            
+            // Percent Label
+            percentLabel.centerYAnchor.constraint(equalTo: progressBar.centerYAnchor),
+            percentLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            percentLabel.widthAnchor.constraint(equalToConstant: 40),
+            
+            // Progress Bar
+            progressBar.leadingAnchor.constraint(equalTo: iconImg.leadingAnchor),
+            progressBar.trailingAnchor.constraint(equalTo: percentLabel.leadingAnchor, constant: -10),
+            progressBar.topAnchor.constraint(equalTo: iconImg.bottomAnchor, constant: 12),
+            progressBar.heightAnchor.constraint(equalToConstant: 8)
+        ])
+        
+        return container
+    }
+
+    // MARK: - Helper: Utilities
+    private func getIconForCategory(_ name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("math") || lower.contains("study") { return "book.fill" }
+        if lower.contains("chore") || lower.contains("clean") { return "sparkles" }
+        if lower.contains("music") || lower.contains("piano") { return "music.note" }
+        if lower.contains("sport") || lower.contains("soccer") { return "figure.run" }
+        if lower.contains("art") { return "paintbrush.fill" }
+        return "star.fill" // Default
+    }
+    
+    private func getColorForCategory(_ name: String) -> UIColor {
+        let lower = name.lowercased()
+        if lower.contains("math") { return .systemBlue }
+        if lower.contains("chore") { return .systemOrange }
+        if lower.contains("music") { return .systemPurple }
+        if lower.contains("sport") { return .systemGreen }
+        return .systemPink // Default
     }
 
     // MARK: - Setup Gradient
@@ -122,7 +226,7 @@ final class ChildHomeViewController: UIViewController {
     // MARK: - Setup UI Components
     private func setupUI() {
         // Greeting
-        greetingLabel.text = "Hello Child." // Placeholder until loaded
+        greetingLabel.text = "Hello Child."
         greetingLabel.font = UIFont.boldSystemFont(ofSize: 32)
         greetingLabel.textColor = .white
 
@@ -147,7 +251,6 @@ final class ChildHomeViewController: UIViewController {
         quoteLabel.textColor = .black
         quoteLabel.numberOfLines = 0
         quoteLabel.textAlignment = .center
-        
         quoteBubble.addSubview(quoteLabel)
 
         // Mascot
@@ -163,7 +266,6 @@ final class ChildHomeViewController: UIViewController {
         guitarCloud.contentMode = .scaleAspectFit
         guitarCloud.tintColor = .systemBlue
 
-        // Static Text for now (Power Card)
         powerLabel.text = "Your cleanup yesterday created\n15 minutes of calm for Mom."
         powerLabel.font = UIFont.systemFont(ofSize: 14)
         powerLabel.numberOfLines = 0
@@ -177,42 +279,16 @@ final class ChildHomeViewController: UIViewController {
         achievementCard.addSubview(powerLabel)
         achievementCard.addSubview(powerSubLabel)
 
-        // Progress Section Titles
+        // Progress Section Title
         achievementsTitle.text = "Your achievements :"
         achievementsTitle.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         achievementsTitle.textColor = .white
-
-        // Habit Row
-        habitIcon.image = UIImage(named: "cloudyy_market") ?? UIImage(systemName: "star.fill")
-        habitIcon.tintColor = .systemYellow
         
-        habitLabel.text = "Habits"
-        habitLabel.textColor = .white
-        
-        habitProgress.progress = 0.0 // Default 0
-        habitProgress.progressTintColor = UIColor.systemBlue
-        habitProgress.trackTintColor = UIColor(white: 1, alpha: 0.3)
-        habitProgress.layer.cornerRadius = 4
-        habitProgress.clipsToBounds = true
-        
-        habitPercentLabel.text = "0%" // Default 0
-        habitPercentLabel.textColor = .white
-
-        // Extracurricular Row
-        extraIcon.image = UIImage(named: "cloudyy_paint") ?? UIImage(systemName: "paintbrush.fill")
-        extraIcon.tintColor = .systemPink
-        
-        extraLabel.text = "Extracurricular"
-        extraLabel.textColor = .white
-        
-        extraProgress.progress = 0.0
-        extraProgress.progressTintColor = UIColor.systemBlue
-        extraProgress.trackTintColor = UIColor(white: 1, alpha: 0.3)
-        extraProgress.layer.cornerRadius = 4
-        extraProgress.clipsToBounds = true
-        
-        extraPercentLabel.text = "0%"
-        extraPercentLabel.textColor = .white
+        // ⚡️ NEW: StackView Configuration
+        achievementsStackView.axis = .vertical
+        achievementsStackView.spacing = 15
+        achievementsStackView.distribution = .fill
+        achievementsStackView.alignment = .fill
 
         // --- Adding to View Hierarchy ---
         view.addSubview(scrollView)
@@ -220,8 +296,7 @@ final class ChildHomeViewController: UIViewController {
         
         [greetingLabel, subGreetingLabel, bellButton, profileButton,
          quoteBubble, mascotImageView, achievementCard,
-         achievementsTitle, habitIcon, habitLabel, habitProgress, habitPercentLabel,
-         extraIcon, extraLabel, extraProgress, extraPercentLabel,
+         achievementsTitle, achievementsStackView, // 👈 Added StackView
          bottomPaddingView
         ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -257,13 +332,11 @@ final class ChildHomeViewController: UIViewController {
             subGreetingLabel.topAnchor.constraint(equalTo: greetingLabel.bottomAnchor, constant: 6),
             subGreetingLabel.leadingAnchor.constraint(equalTo: greetingLabel.leadingAnchor),
 
-            // Profile Button (Right)
             profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             profileButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
             profileButton.widthAnchor.constraint(equalToConstant: 30),
             profileButton.heightAnchor.constraint(equalToConstant: 30),
 
-            // Bell Button (Left of Profile)
             bellButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
             bellButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
             bellButton.widthAnchor.constraint(equalToConstant: 30),
@@ -305,48 +378,17 @@ final class ChildHomeViewController: UIViewController {
             powerSubLabel.trailingAnchor.constraint(equalTo: powerLabel.trailingAnchor),
             powerSubLabel.bottomAnchor.constraint(equalTo: achievementCard.bottomAnchor, constant: -20),
 
-            // --- Achievements List ---
+            // --- Achievements List (Dynamic) ---
             achievementsTitle.topAnchor.constraint(equalTo: achievementCard.bottomAnchor, constant: 28),
             achievementsTitle.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
-            // Habit Row
-            habitIcon.leadingAnchor.constraint(equalTo: achievementsTitle.leadingAnchor),
-            habitIcon.topAnchor.constraint(equalTo: achievementsTitle.bottomAnchor, constant: 20),
-            habitIcon.widthAnchor.constraint(equalToConstant: 36),
-            habitIcon.heightAnchor.constraint(equalToConstant: 36),
-
-            habitLabel.topAnchor.constraint(equalTo: habitIcon.topAnchor),
-            habitLabel.leadingAnchor.constraint(equalTo: habitIcon.trailingAnchor, constant: 10),
-
-            habitProgress.topAnchor.constraint(equalTo: habitLabel.bottomAnchor, constant: 8),
-            habitProgress.leadingAnchor.constraint(equalTo: habitLabel.leadingAnchor),
-            habitProgress.trailingAnchor.constraint(equalTo: habitPercentLabel.leadingAnchor, constant: -10),
-            habitProgress.heightAnchor.constraint(equalToConstant: 8),
-
-            habitPercentLabel.centerYAnchor.constraint(equalTo: habitProgress.centerYAnchor),
-            habitPercentLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            habitPercentLabel.widthAnchor.constraint(equalToConstant: 40),
-
-            // Extra Row
-            extraIcon.leadingAnchor.constraint(equalTo: achievementsTitle.leadingAnchor),
-            extraIcon.topAnchor.constraint(equalTo: habitProgress.bottomAnchor, constant: 30),
-            extraIcon.widthAnchor.constraint(equalToConstant: 36),
-            extraIcon.heightAnchor.constraint(equalToConstant: 36),
-
-            extraLabel.topAnchor.constraint(equalTo: extraIcon.topAnchor),
-            extraLabel.leadingAnchor.constraint(equalTo: extraIcon.trailingAnchor, constant: 10),
-
-            extraProgress.topAnchor.constraint(equalTo: extraLabel.bottomAnchor, constant: 8),
-            extraProgress.leadingAnchor.constraint(equalTo: extraLabel.leadingAnchor),
-            extraProgress.trailingAnchor.constraint(equalTo: extraPercentLabel.leadingAnchor, constant: -10),
-            extraProgress.heightAnchor.constraint(equalToConstant: 8),
-
-            extraPercentLabel.centerYAnchor.constraint(equalTo: extraProgress.centerYAnchor),
-            extraPercentLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            extraPercentLabel.widthAnchor.constraint(equalToConstant: 40),
+            // ⚡️ NEW: StackView Constraints
+            achievementsStackView.topAnchor.constraint(equalTo: achievementsTitle.bottomAnchor, constant: 20),
+            achievementsStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            achievementsStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
             // --- BOTTOM PADDING ---
-            bottomPaddingView.topAnchor.constraint(equalTo: extraProgress.bottomAnchor, constant: 20),
+            bottomPaddingView.topAnchor.constraint(equalTo: achievementsStackView.bottomAnchor, constant: 20),
             bottomPaddingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bottomPaddingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
@@ -367,33 +409,24 @@ final class ChildHomeViewController: UIViewController {
     
     // MARK: - Actions
     private func setupActions() {
-        // Mascot Tap
+        // Mascot Tap - Navigates to Cloudy Tab (Index 3 assuming that's where the AI tab is)
         let tap = UITapGestureRecognizer(target: self, action: #selector(mascotTapped))
         mascotImageView.addGestureRecognizer(tap)
         
-        // Profile Tap
         profileButton.addTarget(self, action: #selector(profileButtonTapped), for: .touchUpInside)
-        
-        // Notification (Bell) Tap
         bellButton.addTarget(self, action: #selector(bellButtonTapped), for: .touchUpInside)
     }
 
     @objc private func mascotTapped() {
+        // Switch to the Cloudy AI Tab
         self.tabBarController?.selectedIndex = 3
     }
 
-    
     @objc private func profileButtonTapped() {
         print("Navigating to Profile")
-        // let profileVC = ProfileViewController()
-        // profileVC.hidesBottomBarWhenPushed = true
-        // navigationController?.pushViewController(profileVC, animated: true)
     }
     
     @objc private func bellButtonTapped() {
         print("Navigating to Notifications")
-        // let notificationVC = NotificationViewController()
-        // notificationVC.hidesBottomBarWhenPushed = true
-        // navigationController?.pushViewController(notificationVC, animated: true)
     }
 }

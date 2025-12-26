@@ -15,6 +15,7 @@ struct DashboardChartPoint: Identifiable, Equatable {
 struct DashboardChartView: View {
 
     let points: [DashboardChartPoint]
+    
 
     // Colors
     private let assignedColor = Color(red: 64/255, green: 156/255, blue: 255/255)
@@ -122,4 +123,3 @@ struct DashboardChartView: View {
         return order.firstIndex(of: day) ?? 0
     }
 }
-

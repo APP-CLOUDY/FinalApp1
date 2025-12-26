@@ -26,11 +26,21 @@ final class HomeService: Sendable {
     }
     
     func fetchHomeStats(for childId: UUID) async throws -> HomeStats {
-        let params = ["child_id_input": childId.uuidString]
-        let response: HomeStats = try await client
-            .database.rpc("get_child_home_stats", params: params).execute().value
-        return response
-    }
+            let params = ["child_id_input": childId.uuidString]
+            
+            // ⚠️ FIX: Decode as [HomeStats] (Array), not HomeStats (Dictionary)
+            let response: [HomeStats] = try await client
+                .database.rpc("get_child_home_stats", params: params)
+                .execute()
+                .value
+                
+            // Return the first item, or throw an error if empty
+            guard let stats = response.first else {
+                throw NSError(domain: "HomeService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No stats found for child"])
+            }
+            
+            return stats
+        }
     
     // UPDATED: Now accepts timeRange ('weekly' or 'monthly')
     func fetchChartData(for childId: UUID, range: String) async throws -> [ChartDataPoint] {

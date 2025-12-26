@@ -5,7 +5,7 @@ final class ScheduleTaskCard: UIView {
     // MARK: - UI
     private let leadingStripe = UIView()
     
-    // Ensure you have your GlassView class. If not, swap this for a regular UIView.
+    // Uses GlassView (Dependencies below)
     private let glass = GlassView(style: .row, cornerRadius: 16)
 
     private let titleLabel = UILabel()
@@ -44,11 +44,16 @@ final class ScheduleTaskCard: UIView {
         titleLabel.text = task.title
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Time / Frequency
-        // Uses the extension we added to ScheduleTaskModel
+        // Time / Frequency / Points
         timeLabel.font = .systemFont(ofSize: 13)
         timeLabel.textColor = UIColor.white.withAlphaComponent(0.75)
-        timeLabel.text = "\(task.points) Points • \(task.frequencyText)"
+        
+        // Custom Logic to show Repeat info if relevant
+        var detailText = "\(task.points) Points"
+        if let freq = task.frequency, freq != "Once" {
+            detailText += " • \(freq)"
+        }
+        timeLabel.text = detailText
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         // Category
@@ -58,7 +63,6 @@ final class ScheduleTaskCard: UIView {
         categoryIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
         categoryIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
 
-        // ✅ FIX: Use the actual list name from the database (e.g. "Morning", "Chores")
         categoryLabel.text = task.list_name ?? "General"
         categoryLabel.font = .systemFont(ofSize: 12, weight: .medium)
         categoryLabel.textColor = UIColor.white.withAlphaComponent(0.5)
