@@ -1,6 +1,6 @@
 import SwiftUI
 import Foundation
-import Combine // 👈 THIS IS THE FIX
+import Combine
 
 // MARK: - App State
 enum AppState: Equatable {
@@ -60,6 +60,9 @@ class Mission: Identifiable, ObservableObject, Equatable {
     // Logic: Controls if camera is needed
     let requiresPhoto: Bool
     
+    // ✅ ADDED: Controls if parent approval is needed
+    let approvalRequired: Bool
+    
     // UI Properties
     let color: Color
     let size: CGFloat
@@ -73,11 +76,22 @@ class Mission: Identifiable, ObservableObject, Equatable {
     var vx: CGFloat
     var vy: CGFloat
     
-    init(id: UUID, title: String, time: String, requiresPhoto: Bool, color: Color, size: CGFloat, x: CGFloat, y: CGFloat) {
+    // ✅ Updated Init
+    init(id: UUID,
+         title: String,
+         time: String,
+         requiresPhoto: Bool,
+         approvalRequired: Bool, // 👈 Pass this in
+         color: Color,
+         size: CGFloat,
+         x: CGFloat,
+         y: CGFloat) {
+        
         self.id = id
         self.title = title
         self.time = time
         self.requiresPhoto = requiresPhoto
+        self.approvalRequired = approvalRequired // 👈 Set it
         self.color = color
         self.size = size
         self.x = x

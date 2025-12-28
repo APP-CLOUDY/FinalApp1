@@ -4,13 +4,19 @@ import Combine
 @MainActor
 class CloudyViewModel: ObservableObject {
     
-    // ⚡️ UPDATED: Logic to Auto-Start/Stop Physics based on Screen
+    // ⚡️ UPDATED: Logic to Auto-Start/Stop Physics AND Reload Data
     @Published var currentState: AppState = .chatWelcome {
         didSet {
-            // If we just switched TO the bubbles screen, Start Engine.
+            // If we just switched TO the bubbles screen...
             if case .missionCluster = currentState {
-                print("🟢 Entered Cluster: Starting Physics")
+                print("🟢 Entered Cluster: Starting Physics & Loading Data")
                 startPhysics()
+                
+                // 🔥 FIX: Force reload missions every time we enter this screen
+                // This ensures new tasks assigned by Parent appear instantly.
+                Task {
+                    await loadMissions()
+                }
             }
             // If we switched AWAY (to Welcome or Detail), Stop Engine.
             else {
@@ -34,8 +40,11 @@ class CloudyViewModel: ObservableObject {
     
     init() {}
     
+    // MARK: - 🔄 Data Loading
     func loadMissions() async {
-        guard missions.isEmpty else { return }
+        // ❌ REMOVED: guard missions.isEmpty else { return }
+        // We removed the guard so it ALWAYS refreshes when called.
+        
         isLoading = true
         defer { isLoading = false }
         
@@ -43,11 +52,13 @@ class CloudyViewModel: ObservableObject {
             // Using ChildHomeService to get the child's perspective
             let tasks: [ScheduleTaskModelChild] = try await ChildHomeService.shared.fetchSchedule(date: Date())
             
+            // Filter out tasks that are already approved or pending
             let actionableTasks = tasks.filter { task in
                 let status = task.submission_status ?? "new"
                 return status != "approved" && status != "pending"
             }
             
+            // Map to Physics Bubbles
             self.missions = actionableTasks.enumerated().map { index, task in
                 let randomSize = CGFloat.random(in: 75...110)
                 let colors: [Color] = [.neonPink, .neonBlue, .neonGreen, .neonYellow]
@@ -57,19 +68,25 @@ class CloudyViewModel: ObservableObject {
                 let randomX = CGFloat.random(in: -100...100)
                 let randomY = CGFloat.random(in: -150...150)
                 
+                // ✅ Check if Approval is required
+                let isApprovalNeeded = task.approval_required ?? false
+                
                 return Mission(
                     id: task.id,
                     title: task.title,
                     time: task.frequency,
-                    requiresPhoto: task.approval_required ?? false,
+                    
+                    // 🔥 FIX: Link requiresPhoto to approval_required
+                    // If approval is needed, they MUST take a photo.
+                    requiresPhoto: isApprovalNeeded,
+                    
+                    approvalRequired: isApprovalNeeded,
                     color: randomColor,
                     size: randomSize,
                     x: randomX,
                     y: randomY
                 )
             }
-            // Note: We don't need to call startPhysics() here anymore.
-            // It will trigger automatically when you tap "Yes, show me!"
             
         } catch {
             print("❌ Failed to load missions: \(error)")
@@ -106,16 +123,14 @@ class CloudyViewModel: ObservableObject {
             b1.y += b1.vy
             
             // 2. Wall Bouncing (Keep inside the box)
-            // Left & Right
             if b1.x < -boxWidth/2 + b1.size/2 {
                 b1.x = -boxWidth/2 + b1.size/2
-                b1.vx *= -1 // Flip velocity
+                b1.vx *= -1
             } else if b1.x > boxWidth/2 - b1.size/2 {
                 b1.x = boxWidth/2 - b1.size/2
                 b1.vx *= -1
             }
             
-            // Top & Bottom
             if b1.y < -boxHeight/2 + b1.size/2 {
                 b1.y = -boxHeight/2 + b1.size/2
                 b1.vy *= -1
@@ -124,35 +139,27 @@ class CloudyViewModel: ObservableObject {
                 b1.vy *= -1
             }
             
-            // 3. 💥 Bubble-to-Bubble Collision (Bounce off each other)
+            // 3. Collision Logic
             for j in (i + 1)..<missions.count {
                 let b2 = missions[j]
                 
                 let dx = b2.x - b1.x
                 let dy = b2.y - b1.y
                 let distance = sqrt(dx*dx + dy*dy)
-                let minDistance = (b1.size/2 + b2.size/2) // Radius 1 + Radius 2
+                let minDistance = (b1.size/2 + b2.size/2)
                 
-                // If they are touching (Distance < sum of radii)
                 if distance < minDistance {
-                    // Calculate collision angle
                     let angle = atan2(dy, dx)
-                    
-                    // Force them apart gently (Spring effect)
-                    let force: CGFloat = 0.5 // Adjust this for "bounciness"
+                    let force: CGFloat = 0.5
                     
                     let fx = cos(angle) * force
                     let fy = sin(angle) * force
                     
-                    // Push b1 away from b2
                     b1.vx -= fx
                     b1.vy -= fy
-                    
-                    // Push b2 away from b1
                     b2.vx += fx
                     b2.vy += fy
                     
-                    // Separate them immediately to prevent sticking
                     let overlap = minDistance - distance
                     let separationX = cos(angle) * overlap * 0.5
                     let separationY = sin(angle) * overlap * 0.5
@@ -165,7 +172,7 @@ class CloudyViewModel: ObservableObject {
             }
         }
         
-        // Trigger UI update manually since we are modifying class properties
+        // Trigger UI update
         objectWillChange.send()
     }
     
@@ -179,7 +186,6 @@ class CloudyViewModel: ObservableObject {
         isAIThinking = true
         
         Task {
-            // Real AI hookup
             let response = await OllamaAIService.shared.sendMessage(
                 userQuery: userText,
                 missions: missions,
@@ -203,7 +209,6 @@ class CloudyViewModel: ObservableObject {
             else if case .missionDetail = currentState { currentState = .missionCluster }
             else if currentState == .missionCluster {
                 currentState = .chatWelcome
-                // Note: The 'didSet' on currentState will automatically call stopPhysics()
             }
         }
     }

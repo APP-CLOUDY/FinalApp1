@@ -1,32 +1,19 @@
-//
-//  ProgressDervice.swift
-//  Cloudyyy_App
-//
-//  Created by user@5 on 04/12/25.
-//
-
 import Foundation
 import Supabase
 
 // MARK: - Models
-struct ProgressStats: Decodable, Sendable {
-    let missions_done: Int
-    let missions_total: Int
-    let today_points: Int
-    let total_points: Int
-    let achievements: [ProgressAchievementModel]
-    let efforts: [ProgressEffortModel]
+struct ProgressReport: Decodable {
+    let total_tasks: Int
+    let completed_tasks: Int
+    let points_earned: Int
+    let current_balance: Int
+    let breakdown: [EffortBreakdown]?
 }
 
-struct ProgressAchievementModel: Decodable, Sendable {
-    let title: String
-    let subtitle: String
-}
-
-struct ProgressEffortModel: Decodable, Sendable {
-    let title: String
-    let done_count: Int
-    let total_count: Int
+struct EffortBreakdown: Decodable {
+    let name: String
+    let count: Int
+    let total: Int
 }
 
 // MARK: - Service
@@ -37,15 +24,18 @@ final class ProgressService {
         return SupabaseManager.shared.client
     }
     
-    func fetchProgress(for childId: UUID) async throws -> ProgressStats {
-        let params = ["child_id_input": childId.uuidString]
+    func fetchStats(childId: UUID, scope: TimeScope) async throws -> ProgressReport {
+        // Map Enum to Days
+        let days = (scope == .weekly) ? 7 : 30
         
-        let response: ProgressStats = try await client
-            .database
-            .rpc("get_child_progress_stats", params: params)
+        let params = ["target_child_id": childId.uuidString, "days_lookback": "\(days)"]
+        
+        let response = try await client
+            .rpc("get_child_progress_report", params: params)
             .execute()
-            .value
-            
-        return response
+        
+        let data = response.data
+        let report = try JSONDecoder().decode(ProgressReport.self, from: data)
+        return report
     }
 }

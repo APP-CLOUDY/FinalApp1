@@ -99,8 +99,19 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
                 // Ensure we have a child ID (Fallback to Rob Stark's ID if nil for testing)
                 let childId = ChildSessionManager.shared.currentChildId ?? UUID(uuidString: "3ac094dd-2c44-428f-8bbe-59b4989bfad8")!
                 
+                // 1. Upload the image
                 let imageUrl = try await ChildHomeService.shared.uploadProof(image: image, childId: childId)
-                try await ChildHomeService.shared.submitTask(taskId: task.id, photoUrl: imageUrl)
+                
+                // 2. ✅ CHECK APPROVAL REQUIREMENT
+                // We pull this from the task model (ScheduleTaskModelChild)
+                let isApprovalNeeded = task.approval_required ?? true
+                
+                // 3. ✅ SUBMIT WITH NEW PARAMETER
+                try await ChildHomeService.shared.submitTask(
+                    taskId: task.id,
+                    photoUrl: imageUrl,
+                    approvalRequired: isApprovalNeeded // 👈 Passing the logic here
+                )
                 
                 await MainActor.run {
                     self.activityIndicator.stopAnimating()

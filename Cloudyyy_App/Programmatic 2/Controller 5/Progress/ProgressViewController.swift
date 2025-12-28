@@ -1,19 +1,5 @@
 import UIKit
 
-// MARK: - MOCK MODELS
-// (Required to prevent compiler errors)
-//struct ChildModel {
-//    let id: UUID
-//    let name: String
-//    let nickname: String
-//    let join_code: String
-//}
-//
-//struct Kid {
-//    let id: String
-//    let name: String
-//}
-
 // MARK: - Enums
 enum TimeScope: Int {
     case weekly = 0
@@ -40,9 +26,7 @@ final class ProgressViewController: UIViewController {
         let items = ["Weekly", "Monthly"]
         let sc = UISegmentedControl(items: items)
         sc.selectedSegmentIndex = 0
-        // Dark background
         sc.backgroundColor = UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 0.8)
-        // Bright Blue Selection
         sc.selectedSegmentTintColor = UIColor(red: 64/255, green: 156/255, blue: 255/255, alpha: 1)
         
         let normalAttr: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white.withAlphaComponent(0.6)]
@@ -99,7 +83,20 @@ final class ProgressViewController: UIViewController {
         // Dropdown Action
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
         
+        // 1. Initial Load via Service
         fetchKidsAndLoad()
+        
+        // 2. Observer for Global Child Selection
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSelectedKidChanged(_:)),
+            name: .selectedKidChanged,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewDidLayoutSubviews() {
@@ -107,17 +104,29 @@ final class ProgressViewController: UIViewController {
         gradient.frame = view.bounds
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        
+        // Refetch if needed when tab appears
+        if let kid = selectedKid {
+            updateDataView(for: kid)
+        }
+    }
+    
     // MARK: - Actions
     @objc private func handleScopeChange(_ sender: UISegmentedControl) {
         currentScope = TimeScope(rawValue: sender.selectedSegmentIndex) ?? .weekly
-        print("Switching to scope: \(currentScope)")
         
+        // Animate transition
         UIView.animate(withDuration: 0.15, animations: {
             self.taskCompletionCard.arcContainer.alpha = 0.5
             self.taskCompletionCard.percentageLabel.alpha = 0.5
             self.pointsRow.alpha = 0.5
         }) { _ in
-            self.mockDataUpdate()
+            if let kid = self.selectedKid {
+                self.updateDataView(for: kid)
+            }
             UIView.animate(withDuration: 0.25) {
                 self.taskCompletionCard.arcContainer.alpha = 1.0
                 self.taskCompletionCard.percentageLabel.alpha = 1.0
@@ -126,75 +135,147 @@ final class ProgressViewController: UIViewController {
         }
     }
     
+    // MARK: - Family Service Logic
+    
     private func fetchKidsAndLoad() {
-        // Mock Data
-        self.kids = [
-            ChildModel(id: UUID(), name: "Alex", nickname: "Ally", join_code: "1234"),
-            ChildModel(id: UUID(), name: "Sarah", nickname: "Sary", join_code: "5678")
-        ]
-        
-        let uiKids = self.kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
-        self.header.setKids(uiKids)
-        
-        if let first = self.kids.first { selectKid(first) }
+        Task {
+            do {
+                let dashboardData = try await FamilyService.shared.fetchDashboard()
+
+                await MainActor.run {
+                    self.kids = dashboardData.children
+
+                    // Update Header UI
+                    let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+                    header.setKids(uiKids)
+
+                    // Logic: Select stored kid OR first available
+                    if let storedKid = SelectedKidStore.shared.selectedKid,
+                       let realKid = self.kids.first(where: { $0.id.uuidString == storedKid.id }) {
+                        selectKid(realKid)
+                    } else if let first = kids.first {
+                        selectKid(first)
+                    }
+                }
+            } catch {
+                print("Error fetching kids in Progress: \(error)")
+            }
+        }
     }
     
     private func selectKid(_ kid: ChildModel) {
-        selectedKid = kid
-        header.setSelectedKid(Kid(id: kid.id.uuidString, name: kid.name))
-        mockDataUpdate()
+        self.selectedKid = kid
+        
+        // Update Header
+        let uiKid = Kid(id: kid.id.uuidString, name: kid.name)
+        header.setSelectedKid(uiKid)
+        
+        // Update Screen Data
+        updateDataView(for: kid)
     }
     
     private func showKidsMenu() {
         guard !kids.isEmpty else { return }
         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
+        
         let menu = FloatingKidsMenu(kids: uiKids)
         menu.manager = FloatingMenuManager.shared
         
-        menu.onKidSelected = { [weak self] selectedUiKid in
+        menu.onKidSelected = { selectedUiKid in
             SelectedKidStore.shared.updateKid(selectedUiKid)
-            if let realKid = self?.kids.first(where: { $0.id.uuidString == selectedUiKid.id }) {
-                self?.selectKid(realKid)
-            }
         }
         
-        if let window = view.window {
-            menu.show(in: window, anchor: header.childButton)
-        } else {
-            menu.show(in: view, anchor: header.childButton)
+        menu.show(in: view, anchor: header.childButton)
+    }
+    
+    // MARK: - Notification Handler
+    @objc private func handleSelectedKidChanged(_ notification: Notification) {
+        guard let uiKid = notification.userInfo?["kid"] as? Kid else { return }
+        
+        if let realKid = kids.first(where: { $0.id.uuidString == uiKid.id }) {
+            selectKid(realKid)
         }
     }
     
-    private func mockDataUpdate() {
+    // MARK: - Data Update (Backend Connected)
+    
+    private func updateDataView(for kid: ChildModel) {
+        // 1. Clear previous UI
         achievementsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        if currentScope == .weekly {
-            taskCompletionCard.configure(percentage: 0.75, tasksDone: 15, totalTasks: 20)
-            pointsRow.configure(earned: 250, goal: 300, totalBalance: 4500)
-            
-            addAchievement(title: "Early Bird", sub: "Task before 8am")
-            addEffort(title: "Homework", prog: 0.8, text: "4/5")
-            addEffort(title: "Chores", prog: 0.3, text: "1/3")
-        } else {
-            taskCompletionCard.configure(percentage: 0.50, tasksDone: 50, totalTasks: 100)
-            pointsRow.configure(earned: 850, goal: 1200, totalBalance: 4500)
-            
-            addAchievement(title: "Clean Streak", sub: "7 days straight")
-            addEffort(title: "Math", prog: 0.9, text: "18/20")
+        guard let childId = UUID(uuidString: kid.id.uuidString) else { return }
+        
+        Task {
+            do {
+                // 🔥 CALL SUPABASE via ProgressService
+                let stats = try await ProgressService.shared.fetchStats(childId: childId, scope: currentScope)
+                
+                await MainActor.run {
+                    // A. Update Circle Chart
+                    let totalTasks = max(stats.total_tasks, 1) // Prevent divide by zero
+                    let percentage = CGFloat(stats.completed_tasks) / CGFloat(totalTasks)
+                    
+                    self.taskCompletionCard.configure(
+                        percentage: percentage,
+                        tasksDone: stats.completed_tasks,
+                        totalTasks: totalTasks
+                    )
+                    
+                    // B. Update Points
+                    // Calculate Goal: Weekly = 350 pts, Monthly = 1500 pts (Adjust as needed)
+                    let days = (self.currentScope == .weekly) ? 7 : 30
+                    let estimatedGoal = 50 * days
+                    
+                    self.pointsRow.configure(
+                        earned: stats.points_earned,
+                        goal: estimatedGoal,
+                        totalBalance: stats.current_balance
+                    )
+                    
+                    // C. Update Efforts (Categories)
+                    if let breakdown = stats.breakdown, !breakdown.isEmpty {
+                        for item in breakdown {
+                            let catTotal = max(item.total, 1)
+                            let prog = Float(item.count) / Float(catTotal)
+                            
+                            self.addEffort(
+                                title: item.name,
+                                prog: prog,
+                                text: "\(item.count)/\(item.total)"
+                            )
+                        }
+                    } else {
+                        // Empty State
+                        self.addEffort(title: "No activity yet", prog: 0.0, text: "0/0")
+                    }
+                    
+                    // D. Dynamic Achievements
+                    if stats.points_earned > 100 {
+                        self.addAchievement(title: "Point Master", sub: "Earned > 100 pts", kidName: kid.name)
+                    }
+                    if percentage >= 1.0 && stats.completed_tasks > 0 {
+                        self.addAchievement(title: "Perfectionist", sub: "Completed all tasks", kidName: kid.name)
+                    } else if percentage >= 0.5 {
+                        self.addAchievement(title: "Halfway There", sub: "50% tasks done", kidName: kid.name)
+                    }
+                }
+            } catch {
+                print("❌ Error fetching progress stats: \(error)")
+            }
         }
     }
     
-    private func addAchievement(title: String, sub: String) {
-        let card = AchievementCardView(title: title, subtitle: sub, child: selectedKid?.name ?? "Child")
-        card.heightAnchor.constraint(equalToConstant: 72).isActive = true
+    private func addAchievement(title: String, sub: String, kidName: String) {
+        let card = AchievementCardView(title: title, subtitle: sub, child: kidName)
         achievementsStack.addArrangedSubview(card)
+        card.heightAnchor.constraint(equalToConstant: 72).isActive = true
     }
     
     private func addEffort(title: String, prog: Float, text: String) {
         let row = EffortRow(title: title, progress: prog, rightText: text)
-        row.heightAnchor.constraint(equalToConstant: 44).isActive = true
         effortsStack.addArrangedSubview(row)
+        row.heightAnchor.constraint(equalToConstant: 44).isActive = true
     }
     
     // MARK: - Layout Setup
@@ -217,13 +298,12 @@ final class ProgressViewController: UIViewController {
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 80)
+            header.heightAnchor.constraint(equalToConstant: 98)
         ])
     }
     
     private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        // FIX: Enable scrolling even if content fits
         scrollView.alwaysBounceVertical = true
         
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -292,7 +372,7 @@ final class ProgressViewController: UIViewController {
 // MARK: - HELPER CLASSES
 // ======================================================
 
-// 1. Task Completion Card (FIXED: Segment interaction & Label Position)
+// 1. Task Completion Card
 final class TaskCompletionCard: UIView {
     
     private let glass = GlassView(style: .card, cornerRadius: 28)
@@ -361,15 +441,12 @@ final class TaskCompletionCard: UIView {
             arcView.leadingAnchor.constraint(equalTo: arcContainer.leadingAnchor),
             arcView.trailingAnchor.constraint(equalTo: arcContainer.trailingAnchor),
             
-            // FIX: Percentage Label Position (Moved DOWN to +15)
-            // This centers it vertically in the arc space
             percentageLabel.centerXAnchor.constraint(equalTo: arcContainer.centerXAnchor),
             percentageLabel.centerYAnchor.constraint(equalTo: arcContainer.centerYAnchor, constant: 15)
         ])
     }
     
     func embedSegment(_ segment: UIView) {
-        // FIX: Add segment to SELF (not glass) and bring to front
         addSubview(segment)
         bringSubviewToFront(segment)
         segment.translatesAutoresizingMaskIntoConstraints = false
@@ -389,14 +466,14 @@ final class TaskCompletionCard: UIView {
     }
 }
 
-// 2. Points Overview Row (With Orange Gradient)
+// 2. Points Overview Row
 final class PointsOverviewRow: UIView {
     
     private let glass = GlassView(style: .card, cornerRadius: 24)
     
     private let todayHeaderLabel: UILabel = {
         let l = UILabel()
-        l.text = "DAILY GOAL"
+        l.text = "GOAL PROGRESS"
         l.font = .systemFont(ofSize: 11, weight: .bold)
         l.textColor = UIColor.white.withAlphaComponent(0.5)
         l.translatesAutoresizingMaskIntoConstraints = false

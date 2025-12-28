@@ -31,7 +31,7 @@ final class ChildHomeViewController: UIViewController {
     // 6. Dynamic Progress Section
     private let achievementsTitle = UILabel()
     
-    // ⚡️ NEW: StackView to hold dynamic task categories
+    // StackView to hold dynamic task categories
     private let achievementsStackView = UIStackView()
     
     // 7. Padding View
@@ -71,8 +71,6 @@ final class ChildHomeViewController: UIViewController {
         // 2. Fetch Tasks to build Dynamic Progress Bars
         Task {
             do {
-                // We fetch the SCHEDULE (List of tasks) instead of just Stats
-                // This lets us calculate progress per Category (List Name)
                 let tasks = try await ChildHomeService.shared.fetchSchedule(date: Date())
                 
                 await MainActor.run {
@@ -84,9 +82,9 @@ final class ChildHomeViewController: UIViewController {
         }
     }
     
-    // ⚡️ NEW: Group tasks by list name and render progress bars
+    // Group tasks by list name and render progress bars
     private func updateDynamicProgressUI(tasks: [ScheduleTaskModelChild]) {
-        // 1. Clear previous rows (if any)
+        // 1. Clear previous rows
         achievementsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         if tasks.isEmpty {
@@ -98,14 +96,12 @@ final class ChildHomeViewController: UIViewController {
             return
         }
         
-        // 2. Group by List Name (e.g., "Chore", "Homework")
-        // Dictionary: ["Chore": [Task1, Task2], "Homework": [Task3]]
+        // 2. Group by List Name
         let groupedTasks = Dictionary(grouping: tasks) { $0.list_name ?? "General" }
         
         // 3. Create a Row for each Group
         for (categoryName, categoryTasks) in groupedTasks {
             let total = Float(categoryTasks.count)
-            // Count Completed (Status is 'approved' or 'pending' means child did it)
             let completed = Float(categoryTasks.filter {
                 let s = $0.submission_status ?? "new"
                 return s == "approved" || s == "pending"
@@ -117,8 +113,8 @@ final class ChildHomeViewController: UIViewController {
             let rowView = createProgressRow(
                 title: categoryName,
                 progress: progress,
-                color: getColorForCategory(categoryName),
-                iconName: getIconForCategory(categoryName)
+                color: getColorForCategory(categoryName), // This now returns Blue shades
+                iconName: getIconForCategory(categoryName) // This now returns Fun icons
             )
             
             achievementsStackView.addArrangedSubview(rowView)
@@ -133,7 +129,7 @@ final class ChildHomeViewController: UIViewController {
         // Icon
         let iconImg = UIImageView()
         iconImg.image = UIImage(systemName: iconName)
-        iconImg.tintColor = color
+        iconImg.tintColor = color // Icon matches the blue shade
         iconImg.contentMode = .scaleAspectFit
         iconImg.translatesAutoresizingMaskIntoConstraints = false
         
@@ -147,8 +143,8 @@ final class ChildHomeViewController: UIViewController {
         // Progress Bar
         let progressBar = UIProgressView(progressViewStyle: .default)
         progressBar.progress = progress
-        progressBar.progressTintColor = color
-        progressBar.trackTintColor = UIColor(white: 1, alpha: 0.2)
+        progressBar.progressTintColor = color // Bar matches the blue shade
+        progressBar.trackTintColor = UIColor(white: 1, alpha: 0.2) // Subtle white track
         progressBar.layer.cornerRadius = 4
         progressBar.clipsToBounds = true
         progressBar.translatesAutoresizingMaskIntoConstraints = false
@@ -192,24 +188,34 @@ final class ChildHomeViewController: UIViewController {
         return container
     }
 
-    // MARK: - Helper: Utilities
+    // MARK: - Helper: Utilities (UPDATED ICONS & COLORS)
+    
     private func getIconForCategory(_ name: String) -> String {
         let lower = name.lowercased()
-        if lower.contains("math") || lower.contains("study") { return "book.fill" }
+        
+        // 🏆 Fun, filled icons for children
+        if lower.contains("math") || lower.contains("study") { return "book.closed.fill" }
         if lower.contains("chore") || lower.contains("clean") { return "sparkles" }
-        if lower.contains("music") || lower.contains("piano") { return "music.note" }
-        if lower.contains("sport") || lower.contains("soccer") { return "figure.run" }
-        if lower.contains("art") { return "paintbrush.fill" }
-        return "star.fill" // Default
+        if lower.contains("music") || lower.contains("piano") { return "music.mic.circle.fill" }
+        if lower.contains("sport") || lower.contains("soccer") { return "trophy.fill" }
+        if lower.contains("art") { return "paintpalette.fill" }
+        if lower.contains("game") || lower.contains("fun") { return "gamecontroller.fill" }
+        
+        return "crown.fill" // Default fallback is a Crown/Trophy style
     }
     
     private func getColorForCategory(_ name: String) -> UIColor {
         let lower = name.lowercased()
-        if lower.contains("math") { return .systemBlue }
-        if lower.contains("chore") { return .systemOrange }
-        if lower.contains("music") { return .systemPurple }
-        if lower.contains("sport") { return .systemGreen }
-        return .systemPink // Default
+        
+        // 🔵 Family of Blues Palette
+        if lower.contains("math") { return .systemBlue }       // Standard Blue
+        if lower.contains("chore") { return .systemCyan }      // Cyan Blue
+        if lower.contains("music") { return .systemIndigo }    // Deep Blue/Purple
+        if lower.contains("sport") { return .systemTeal }      // Teal Blue
+        if lower.contains("art") { return .systemMint }        // Minty Blue
+        
+        // Default Blue
+        return UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0)
     }
 
     // MARK: - Setup Gradient
@@ -280,11 +286,11 @@ final class ChildHomeViewController: UIViewController {
         achievementCard.addSubview(powerSubLabel)
 
         // Progress Section Title
-        achievementsTitle.text = "Your achievements :"
+        achievementsTitle.text = "Your achievements "
         achievementsTitle.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         achievementsTitle.textColor = .white
         
-        // ⚡️ NEW: StackView Configuration
+        // StackView Configuration
         achievementsStackView.axis = .vertical
         achievementsStackView.spacing = 15
         achievementsStackView.distribution = .fill
@@ -296,7 +302,7 @@ final class ChildHomeViewController: UIViewController {
         
         [greetingLabel, subGreetingLabel, bellButton, profileButton,
          quoteBubble, mascotImageView, achievementCard,
-         achievementsTitle, achievementsStackView, // 👈 Added StackView
+         achievementsTitle, achievementsStackView,
          bottomPaddingView
         ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -382,7 +388,7 @@ final class ChildHomeViewController: UIViewController {
             achievementsTitle.topAnchor.constraint(equalTo: achievementCard.bottomAnchor, constant: 28),
             achievementsTitle.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
 
-            // ⚡️ NEW: StackView Constraints
+            // StackView Constraints
             achievementsStackView.topAnchor.constraint(equalTo: achievementsTitle.bottomAnchor, constant: 20),
             achievementsStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             achievementsStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
@@ -418,7 +424,6 @@ final class ChildHomeViewController: UIViewController {
     }
 
     @objc private func mascotTapped() {
-        // Switch to the Cloudy AI Tab
         self.tabBarController?.selectedIndex = 3
     }
 

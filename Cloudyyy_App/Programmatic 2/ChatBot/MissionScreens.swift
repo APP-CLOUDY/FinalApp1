@@ -1,6 +1,9 @@
 import SwiftUI
 
-// MARK: - Welcome View
+// ⚠️ NOTE: 'struct Mission' has been REMOVED.
+// It now uses the 'class Mission' defined in CloudyModels.swift
+
+// MARK: - 1. Welcome View
 struct WelcomeView: View {
     @Binding var currentState: AppState
     
@@ -13,7 +16,7 @@ struct WelcomeView: View {
                     .frame(width: 150)
                     .shadow(color: .white.opacity(0.15), radius: 15)
                     .padding(.top, 40)
-                
+               
                 ChatBubbleContainer {
                     HStack(spacing: 12) {
                         Image(systemName: "sparkles")
@@ -24,7 +27,7 @@ struct WelcomeView: View {
                             .foregroundColor(Color.black.opacity(0.7))
                     }
                 }
-                
+               
                 ChatBubbleContainer {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .top, spacing: 12) {
@@ -37,7 +40,7 @@ struct WelcomeView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                                 .lineSpacing(4)
                         }
-                        
+                       
                         HStack(spacing: 12) {
                             Button(action: {
                                 withAnimation(.spring()) { currentState = .missionCluster }
@@ -72,7 +75,7 @@ struct WelcomeView: View {
     }
 }
 
-// MARK: - Cluster View
+// MARK: - 2. Cluster View
 struct MissionClusterView: View {
     @Binding var currentState: AppState
     let missions: [Mission]
@@ -83,7 +86,7 @@ struct MissionClusterView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                
+               
                 ChatBubbleContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 12) {
@@ -95,13 +98,13 @@ struct MissionClusterView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                
+               
                 Text("Tap a bubble to start")
                     .font(.system(size: 19, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.top, 15)
-                
+               
                 if isLoading {
                     HStack {
                         Spacer()
@@ -124,7 +127,7 @@ struct MissionClusterView: View {
                             .frame(width: 170)
                             .offset(x: -80, y: -120)
                             .opacity(0.5)
-                        
+                       
                         ForEach(missions) { mission in
                             if !completedMissionIDs.contains(mission.id) {
                                 if mission.id == dissolvingMissionID {
@@ -151,8 +154,7 @@ struct MissionClusterView: View {
     }
 }
 
-// MARK: - Detail View
-// MARK: - Detail View
+// MARK: - 3. Detail View
 struct MissionDetailView: View {
     @Binding var currentState: AppState
     let mission: Mission
@@ -161,8 +163,8 @@ struct MissionDetailView: View {
     
     // Logic States
     @State private var showCamera = false
-    @State private var showSourceSelection = false // 👈 NEW: Controls the menu
-    @State private var sourceType: UIImagePickerController.SourceType = .camera // 👈 NEW: Tracks choice
+    @State private var showSourceSelection = false
+    @State private var sourceType: UIImagePickerController.SourceType = .camera
     @State private var capturedImage: UIImage?
     @State private var isUploading = false
     
@@ -170,7 +172,7 @@ struct MissionDetailView: View {
         ZStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
-                    
+                   
                     // Chat Bubble
                     ChatBubbleContainer {
                         HStack {
@@ -181,25 +183,25 @@ struct MissionDetailView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    
+                   
                     Text("Mission")
                         .font(.title3.bold())
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
                         .padding(.bottom, -15)
-                    
+                   
                     // Mission Info Card
                     HStack(alignment: .top) {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(mission.color)
                             .frame(width: 6)
                             .padding(.vertical, 8)
-                        
+                       
                         VStack(alignment: .leading, spacing: 6) {
                             Text(mission.title.replacingOccurrences(of: "\n", with: " "))
                                 .font(.title2.bold())
                                 .foregroundColor(.white)
-                            
+                           
                             HStack(spacing: 6) {
                                 Image(systemName: "clock.arrow.circlepath")
                                     .font(.subheadline)
@@ -211,14 +213,14 @@ struct MissionDetailView: View {
                         }
                         .padding(.leading, 12)
                         .padding(.vertical, 12)
-                        
+                       
                         Spacer()
                     }
                     .padding(.horizontal, 16)
                     .background(Color.missionCardBg)
                     .cornerRadius(16)
                     .padding(.horizontal, 20)
-                    
+                   
                     // Photo Preview (Shows image if taken)
                     if let img = capturedImage {
                         ZStack(alignment: .topTrailing) {
@@ -228,7 +230,7 @@ struct MissionDetailView: View {
                                 .frame(height: 180)
                                 .cornerRadius(12)
                                 .frame(maxWidth: .infinity)
-                            
+                           
                             Button(action: { capturedImage = nil }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.red)
@@ -239,7 +241,7 @@ struct MissionDetailView: View {
                         }
                         .padding(.horizontal, 20)
                     }
-                    
+                   
                     // Decoration & Submit Button Area
                     ZStack(alignment: .bottomTrailing) {
                         // The Cloud Umbrella Image
@@ -248,7 +250,7 @@ struct MissionDetailView: View {
                             .scaledToFit()
                             .frame(width: 170)
                             .padding(.trailing, 20)
-                        
+                       
                         // Speech Bubble decoration
                         ZStack(alignment: .bottomTrailing) {
                             Text("Let me know, When\nyou are done!")
@@ -258,7 +260,7 @@ struct MissionDetailView: View {
                                 .padding(.horizontal, 18)
                                 .background(Color.white)
                                 .cornerRadius(20)
-                            
+                           
                             Image(systemName: "arrowtriangle.down.fill")
                                 .resizable()
                                 .frame(width: 18, height: 12)
@@ -272,7 +274,7 @@ struct MissionDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.top, 50)
                     .padding(.trailing, 20)
-                    
+                   
                     // Buttons
                     HStack(spacing: 16) {
                         // Done/Submit Button
@@ -300,7 +302,7 @@ struct MissionDetailView: View {
                             .cornerRadius(16)
                         }
                         .disabled(isUploading)
-                        
+                       
                         Button(action: { withAnimation { currentState = .missionCluster } }) {
                             Text("Back")
                                 .font(.headline.bold())
@@ -353,13 +355,18 @@ struct MissionDetailView: View {
         Task {
             do {
                 var finalPhotoUrl: String? = nil
-                
+               
                 if let img = capturedImage, let childId = ChildSessionManager.shared.currentChildId {
                     finalPhotoUrl = try await ChildHomeService.shared.uploadProof(image: img, childId: childId)
                 }
-                
-                try await ChildHomeService.shared.submitTask(taskId: mission.id, photoUrl: finalPhotoUrl)
-                
+               
+                // ✅ CORRECTED: Use 'approvalRequired' (camelCase from Class)
+                try await ChildHomeService.shared.submitTask(
+                    taskId: mission.id,
+                    photoUrl: finalPhotoUrl,
+                    approvalRequired: mission.approvalRequired
+                )
+               
                 await navigateBackToHome()
             } catch {
                 print("Error submitting: \(error)")
