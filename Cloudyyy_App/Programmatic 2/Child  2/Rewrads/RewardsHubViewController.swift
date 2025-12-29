@@ -15,6 +15,7 @@ final class RewardsViewController: UIViewController {
     private var rewardsByCategory: [String: [AssignedQuickReward]] = [:]
     private var enabledCategories: Set<String> = []
     
+    
     // Coin Badge Container
     private let coinBadgeView: UIView = {
         let v = UIView()
@@ -35,10 +36,17 @@ final class RewardsViewController: UIViewController {
     }()
     
     static func normalizeQuickRewardSubtype(_ title: String) -> String {
-        title
+        let normalized = title
             .lowercased()
             .replacingOccurrences(of: " ", with: "_")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 🔥 HARD FIX FOR ICE CREAM BACKEND VALUE
+        if normalized == "icecream" {
+            return "ice_cream"
+        }
+
+        return normalized
     }
 
 
@@ -70,7 +78,7 @@ final class RewardsViewController: UIViewController {
                 category: "Quick Rewards"
             )
             
-            let allRewards = (response.active + response.history).compactMap { reward -> ChildRewardItem? in
+            let allRewards = response.active.compactMap { reward -> ChildRewardItem? in
                 guard let subtype = reward.reward_sub_type else { return nil }
                 return reward
             }
@@ -419,6 +427,12 @@ final class RewardsViewController: UIViewController {
             name: .rewardApproved,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshRewards),
+            name: .rewardRedeemed,
+            object: nil
+        )
 
     }
     
@@ -453,7 +467,13 @@ final class RewardsViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+
+        // 🔥 FORCE REFRESH WHEN SCREEN COMES BACK
+        Task {
+            await loadRewardsHomeData()
+        }
     }
+
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()

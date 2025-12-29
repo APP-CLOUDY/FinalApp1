@@ -333,8 +333,17 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         }
 
         // 🟡 No claim yet → request claim
+        // 🟡 No claim yet
         if reward.claimStatus == nil {
-            claimReward() // ⬅️ calls RPC: claim_reward
+
+            // 🚀 Instant reward → claim + redeem immediately
+            if reward.approvalRequired == false {
+                claimReward()
+                return
+            }
+
+            // 🟡 Needs approval
+            claimReward()
             return
         }
 
@@ -366,18 +375,8 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                 )
 
                 await MainActor.run {
-                    self.reward = AssignedQuickReward(
-                        id: reward.id,
-                        claimId: reward.claimId,
-                        title: reward.title,
-                        cost: reward.cost,
-                        imageName: reward.imageName,
-                        approvalRequired: reward.approvalRequired,
-                        claimStatus: reward.approvalRequired ? "pending" : "approved"
-                    )
-
                     dismiss(animated: true)
-                    onClaim?()
+                    NotificationCenter.default.post(name: .rewardApproved, object: nil)
                 }
 
             } catch {

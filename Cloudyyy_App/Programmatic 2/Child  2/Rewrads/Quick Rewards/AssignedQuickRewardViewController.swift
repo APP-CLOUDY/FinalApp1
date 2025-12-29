@@ -49,6 +49,13 @@ final class AssignedQuickRewardViewController: UIViewController {
      setupTable()
  }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        // 🔄 Refresh list when screen appears
+        tableView.reloadData()
+    }
+
  override func viewDidLayoutSubviews() {
      super.viewDidLayoutSubviews()
      gradient.frame = view.bounds
@@ -160,29 +167,23 @@ extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewD
 
      let reward = assignedRewards[indexPath.row]
 
-     if reward.claimStatus != "pending" {
-         let cell = tableView.cellForRow(at: indexPath)
-         UIView.animate(withDuration: 0.12, animations: {
-             cell?.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
-         }) { _ in
-             UIView.animate(withDuration: 0.12) {
-                 cell?.transform = .identity
-             }
-         }
-     } else {
-         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-     }
-
-
      switch reward.claimStatus {
      case "pending":
          let vc = PendingApprovalViewController()
          vc.modalPresentationStyle = .overFullScreen
          present(vc, animated: true)
+
      case "declined":
          presentDeclinedPopup()
-     default:
+
+     case "approved":
          presentClaimPopup(for: reward)
+
+     case nil:
+         presentClaimPopup(for: reward)
+
+     default:
+         return
      }
  }
 
