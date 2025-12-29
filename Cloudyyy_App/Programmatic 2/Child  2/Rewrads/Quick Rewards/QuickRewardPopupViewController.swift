@@ -390,14 +390,99 @@ final class QuickRewardClaimPopupViewController: UIViewController {
 
 
     private func showNotEnoughStarsPopup() {
-        let alert = UIAlertController(
-            title: "Not enough stars ⭐",
-            message: "You need more stars to claim this reward.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let popup = UIViewController()
+        popup.modalPresentationStyle = .overFullScreen
+        popup.view.backgroundColor = .clear
+
+        // Dim background
+        let dimView = UIView()
+        dimView.translatesAutoresizingMaskIntoConstraints = false
+        dimView.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+        popup.view.addSubview(dimView)
+
+        // Blur card
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        blur.layer.cornerRadius = 24
+        blur.clipsToBounds = true
+        popup.view.addSubview(blur)
+
+        // Cloudyy mascot
+        let mascot = UIImageView(image: UIImage(named: "cloudyy_upset")) // ✅ your asset
+        mascot.translatesAutoresizingMaskIntoConstraints = false
+        mascot.contentMode = .scaleAspectFit
+
+        // Title
+        let title = UILabel()
+        title.text = "Oops!"
+        title.font = .systemFont(ofSize: 22, weight: .bold)
+        title.textColor = .white
+        title.textAlignment = .center
+
+        // Message
+        let message = UILabel()
+        message.text = """
+    You don’t have enough stars ⭐
+
+    Complete some tasks
+    to earn more!
+    """
+        message.font = .systemFont(ofSize: 15, weight: .medium)
+        message.textColor = UIColor.white.withAlphaComponent(0.85)
+        message.textAlignment = .center
+        message.numberOfLines = 0
+
+        // OK button
+        let okButton = UIButton(type: .system)
+        okButton.setTitle("Okay 😊", for: .normal)
+        okButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        okButton.backgroundColor = .white
+        okButton.setTitleColor(.black, for: .normal)
+        okButton.layer.cornerRadius = 16
+        okButton.translatesAutoresizingMaskIntoConstraints = false
+
+        // Stack
+        let stack = UIStackView(arrangedSubviews: [mascot, title, message, okButton])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        blur.contentView.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            dimView.topAnchor.constraint(equalTo: popup.view.topAnchor),
+            dimView.bottomAnchor.constraint(equalTo: popup.view.bottomAnchor),
+            dimView.leadingAnchor.constraint(equalTo: popup.view.leadingAnchor),
+            dimView.trailingAnchor.constraint(equalTo: popup.view.trailingAnchor),
+
+            blur.centerXAnchor.constraint(equalTo: popup.view.centerXAnchor),
+            blur.centerYAnchor.constraint(equalTo: popup.view.centerYAnchor),
+            blur.widthAnchor.constraint(equalToConstant: 280),
+
+            stack.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 20),
+            stack.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor, constant: -20),
+            stack.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor, constant: -20),
+
+            mascot.heightAnchor.constraint(equalToConstant: 90),
+            mascot.widthAnchor.constraint(equalToConstant: 120),
+
+            okButton.widthAnchor.constraint(equalToConstant: 140),
+            okButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+
+        // Dismiss + go back to Rewards Home
+        okButton.addAction(UIAction { _ in
+            popup.dismiss(animated: true)
+            self.dismiss(animated: true) // closes reward popup → back to rewards home
+        }, for: .touchUpInside)
+
+        let tap = UITapGestureRecognizer(target: popup, action: #selector(UIViewController.dismiss))
+        dimView.addGestureRecognizer(tap)
+
+        present(popup, animated: true)
     }
+
 
     private func showSentForApprovalPopup() {
         let alert = UIAlertController(

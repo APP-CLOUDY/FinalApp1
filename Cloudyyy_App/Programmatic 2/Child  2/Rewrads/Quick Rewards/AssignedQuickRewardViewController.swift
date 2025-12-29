@@ -1,6 +1,6 @@
 
 import UIKit
-
+//AssignedQuickrewardVC
 // MARK: - Model
 struct AssignedQuickReward {
  let id: UUID
@@ -215,12 +215,12 @@ private extension AssignedQuickRewardViewController {
 
  func setupGradient() {
      gradient.colors = [
-         UIColor(red: 20/255, green: 24/255, blue: 40/255, alpha: 1).cgColor,
-         UIColor(red: 90/255, green: 70/255, blue: 160/255, alpha: 1).cgColor
-     ]
-     gradient.startPoint = CGPoint(x: 0.5, y: 0)
-     gradient.endPoint = CGPoint(x: 0.5, y: 1)
-     view.layer.insertSublayer(gradient, at: 0)
+             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,  // dark charcoal
+             UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor   // deep blue
+         ]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+         view.layer.insertSublayer(gradient, at: 0)
  }
 }
 

@@ -499,6 +499,15 @@ final class SpringOnChildViewController: UIViewController {
         unlockPieces(count: pieces)
         print("Buying \(pieces) piece(s)")
     }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: false)
+    }
 
     // MARK: - Helpers
     
