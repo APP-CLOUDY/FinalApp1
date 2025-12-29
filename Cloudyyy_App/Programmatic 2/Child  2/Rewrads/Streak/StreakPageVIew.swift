@@ -11,10 +11,8 @@ final class StreakPageView: UIViewController {
     private let calendarView = StreakCalendarView()
     private let gradientLayer = CAGradientLayer()
 
-    // MARK: - Streak Data (TEMP / MOCK)
-    private var completedDays: Set<Int> = [
-        3,4,6,9,11,12,14,15,16,17,18,19,20,23,24,26,27,29,30
-    ]
+    private var completedDays: Set<Int> = []
+
 
     // MARK: - Subtitle
     private let subtitleLabel: UILabel = {
@@ -31,76 +29,37 @@ final class StreakPageView: UIViewController {
         super.viewDidLoad()
 
         setupGradient()
-        setupCompactBackTitle()
         setupLayout()
         setupMonthHeader()
         loadInitialMonth()
+        setupNavigationBar()
     }
+
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
     }
-
-    private func setupCompactBackTitle() {
-
-        let backButton = UIButton(type: .system)
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-
-        // 🔥 IMPORTANT (THIS REMOVES THE CAPSULE)
-        backButton.configuration = .plain()
-        backButton.configuration?.baseBackgroundColor = .clear
-        backButton.configuration?.contentInsets = NSDirectionalEdgeInsets(
-            top: 8, leading: 0, bottom: 8, trailing: 4
-        )
-
-        backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
-
-        let titleLabel = UILabel()
-        titleLabel.text = "Streak 🔥"
-        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        titleLabel.textColor = .white
-
-        let stack = UIStackView(arrangedSubviews: [backButton, titleLabel])
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = 4
-
-        let container = UIView()
-        container.backgroundColor = .clear
-        container.addSubview(stack)
-
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-
-        navigationItem.leftBarButtonItem = UIBarButtonItem(customView: container)
+    private func setupNavigationBar() {
+        navigationItem.title = "Streak 🔥"
 
         let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-
-        let buttonAppearance = UIBarButtonItemAppearance()
-        buttonAppearance.normal.backgroundImage = UIImage()
-        buttonAppearance.highlighted.backgroundImage = UIImage()
-        buttonAppearance.focused.backgroundImage = UIImage()
-
-        appearance.buttonAppearance = buttonAppearance
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .clear   // important
+        appearance.shadowColor = .clear       // 🔥 removes the line
+        appearance.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 22, weight: .bold)
+        ]
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+
+        navigationController?.navigationBar.tintColor = .white
+        navigationController?.navigationBar.isTranslucent = true
     }
 
-
-
-
-    @objc private func goBack() {
-        navigationController?.popViewController(animated: true)
-    }
 
     // MARK: - Layout
     private func setupLayout() {
@@ -129,7 +88,7 @@ final class StreakPageView: UIViewController {
             calendarView.topAnchor.constraint(equalTo: monthHeader.bottomAnchor, constant: 12),
             calendarView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             calendarView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            calendarView.heightAnchor.constraint(equalToConstant: 360)
+            calendarView.heightAnchor.constraint(equalToConstant: 390)
         ])
     }
 
@@ -146,12 +105,31 @@ final class StreakPageView: UIViewController {
 
     private func loadInitialMonth() {
         monthHeader.set(month: currentMonth, year: currentYear)
-
-        calendarView.update(
-            month: currentMonth,
-            year: currentYear,
-            completed: completedDays
-        )
+        
+        Task {
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ No child logged in")
+                return
+            }
+            
+            do {
+                let days = try await StreakService.shared.getMonthStreak(
+                    childId: childId,
+                    month: currentMonth,
+                    year: currentYear
+                )
+                
+                completedDays = days
+                
+                calendarView.update(
+                    month: currentMonth,
+                    year: currentYear,
+                    completed: days
+                )
+            } catch {
+                print("❌ Failed to load streak month:", error)
+            }
+        }
     }
 
     private func changeMonth(by offset: Int) {
@@ -167,11 +145,30 @@ final class StreakPageView: UIViewController {
 
         monthHeader.set(month: currentMonth, year: currentYear)
 
-        calendarView.update(
-            month: currentMonth,
-            year: currentYear,
-            completed: completedDays
-        )
+        Task {
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ No child logged in")
+                return
+            }
+
+            do {
+                let days = try await StreakService.shared.getMonthStreak(
+                    childId: childId,
+                    month: currentMonth,
+                    year: currentYear
+                )
+
+                completedDays = days
+
+                calendarView.update(
+                    month: currentMonth,
+                    year: currentYear,
+                    completed: days
+                )
+            } catch {
+                print("❌ Failed to load streak month:", error)
+            }
+        }
     }
 
     // MARK: - Gradient
@@ -184,5 +181,10 @@ final class StreakPageView: UIViewController {
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(gradientLayer, at: 0)
     }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+    }
+
 }
 

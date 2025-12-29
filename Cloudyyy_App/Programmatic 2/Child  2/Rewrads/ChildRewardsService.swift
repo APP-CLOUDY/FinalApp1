@@ -16,7 +16,8 @@ struct ChildRewardsResponse: Decodable {
 }
 
 struct ChildRewardItem: Decodable {
-    let id: UUID
+    let id: UUID                 // reward_id
+    let claim_id: UUID?          // reward_claim_id (nullable)
     let title: String
     let description: String?
     let points: Int
@@ -24,6 +25,7 @@ struct ChildRewardItem: Decodable {
     let claim_limit: String?
     let reward_sub_type: String?
     let approval_required: Bool
+    let claim_status: String?
 }
 
 // MARK: - Insert Payload (ENCODABLE – REQUIRED BY SUPABASE)
@@ -39,17 +41,20 @@ struct RewardClaimInsert: Encodable {
 // MARK: - Service
 
 final class ChildRewardsService {
-
+    
     static let shared = ChildRewardsService()
     private init() {}
+    
+    private struct GetChildRewardsWrapper: Decodable {
+        let get_child_rewards: ChildRewardsResponse
+    }
 
-    // 🔹 Fetch rewards for child + category
     func getChildRewards(
         childId: UUID,
         category: String
     ) async throws -> ChildRewardsResponse {
 
-        try await SupabaseManager.shared.client
+        let response = try await SupabaseManager.shared.client
             .rpc(
                 "get_child_rewards",
                 params: [
@@ -57,8 +62,13 @@ final class ChildRewardsService {
                     "category_input": category
                 ]
             )
+            .select()
             .execute()
-            .value
+
+        let data = response.data
+        print("🧨 RAW JSON STRING:", String(data: data, encoding: .utf8) ?? "nil")
+
+        return try JSONDecoder().decode(ChildRewardsResponse.self, from: data)
     }
 
     // 🔹 Claim reward
@@ -67,9 +77,9 @@ final class ChildRewardsService {
         childId: UUID,
         approvalRequired: Bool
     ) async throws {
-
+        
         let now = ISO8601DateFormatter().string(from: Date())
-
+        
         let payload = RewardClaimInsert(
             reward_id: rewardId,
             child_id: childId,
@@ -77,11 +87,16 @@ final class ChildRewardsService {
             submitted_at: now,
             redeemed_at: approvalRequired ? nil : now
         )
-
         try await SupabaseManager.shared.client
-            .from("reward_claims")
-            .insert(payload)
+            .rpc(
+                "claim_reward",
+                params: [
+                    "reward_id_input": rewardId.uuidString,
+                    "child_id_input": childId.uuidString,
+                    "approval_required_input": approvalRequired ? "true" : "false"
+                ]
+            )
             .execute()
+        
     }
 }
-
