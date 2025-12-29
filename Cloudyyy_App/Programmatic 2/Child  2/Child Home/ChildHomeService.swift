@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Supabase
+//CHildHOmeservice
 
 // MARK: - 1. Unified Data Model
 struct ScheduleTaskModelChild: Decodable, Sendable, Identifiable {
@@ -62,19 +63,34 @@ struct ChildScheduleParams: Encodable, Sendable {
 // MARK: - 3. Service Class
 final class ChildHomeService: Sendable {
     static let shared = ChildHomeService()
+    let projectRef = "neqizumxkwaomjvdiwaj"
+
     
     private var client: SupabaseClient {
         return SupabaseManager.shared.client
     }
     
     // MARK: - Fetch Stats
-    func fetchProgressStats() async throws -> ChildProgressStats{
+    func fetchProgressStats() async throws -> ChildProgressStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
-            throw NSError(domain: "ChildApp", code: 401, userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
+            throw NSError(domain: "ChildApp", code: 401)
         }
-        let params = ChildStatsParams(child_id_input: childId)
-        return try await client.rpc("get_child_progress_stats", params: params).execute().value
+
+        let result: [ChildProgressStats] = try await client
+            .rpc(
+                "get_child_progress_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+
+        guard let stats = result.first else {
+            throw NSError(domain: "Empty progress stats", code: 0)
+        }
+
+        return stats
     }
+
     
     // MARK: - Fetch Schedule
     func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
@@ -110,11 +126,18 @@ final class ChildHomeService: Sendable {
         
         try await client.storage
             .from(bucketName)
-            .upload(path: fileName, file: imageData, options: FileOptions(contentType: "image/jpeg"))
-        
-        // Manual URL Construction fallback (Safe against SDK version changes)
-        // ⚠️ REPLACE 'YOUR_PROJECT_ID' with your actual Supabase reference ID
-        let projectRef = "YOUR_PROJECT_ID"
+            .upload(
+                path: fileName,
+                file: imageData,
+                options: FileOptions(
+                    contentType: "image/jpeg",
+                    upsert: false   // 🔒 prevents overwriting
+                )
+            )
+
+
+  
+
         return "https://\(projectRef).supabase.co/storage/v1/object/public/\(bucketName)/\(fileName)"
     }
     
@@ -132,82 +155,54 @@ final class ChildHomeService: Sendable {
             photo_url: photoUrl
         )
         
-        try await client.database
+        try await client
             .from("task_submissions")
             .insert(submission)
             .execute()
-            
+
         print("✅ Task \(taskId) submitted.")
     }
     
-    // MARK: - Home Dashboard (Streak + Missions)
-    func fetchHomeDashboardStats() async throws -> ChildHomeStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            throw NSError(domain: "ChildApp", code: 401,
-                          userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
-        }
-
-        return try await client
-            .rpc(
-                "get_child_home_stats",
-                params: ["child_id_input": childId]
-            )
-            .execute()
-            .value
-    }
 
     // MARK: - Reward Stats
-    func fetchRewardStats() async throws -> ChildRewardStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            throw NSError(domain: "ChildApp", code: 401,
-                          userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
-        }
 
-        return try await client
-            .rpc(
-                "get_child_reward_stats",
-                params: ["child_id_input": childId]
-            )
-            .execute()
-            .value
-    }
     // MARK: - Rewards Home (Streak + Missions)
-    func fetchChildHomeStats(childId: UUID) async throws -> ChildHomeStats {
-        try await client
-            .rpc(
-                "get_child_home_stats",
-                params: ["child_id_input": childId]
-            )
-            .execute()
-            .value
-    }
-
-    // MARK: - Rewards Coins
-    func fetchChildRewardStats(childId: UUID) async throws -> ChildRewardStats {
-        try await client
-            .rpc(
-                "get_child_reward_stats",
-                params: ["child_id_input": childId]
-            )
-            .execute()
-            .value
-    }
-
-    // MARK: - Child Progress (Dashboard)
-    func fetchStats() async throws -> ChildProgressStats {
+    func fetchChildHomeStats() async throws -> ChildHomeStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
 
-        return try await client
+        let result: [ChildHomeStats] = try await client
+            .rpc("get_child_home_stats", params: ["child_id_input": childId])
+            .execute()
+            .value
+
+        guard let stats = result.first else {
+            throw NSError(domain: "Empty home stats", code: 0)
+        }
+
+        return stats
+    }
+
+
+
+
+    // MARK: - Rewards Coins
+    func fetchChildRewardStats() async throws -> ChildRewardStats {
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            throw NSError(domain: "ChildApp", code: 401)
+        }
+
+        let stats: ChildRewardStats = try await client
             .rpc(
-                "get_child_progress_stats",
+                "get_child_reward_stats",
                 params: ["child_id_input": childId]
             )
             .execute()
-            .value
+            .value   // ✅ DIRECT OBJECT (NOT ARRAY)
+
+        return stats
     }
 
-    
-}
 
+}

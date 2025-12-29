@@ -80,7 +80,7 @@ final class ChildHomeViewController: UIViewController {
         _Concurrency.Task {
             do {
                 // Fetch stats using the corrected ChildHomeService
-                let stats = try await ChildHomeService.shared.fetchStats()
+                let stats = try await ChildHomeService.shared.fetchProgressStats()
                 
                 await MainActor.run {
                     self.updateProgressUI(stats: stats)

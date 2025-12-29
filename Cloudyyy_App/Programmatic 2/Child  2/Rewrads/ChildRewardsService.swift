@@ -45,13 +45,16 @@ final class ChildRewardsService {
     static let shared = ChildRewardsService()
     private init() {}
     
-    // 🔹 Fetch rewards for child + category
+    private struct GetChildRewardsWrapper: Decodable {
+        let get_child_rewards: ChildRewardsResponse
+    }
+
     func getChildRewards(
         childId: UUID,
         category: String
     ) async throws -> ChildRewardsResponse {
-        
-        try await SupabaseManager.shared.client
+
+        let response = try await SupabaseManager.shared.client
             .rpc(
                 "get_child_rewards",
                 params: [
@@ -59,10 +62,15 @@ final class ChildRewardsService {
                     "category_input": category
                 ]
             )
+            .select()
             .execute()
-            .value
+
+        let data = response.data
+        print("🧨 RAW JSON STRING:", String(data: data, encoding: .utf8) ?? "nil")
+
+        return try JSONDecoder().decode(ChildRewardsResponse.self, from: data)
     }
-    
+
     // 🔹 Claim reward
     func claimReward(
         rewardId: UUID,

@@ -1,4 +1,5 @@
 import UIKit
+//rewradhubvc
 
 final class RewardsViewController: UIViewController {
     
@@ -68,18 +69,26 @@ final class RewardsViewController: UIViewController {
                 childId: childId,
                 category: "Quick Rewards"
             )
-            let backendGrouped = Dictionary(grouping: response.active) {
-                RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type ?? "")
+            
+            let allRewards = (response.active + response.history).compactMap { reward -> ChildRewardItem? in
+                guard let subtype = reward.reward_sub_type else { return nil }
+                return reward
             }
+
+            let backendGrouped = Dictionary(grouping: allRewards) {
+                RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type!)
+            }
+
 
             print("🔍 Backend reward_sub_types:")
             response.active.forEach {
-                print(
-                    "→ NORMALIZED:",
-                    RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type ?? "")
-                )
-
+                if let subtype = $0.reward_sub_type {
+                    print("→ NORMALIZED:", RewardsViewController.normalizeQuickRewardSubtype(subtype))
+                } else {
+                    print("⚠️ Skipped reward with NULL subtype:", $0.title)
+                }
             }
+
 
             print("🔑 Frontend keys:")
             allQuickRewardTypes.forEach {
@@ -90,6 +99,11 @@ final class RewardsViewController: UIViewController {
             print("🧪 HISTORY COUNT:", response.history.count)
             print("👶 CURRENT CHILD ID:", ChildSessionManager.shared.currentChildId ?? "nil")
 
+            print("🧪 ENABLE CHECK:")
+            for type in allQuickRewardTypes {
+                let count = backendGrouped[type.key]?.count ?? 0
+                print("→", type.key, "=", count)
+            }
 
             
             var items: [QuickRewardItem] = []
@@ -116,13 +130,14 @@ final class RewardsViewController: UIViewController {
                     QuickRewardItem(
                         title: type.title,
                         imageName: type.image,
-                        isEnabled: !mappedRewards.isEmpty   // 🔒 LOCKED FIX
+                        isEnabled: !rewardsForType.isEmpty   // 🔒 LOCKED FIX
                     )
                 )
                 
                 if !mappedRewards.isEmpty {
-                    rewardsMap[type.title] = mappedRewards
+                    rewardsMap[type.key] = mappedRewards
                 }
+
             }
             // 1️⃣ Enabled first, locked later
             let sortedItems = items.sorted {
@@ -221,32 +236,8 @@ final class RewardsViewController: UIViewController {
         return l
     }()
     
-    private let bellButton: UIButton = {
-        let b = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        b.setImage(UIImage(systemName: "bell", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            b.widthAnchor.constraint(equalToConstant: 44),
-            b.heightAnchor.constraint(equalToConstant: 44)
-        ])
-        return b
-    }()
-    
-    private let profileButton: UIButton = {
-        let b = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-        b.setImage(UIImage(systemName: "person.circle.fill", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            b.widthAnchor.constraint(equalToConstant: 44),
-            b.heightAnchor.constraint(equalToConstant: 44)
-        ])
-        return b
-    }()
-    
+
+
     // --- Scroll View ---
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -422,7 +413,25 @@ final class RewardsViewController: UIViewController {
         
         loadStreakCount()
         
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshRewards),
+            name: .rewardApproved,
+            object: nil
+        )
+
     }
+    
+    @objc private func refreshRewards() {
+        Task {
+            await loadRewardsHomeData()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     
     private func loadStreakCount() {
         Task {
@@ -459,8 +468,8 @@ final class RewardsViewController: UIViewController {
         }
         
         do {
-            let homeStats = try await ChildHomeService.shared.fetchChildHomeStats(childId: childId)
-            let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats(childId: childId)
+            let homeStats = try await ChildHomeService.shared.fetchChildHomeStats()
+            let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats()
             
             await MainActor.run {
                 self.homeStats = homeStats
@@ -472,6 +481,7 @@ final class RewardsViewController: UIViewController {
             print("❌ Failed to load rewards home data:", error)
         }
     }
+
     
     private func updateRewardsUI() {
         guard let homeStats = homeStats else { return }
@@ -514,8 +524,6 @@ final class RewardsViewController: UIViewController {
         
         headerContainer.addSubview(headerTitle)
         headerContainer.addSubview(coinBadgeView)
-        headerContainer.addSubview(bellButton)
-        headerContainer.addSubview(profileButton)
         
         coinBadgeView.addSubview(starIcon)
         coinBadgeView.addSubview(coinLabel)
@@ -557,20 +565,12 @@ final class RewardsViewController: UIViewController {
             headerTitle.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 20),
             headerTitle.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 16),
             
-            // PROFILE (RIGHT MOST)
-            profileButton.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -20),
-            profileButton.centerYAnchor.constraint(equalTo: headerTitle.centerYAnchor),
-            
-            // BELL
-            bellButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -8),
-            bellButton.centerYAnchor.constraint(equalTo: profileButton.centerYAnchor),
-            
-            // COIN BADGE (KEEP AS IS — JUST POSITION)
-            coinBadgeView.trailingAnchor.constraint(equalTo: bellButton.leadingAnchor, constant: -8),
-            coinBadgeView.centerYAnchor.constraint(equalTo: profileButton.centerYAnchor),
+            // COIN BADGE
+            coinBadgeView.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -20),
+            coinBadgeView.centerYAnchor.constraint(equalTo: headerTitle.centerYAnchor),
             coinBadgeView.heightAnchor.constraint(equalToConstant: 25),
             coinBadgeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
-            
+
             // ⭐ Star Icon
             starIcon.leadingAnchor.constraint(equalTo: coinBadgeView.leadingAnchor, constant: 10),
             starIcon.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
@@ -658,8 +658,6 @@ final class RewardsViewController: UIViewController {
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
         
-        bellButton.addTarget(self, action: #selector(bellTapped), for: .touchUpInside)
-        profileButton.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
         
     }
     
@@ -698,21 +696,7 @@ final class RewardsViewController: UIViewController {
         updateCarouselContent(title: "Spring Rewards", image: image)
     }
     
-    @objc private func bellTapped() {
-        print("Navigating to Notifications")
-        let vc = NotificationViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(vc, animated: true)
-    }
-    
-    @objc private func profileTapped() {
-        print("Navigating to Profile")
-        let vc = ProfileViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        navigationController?.pushViewController(vc, animated: true)
-    }
+
     
     // MARK: - Helpers
     private func updateCarouselContent(title: String, image: UIImage?) {
@@ -821,7 +805,14 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
             return
         }
 
-        let rewards = rewardsByCategory[item.title] ?? []
+        let key = RewardsViewController.normalizeQuickRewardSubtype(item.title)
+        let rewards = rewardsByCategory[
+            RewardsViewController.normalizeQuickRewardSubtype(item.title)
+        ] ?? []
+
+        print("🔑 Lookup key:", RewardsViewController.normalizeQuickRewardSubtype(item.title))
+        print("📦 rewardsByCategory keys:", rewardsByCategory.keys)
+
 
         if rewards.count == 1 {
             presentQuickRewardClaimPopup(reward: rewards[0])
@@ -833,7 +824,12 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
             vc.assignedRewards = rewards
             navigationController?.pushViewController(vc, animated: true)
         }
+        print("Tapped:", item.title)
+        print("Rewards:", rewards)
     }
-}    // MARK: - TEMP Dummy Assigned Rewards (Replace with backend later)
+    
+   
+
+}
    
 

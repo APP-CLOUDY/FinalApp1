@@ -89,13 +89,9 @@ final class NewRewardViewController: UIViewController {
     private let claimOptions: [(title: String, isCustom: Bool)] = [
         ("Once", false),
         ("Daily", false),
-        ("Weekdays", false),
-        ("Weekends", false),
         ("Weekly", false),
         ("Monthly", false),
-        ("Every 3 Months", false),
-        ("Yearly", false),
-        ("Custom", true)
+
     ]
     
     private let rewardTypeOptions = ["Experience", "Toy", "Food", "Custom"]

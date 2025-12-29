@@ -11,7 +11,12 @@ final class CoinHistoryViewController: UIViewController {
     private let container = UIView()
     private let tableView = UITableView()
 
-    // MARK: - Data (TEMP – replace with backend later)
+    // ⭐ Summary Card
+    private let summaryCard = UIView()
+    private let summaryTitle = UILabel()
+    private let summaryValue = UILabel()
+
+    // MARK: - Data (TEMP – backend later)
     var history: [(title: String, points: Int, date: String)] = [
         ("Brushed Teeth", 5, "Today"),
         ("Homework Completed", 10, "Yesterday"),
@@ -35,6 +40,11 @@ final class CoinHistoryViewController: UIViewController {
         setupTable()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+    }
+
     // MARK: - Navigation Bar
     private func setupNavigationBar() {
         navigationItem.title = "Star History"
@@ -53,7 +63,6 @@ final class CoinHistoryViewController: UIViewController {
             .font: UIFont.systemFont(ofSize: 22, weight: .bold)
         ]
 
-        // 🔥 REMOVE THAT LINE COMPLETELY
         appearance.shadowColor = .clear
         navigationController?.navigationBar.shadowImage = UIImage()
 
@@ -64,6 +73,7 @@ final class CoinHistoryViewController: UIViewController {
 
     // MARK: - UI Setup
     private func setupUI() {
+
         // Container
         container.translatesAutoresizingMaskIntoConstraints = false
         container.backgroundColor = UIColor(
@@ -74,24 +84,68 @@ final class CoinHistoryViewController: UIViewController {
         )
         view.addSubview(container)
 
+        // ⭐ Summary Card
+        summaryCard.translatesAutoresizingMaskIntoConstraints = false
+        summaryCard.backgroundColor = UIColor(
+            red: 30/255,
+            green: 35/255,
+            blue: 60/255,
+            alpha: 1
+        )
+        summaryCard.layer.cornerRadius = 18
+        summaryCard.layer.shadowColor = UIColor.black.cgColor
+        summaryCard.layer.shadowOpacity = 0.3
+        summaryCard.layer.shadowRadius = 8
+        summaryCard.layer.shadowOffset = CGSize(width: 0, height: 6)
+        container.addSubview(summaryCard)
+
+        summaryTitle.translatesAutoresizingMaskIntoConstraints = false
+        summaryTitle.text = "Stars Earned"
+        summaryTitle.font = .systemFont(ofSize: 14, weight: .medium)
+        summaryTitle.textColor = UIColor.white.withAlphaComponent(0.7)
+
+        summaryValue.translatesAutoresizingMaskIntoConstraints = false
+        summaryValue.text = "\(history.reduce(0) { $0 + $1.points }) ⭐"
+        summaryValue.font = .systemFont(ofSize: 28, weight: .bold)
+        summaryValue.textColor = UIColor(
+            red: 255/255,
+            green: 204/255,
+            blue: 92/255,
+            alpha: 1
+        )
+
+        summaryCard.addSubview(summaryTitle)
+        summaryCard.addSubview(summaryValue)
+
         // Table View
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
+        tableView.contentInset = UIEdgeInsets(top: 12, left: 0, bottom: 24, right: 0)
         tableView.register(CoinHistoryCell.self, forCellReuseIdentifier: "CoinHistoryCell")
         container.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            // Container fills screen
             container.topAnchor.constraint(equalTo: view.topAnchor),
             container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             container.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            // Summary Card
+            summaryCard.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor, constant: 16),
+            summaryCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            summaryCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            summaryCard.heightAnchor.constraint(equalToConstant: 90),
+
+            summaryTitle.topAnchor.constraint(equalTo: summaryCard.topAnchor, constant: 16),
+            summaryTitle.leadingAnchor.constraint(equalTo: summaryCard.leadingAnchor, constant: 16),
+
+            summaryValue.topAnchor.constraint(equalTo: summaryTitle.bottomAnchor, constant: 8),
+            summaryValue.leadingAnchor.constraint(equalTo: summaryTitle.leadingAnchor),
 
             // Table
-            tableView.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+            tableView.topAnchor.constraint(equalTo: summaryCard.bottomAnchor, constant: 16),
             tableView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
@@ -103,12 +157,6 @@ final class CoinHistoryViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
     }
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(false, animated: animated)
-    }
-
-
 }
 
 // MARK: - UITableViewDataSource & Delegate
@@ -137,6 +185,31 @@ extension CoinHistoryViewController: UITableViewDataSource, UITableViewDelegate 
         )
 
         return cell
+    }
+
+    func tableView(_ tableView: UITableView,
+                   heightForRowAt indexPath: IndexPath) -> CGFloat {
+        80
+    }
+
+    func tableView(_ tableView: UITableView,
+                   willDisplay cell: UITableViewCell,
+                   forRowAt indexPath: IndexPath) {
+
+        cell.transform = CGAffineTransform(translationX: 0, y: 20)
+        cell.alpha = 0
+
+        UIView.animate(
+            withDuration: 0.4,
+            delay: Double(indexPath.row) * 0.05,
+            usingSpringWithDamping: 0.9,
+            initialSpringVelocity: 0.5,
+            options: [.curveEaseOut],
+            animations: {
+                cell.transform = .identity
+                cell.alpha = 1
+            }
+        )
     }
 }
 

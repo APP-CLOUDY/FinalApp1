@@ -9,12 +9,14 @@ final class SpringOnChildViewController: UIViewController {
     private let contentView = UIView()
     
     private let gradientLayer = CAGradientLayer()
+    
+    private var rewardStats: ChildRewardStats?
+
 
     // Top bar
     private let backButton = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let coinBadge = PaddingLabel(top: 4, left: 10, bottom: 4, right: 10)
-    private let profileButton = UIButton(type: .system)
 
     // Main puzzle card
     private let puzzleCard = UIView()
@@ -67,6 +69,48 @@ final class SpringOnChildViewController: UIViewController {
         layoutEverything()
         
         updateProgressUI()
+        
+        Task {
+            await loadStars()
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshStars),
+            name: .taskDidComplete,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshStars),
+            name: .rewardRedeemed,
+            object: nil
+        )
+
+    }
+
+    @objc private func refreshStars() {
+        Task {
+            await loadStars()
+        }
+    }
+
+    private func updateCoinBadge(old: Int, new: Int) {
+        guard new != old else {
+            coinBadge.text = "★ \(new)"
+            return
+        }
+
+        coinBadge.text = "★ \(new)"
+
+        UIView.animate(withDuration: 0.15,
+                       animations: {
+            self.coinBadge.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.15) {
+                self.coinBadge.transform = .identity
+            }
+        })
     }
 
     override func viewDidLayoutSubviews() {
@@ -86,6 +130,28 @@ final class SpringOnChildViewController: UIViewController {
         gradientLayer.endPoint   = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(gradientLayer, at: 0)
     }
+    
+    private func loadStars() async {
+        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+
+        let oldStars = rewardStats?.total_stars ?? 0
+
+        do {
+            let stats = try await ChildHomeService.shared.fetchChildRewardStats()
+
+            await MainActor.run {
+                self.rewardStats = stats
+                self.updateCoinBadge(
+                    old: oldStars,
+                    new: stats.total_stars
+                )
+            }
+        } catch {
+            print("❌ Failed to load stars:", error)
+        }
+    }
+
+
     
     // 2. Added new function to setup scroll view
     private func setupScrollView() {
@@ -121,32 +187,30 @@ final class SpringOnChildViewController: UIViewController {
         backButton.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         coinBadge.translatesAutoresizingMaskIntoConstraints = false
-        profileButton.translatesAutoresizingMaskIntoConstraints = false
 
+        // Back Button (circle)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.tintColor = .white
+        backButton.backgroundColor = UIColor.white.withAlphaComponent(0.18)
+        backButton.layer.cornerRadius = 18
+        backButton.layer.masksToBounds = true
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
 
+        // Title
         titleLabel.text = "Spring On"
-        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textColor = .white
 
-        coinBadge.text = "★ 207"
-        coinBadge.font = .systemFont(ofSize: 14, weight: .semibold)
+        // Coin badge
+        coinBadge.font = .systemFont(ofSize: 14, weight: .bold)
         coinBadge.textColor = .black
         coinBadge.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
         coinBadge.layer.cornerRadius = 14
         coinBadge.layer.masksToBounds = true
 
-        profileButton.setImage(UIImage(systemName: "person.circle.fill"), for: .normal)
-        profileButton.tintColor = .white
-        profileButton.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
-
-        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(backButton)
         contentView.addSubview(titleLabel)
         contentView.addSubview(coinBadge)
-        contentView.addSubview(profileButton)
     }
 
     private func setupPuzzleCard() {
@@ -257,12 +321,7 @@ final class SpringOnChildViewController: UIViewController {
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
 
-            profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            profileButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 32),
-            profileButton.heightAnchor.constraint(equalToConstant: 32),
-
-            coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -10),
+            coinBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             coinBadge.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
 
             // Puzzle card (all constraints relative to `contentView`)

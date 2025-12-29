@@ -3,8 +3,7 @@ import Supabase
 
 // Changed to @unchecked Sendable to resolve strict concurrency warnings
 final class SupabaseManager: @unchecked Sendable {
-    static let shared = SupabaseManager()
-    
+    static let shared = SupabaseManager() 
     let client: SupabaseClient
     
     private init() {
