@@ -8,8 +8,6 @@ struct AssignedQuickReward {
  let title: String
  let cost: Int
  let imageName: String
- let approvalRequired: Bool
- let claimStatus: String?
 }
 
 
@@ -166,25 +164,8 @@ extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewD
      }
 
      let reward = assignedRewards[indexPath.row]
+     presentClaimPopup(for: reward)
 
-     switch reward.claimStatus {
-     case "pending":
-         let vc = PendingApprovalViewController()
-         vc.modalPresentationStyle = .overFullScreen
-         present(vc, animated: true)
-
-     case "declined":
-         presentDeclinedPopup()
-
-     case "approved":
-         presentClaimPopup(for: reward)
-
-     case nil:
-         presentClaimPopup(for: reward)
-
-     default:
-         return
-     }
  }
 
  private func presentClaimPopup(for reward: AssignedQuickReward) {
@@ -315,28 +296,9 @@ final class AssignedQuickRewardCell: UITableViewCell {
      rewardImage.image = UIImage(named: reward.imageName)
      titleLabel.text = reward.title
      starsLabel.text = "⭐ \(reward.cost) Stars"
-     if reward.approvalRequired {
-         switch reward.claimStatus {
-         case "pending":
-             subtitleLabel.text = "Waiting for approval"
-             badge.text = "Pending"
-             badge.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.35)
-
-         case "declined":
-             subtitleLabel.text = "Not approved"
-             badge.text = "Declined"
-             badge.backgroundColor = UIColor.systemRed.withAlphaComponent(0.35)
-
-         default:
-             subtitleLabel.text = "Ask parent to approve"
-             badge.text = "Approval"
-             badge.backgroundColor = UIColor.white.withAlphaComponent(0.18)
-         }
-     } else {
-         subtitleLabel.text = "Redeem this reward"
-         badge.text = "Instant"
-         badge.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.35)
-     }
+     subtitleLabel.text = "Redeem this reward"
+     badge.text = "Instant"
+     badge.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.35)
 
  }
 

@@ -78,55 +78,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         lb.textAlignment = .center
         return lb
     }()
-    private func redeemReward(claimId: UUID) {
-        Task {
-            do {
-                try await SupabaseManager.shared.client
-                    .rpc(
-                        "redeem_reward",
-                        params: ["reward_claim_id_input": claimId.uuidString]
-                    )
-                    .execute()
-                
-               
-                await MainActor.run {
-                    self.reward = AssignedQuickReward(
-                        id: reward.id,
-                        claimId: reward.claimId,
-                        title: reward.title,
-                        cost: reward.cost,
-                        imageName: reward.imageName,
-                        approvalRequired: reward.approvalRequired,
-                        claimStatus: "redeemed"
-                    )
-
-                    self.isSubmitting = false
-                    self.dismiss(animated: true)
-                    NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
-                }
-
-
-            } catch {
-                let message = error.localizedDescription.lowercased()
-                print("❌ Redeem failed:", message)
-
-                if message.contains("daily limit") {
-                    showError("You already claimed this reward today 😊")
-                } else if message.contains("weekly limit") {
-                    showError("You already claimed this reward this week 😊")
-                } else if message.contains("monthly limit") {
-                    showError("You already claimed this reward this month 😊")
-                } else if message.contains("already claimed") {
-                    showError("You can only claim this reward once 😊")
-                } else if message.contains("not enough stars") {
-                    showError("You don’t have enough stars ⭐")
-                } else {
-                    showError("Something went wrong. Try again.")
-                }
-            }
-        }
-    }
-
 
     private func showError(_ message: String) {
         let alert = UIAlertController(
@@ -320,11 +271,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     }
     @objc private func claimTapped() {
         guard !isSubmitting else { return }
-        // 🔴 Declined → block
-        if reward.claimStatus == "declined" {
-            showError("This reward was declined by your parent.")
-            return
-        }
 
         // ⭐ Not enough points
         if currentBalance < reward.cost {
@@ -332,31 +278,38 @@ final class QuickRewardClaimPopupViewController: UIViewController {
             return
         }
 
-        // 🟡 No claim yet → request claim
-        // 🟡 No claim yet
-        if reward.claimStatus == nil {
+        // 🚀 Instant redeem
+        redeemInstantReward()
+    }
+    
+    private func redeemInstantReward() {
 
-            // 🚀 Instant reward → claim + redeem immediately
-            if reward.approvalRequired == false {
-                claimReward()
-                return
+        guard !isSubmitting else { return }
+        isSubmitting = true
+
+        Task {
+            do {
+                let response = try await ChildRewardsService.shared.claimReward(
+                    rewardId: reward.id,
+                    childId: ChildSessionManager.shared.currentChildId!
+                )
+
+                await MainActor.run {
+                    // 🔥 IMMEDIATE BALANCE UPDATE
+                    self.currentBalance = response.remaining_stars
+
+                    NotificationCenter.default.post(
+                        name: .rewardRedeemed,
+                        object: nil
+                    )
+
+                    self.dismiss(animated: true)
+                }
+
+            } catch {
+                isSubmitting = false
+                showError(error.localizedDescription)
             }
-
-            // 🟡 Needs approval
-            claimReward()
-            return
-        }
-
-        // 🟡 Waiting for approval
-        if reward.claimStatus == "pending" {
-            showSentForApprovalPopup()
-            return
-        }
-
-        // 🔵 Approved → redeem
-        if reward.claimStatus == "approved" {
-            redeemApprovedReward()
-            return
         }
     }
 
@@ -371,7 +324,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                 try await ChildRewardsService.shared.claimReward(
                     rewardId: reward.id,
                     childId: ChildSessionManager.shared.currentChildId!,
-                    approvalRequired: reward.approvalRequired
                 )
 
                 await MainActor.run {
@@ -480,37 +432,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         dimView.addGestureRecognizer(tap)
 
         present(popup, animated: true)
-    }
-
-
-    private func showSentForApprovalPopup() {
-        let alert = UIAlertController(
-            title: "Sent for approval ⏳",
-            message: "Your reward request was sent to your parent for approval.",
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-            self.dismiss(animated: true)
-        })
-
-        present(alert, animated: true)
-    }
-    
-    private func redeemApprovedReward() {
-
-        guard !isSubmitting else { return }
-        isSubmitting = true
-
-        guard reward.claimStatus == "approved",
-              let claimId = reward.claimId else {
-            isSubmitting = false
-            showError("This reward is not ready to be redeemed yet.")
-            return
-        }
-
-        showConfetti()
-        redeemReward(claimId: claimId)
     }
 
 }

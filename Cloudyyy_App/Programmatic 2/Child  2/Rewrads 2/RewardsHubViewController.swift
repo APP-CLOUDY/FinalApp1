@@ -15,6 +15,7 @@ final class RewardsViewController: UIViewController {
     private var rewardsByCategory: [String: [AssignedQuickReward]] = [:]
     private var enabledCategories: Set<String> = []
     
+    private var progressReport: ProgressReport?
     
     // Coin Badge Container
     private let coinBadgeView: UIView = {
@@ -127,9 +128,7 @@ final class RewardsViewController: UIViewController {
                         claimId: item.claim_id,      // ✅ REQUIRED FOR REDEEM
                         title: item.title,
                         cost: item.points,
-                        imageName: type.image,
-                        approvalRequired: item.approval_required,
-                        claimStatus: item.claim_status
+                        imageName: type.image
                     )
                 }
                 
@@ -490,10 +489,15 @@ final class RewardsViewController: UIViewController {
         do {
             let homeStats = try await ChildHomeService.shared.fetchChildHomeStats()
             let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats()
-            
+            let progress = try await ProgressService.shared.fetchStats(
+                childId: childId,
+                scope: .monthly   // or .weekly
+            )
+
             await MainActor.run {
                 self.homeStats = homeStats
-                self.rewardStats = rewardStats
+                self.rewardStats = rewardStats          // 🔒 KEEP
+                self.progressReport = progress          // ⭐ NEW
                 self.updateRewardsUI()
             }
             
@@ -518,8 +522,9 @@ final class RewardsViewController: UIViewController {
         
         // ⭐ Coins
         let oldCoins = Int(coinLabel.text ?? "0") ?? 0
-        let newCoins = rewardStats?.total_stars ?? 0
+        let newCoins = progressReport?.current_balance ?? 0
         animateCoins(from: oldCoins, to: newCoins)
+
         
         Task {
             await loadQuickRewards()
@@ -763,7 +768,7 @@ final class RewardsViewController: UIViewController {
         let popup = QuickRewardClaimPopupViewController()
         popup.modalPresentationStyle = .overFullScreen
         popup.reward = reward
-        popup.currentBalance = rewardStats?.total_stars ?? 0
+        popup.currentBalance = progressReport?.current_balance ?? 0
         
         popup.onClaim = { [weak self] in
             Task {
@@ -840,7 +845,7 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
             let vc = AssignedQuickRewardViewController()
             vc.rewardTypeTitle = item.title
             vc.rewardIconName = item.imageName
-            vc.currentStars = rewardStats?.total_stars ?? 0
+            vc.currentStars = progressReport?.current_balance ?? 0
             vc.assignedRewards = rewards
             navigationController?.pushViewController(vc, animated: true)
         }

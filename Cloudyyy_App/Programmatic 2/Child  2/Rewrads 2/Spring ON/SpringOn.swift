@@ -11,23 +11,66 @@ final class SpringOnChildViewController: UIViewController {
     private let gradientLayer = CAGradientLayer()
     
     private var rewardStats: ChildRewardStats?
-
-
+    private var progressReport: ProgressReport?
     // Top bar
     private let backButton = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let coinBadge = PaddingLabel(top: 4, left: 10, bottom: 4, right: 10)
 
+    // Carousel
+    private let carouselScrollView = UIScrollView()
+    private let carouselStack = UIStackView()
+
     // Main puzzle card
     private let puzzleCard = UIView()
-    private let puzzleImageView = UIImageView()
     private let overlayContainer = UIView()
+    
+    // 🔗 Spring On backend
+    private var springRewardIds: [UUID] = []
+    private var currentRewardIndex: Int = 0
+    private var springRewardPoints: [UUID: Int] = [:]
+    private var springRewardTitles: [UUID: String] = [:]
+
+
+
+    private func configureCarouselWithURLs(_ urls: [URL]) {
+        carouselStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for url in urls {
+            let iv = UIImageView()
+            iv.contentMode = .scaleAspectFill
+            iv.clipsToBounds = true
+            iv.translatesAutoresizingMaskIntoConstraints = false
+
+            carouselStack.addArrangedSubview(iv)
+
+            NSLayoutConstraint.activate([
+                iv.widthAnchor.constraint(equalTo: carouselScrollView.widthAnchor)
+            ])
+
+            // Async image load
+            Task {
+                do {
+                    let (data, _) = try await URLSession.shared.data(from: url)
+                    if let image = UIImage(data: data) {
+                        await MainActor.run {
+                            iv.image = image
+                        }
+                    }
+                } catch {
+                    print("❌ Image load failed:", error)
+                }
+            }
+        }
+
+        picturePageControl.numberOfPages = urls.count
+        picturePageControl.isHidden = urls.count <= 1
+    }
 
     // Page Control
     private let picturePageControl: UIPageControl = {
         let pc = UIPageControl()
         pc.translatesAutoresizingMaskIntoConstraints = false
-        pc.numberOfPages = 4 // You can change this
         pc.currentPage = 0
         pc.currentPageIndicatorTintColor = .white
         pc.pageIndicatorTintColor = UIColor.white.withAlphaComponent(0.25)
@@ -52,10 +95,82 @@ final class SpringOnChildViewController: UIViewController {
 
     // MARK: - Lifecycle
 
+    
+    private func updateStoreButtons() {
+        let completed = unlockedPieces.allSatisfy { $0 }
+        let remaining = 16 - unlockedPieces.filter { $0 }.count
+
+        storeGrid.arrangedSubviews.forEach { row in
+            guard let stack = row as? UIStackView else { return }
+
+            stack.arrangedSubviews.forEach { view in
+                guard let button = view as? UIButton else { return }
+
+                let pieces = button.tag
+                let canBuyPieces = pieces <= remaining
+                let enabled = !completed && canBuyPieces
+
+                button.isUserInteractionEnabled = enabled
+                button.alpha = enabled ? 1.0 : 0.4
+            }
+        }
+    }
+
+    
+    private func loadSpringRewards() async {
+        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+
+        do {
+            let rewardIds = try await SpringOnService.shared
+                .fetchSpringOnRewardIds(childId: childId)
+
+            guard !rewardIds.isEmpty else { return }
+
+            self.springRewardIds = rewardIds
+
+            // ✅ ORDERED IMAGE FETCH (NO TASK GROUP)
+            var urls: [URL] = []
+
+            for id in rewardIds {
+                let (url, points, title) = try await SpringOnService.shared
+                    .fetchSpringOnRewardMedia(rewardId: id)
+
+                springRewardTitles[id] = title
+                springRewardPoints[id] = max(points, 100)
+                urls.append(url)
+            }
+
+
+            await MainActor.run {
+                configureCarouselWithURLs(urls)
+                self.updateRewardTitle()   // ✅ INITIAL TITLE
+            }
+
+            // load progress for first reward
+            await loadProgressForCurrentReward()
+            await MainActor.run {
+                self.rebuildStoreGrid()
+                self.updateStoreButtons()
+            }
+
+
+
+        } catch {
+            print("❌ Failed to load Spring On rewards:", error)
+        }
+    }
+    
+    private func updateRewardTitle() {
+        guard currentRewardIndex < springRewardIds.count else { return }
+
+        let rewardId = springRewardIds[currentRewardIndex]
+        progressTitleLabel.text = springRewardTitles[rewardId] ?? "Reward"
+    }
+
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupGradient()
-        
         // 2. Setup scroll view first
         setupScrollView()
         
@@ -67,7 +182,6 @@ final class SpringOnChildViewController: UIViewController {
         
         // This function will now add constraints to the `contentView`
         layoutEverything()
-        
         updateProgressUI()
         
         Task {
@@ -86,9 +200,53 @@ final class SpringOnChildViewController: UIViewController {
             name: .rewardRedeemed,
             object: nil
         )
+        
+        Task {
+            await loadSpringRewards()
+        }
+
 
     }
 
+    private func loadProgressForCurrentReward() async {
+        guard
+            let childId = ChildSessionManager.shared.currentChildId,
+            currentRewardIndex < springRewardIds.count
+        else { return }
+
+        let rewardId = springRewardIds[currentRewardIndex]
+
+        do {
+            let progress = try await SpringOnService.shared.fetchProgress(
+                childId: childId,
+                rewardId: rewardId
+            )
+
+            await MainActor.run {
+                unlockedPieces = Array(repeating: false, count: 16)
+                for i in 0..<min(progress.unlocked_pieces, 16) {
+                    unlockedPieces[i] = true
+                }
+
+                pieceOverlays.enumerated().forEach { index, view in
+                    let unlocked = index < progress.unlocked_pieces
+                    view.isHidden = unlocked
+                    view.alpha = unlocked ? 0 : 1
+                    view.transform = .identity
+                }
+
+                updateProgressUI()
+                rebuildStoreGrid()
+                updateStoreButtons()
+
+
+            }
+        } catch {
+            print("❌ Failed to load progress:", error)
+        }
+    }
+
+    
     @objc private func refreshStars() {
         Task {
             await loadStars()
@@ -134,16 +292,21 @@ final class SpringOnChildViewController: UIViewController {
     private func loadStars() async {
         guard let childId = ChildSessionManager.shared.currentChildId else { return }
 
-        let oldStars = rewardStats?.total_stars ?? 0
+        let oldStars = progressReport?.current_balance ?? 0
 
         do {
-            let stats = try await ChildHomeService.shared.fetchChildRewardStats()
+            let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats()
+            let progress = try await ProgressService.shared.fetchStats(
+                childId: childId,
+                scope: .monthly   // or .weekly
+            )
 
             await MainActor.run {
-                self.rewardStats = stats
+                self.rewardStats = rewardStats          // 🔒 KEEP
+                self.progressReport = progress          // ⭐ SOURCE OF TRUTH
                 self.updateCoinBadge(
                     old: oldStars,
-                    new: stats.total_stars
+                    new: progress.current_balance
                 )
             }
         } catch {
@@ -155,6 +318,8 @@ final class SpringOnChildViewController: UIViewController {
     
     // 2. Added new function to setup scroll view
     private func setupScrollView() {
+        scrollView.alwaysBounceVertical = true
+
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
@@ -215,29 +380,32 @@ final class SpringOnChildViewController: UIViewController {
 
     private func setupPuzzleCard() {
         puzzleCard.translatesAutoresizingMaskIntoConstraints = false
-        puzzleImageView.translatesAutoresizingMaskIntoConstraints = false
+        carouselScrollView.translatesAutoresizingMaskIntoConstraints = false
+        carouselStack.translatesAutoresizingMaskIntoConstraints = false
         overlayContainer.translatesAutoresizingMaskIntoConstraints = false
 
         puzzleCard.backgroundColor = UIColor(white: 1.0, alpha: 0.06)
         puzzleCard.layer.cornerRadius = 20
         puzzleCard.layer.masksToBounds = true
 
-        // Main reward image
-        puzzleImageView.contentMode = .scaleAspectFill
-        puzzleImageView.image = UIImage(named: "springon") ?? makePlaceholderBike()
-        puzzleImageView.clipsToBounds = true
+        carouselScrollView.isPagingEnabled = true
+        carouselScrollView.showsHorizontalScrollIndicator = false
+        carouselScrollView.delegate = self
 
-        overlayContainer.backgroundColor = .clear
+        carouselStack.axis = .horizontal
+        carouselStack.alignment = .fill
+        carouselStack.distribution = .fillEqually
 
-        // 3. Add to `contentView` instead of `view`
+        overlayContainer.isUserInteractionEnabled = false   // ✅ FIX
+
         contentView.addSubview(puzzleCard)
-        puzzleCard.addSubview(puzzleImageView)
+        puzzleCard.addSubview(carouselScrollView)
+        carouselScrollView.addSubview(carouselStack)
         puzzleCard.addSubview(overlayContainer)
 
-        // Add the page control
-        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(picturePageControl)
     }
+
 
     private func setupProgress() {
         progressTitleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -282,31 +450,9 @@ final class SpringOnChildViewController: UIViewController {
         storeGrid.distribution = .fillEqually
         storeGrid.spacing = 12
 
-        // 2×2 grid of buttons: 1x, 4x, 8x, 16x
-        let counts = [1, 4, 8, 16]
-        let labels = ["1x", "4x", "8x", "16x"]
-
-        for row in 0..<2 {
-            let hStack = UIStackView()
-            hStack.axis = .horizontal
-            hStack.alignment = .fill
-            hStack.distribution = .fillEqually
-            hStack.spacing = 12
-
-            for col in 0..<2 {
-                let index = row * 2 + col
-                // Use the cost from the old logic (pieces * 10)
-                let button = makeStoreButton(title: labels[index], cost: counts[index] * 10, pieces: counts[index])
-                hStack.addArrangedSubview(button)
-            }
-            storeGrid.addArrangedSubview(hStack)
-        }
-
-        // 3. Add to `contentView` instead of `view`
         contentView.addSubview(storeTitleLabel)
         contentView.addSubview(storeGrid)
     }
-
 
     private func layoutEverything() {
         // 4. No longer need `safe` guide, as `contentView` is our new reference
@@ -330,25 +476,25 @@ final class SpringOnChildViewController: UIViewController {
             puzzleCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             // Reverted to fixed height
             puzzleCard.heightAnchor.constraint(equalToConstant: 190),
-
-            puzzleImageView.topAnchor.constraint(equalTo: puzzleCard.topAnchor),
-            puzzleImageView.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
-            puzzleImageView.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
-            // Reverted: Pin to bottom of card
-            puzzleImageView.bottomAnchor.constraint(equalTo: puzzleCard.bottomAnchor),
-
-            // --- DYNAMIC PUZZLE FIX REMOVED ---
-            // 1. Removed square aspect ratio constraint
-            // puzzleImageView.heightAnchor.constraint(equalTo: puzzleImageView.widthAnchor, multiplier: 1.0),
             
-            // 2. Removed dynamic bottom constraint
-            // puzzleCard.bottomAnchor.constraint(equalTo: puzzleImageView.bottomAnchor),
+            carouselScrollView.topAnchor.constraint(equalTo: puzzleCard.topAnchor),
+            carouselScrollView.leadingAnchor.constraint(equalTo: puzzleCard.leadingAnchor),
+            carouselScrollView.trailingAnchor.constraint(equalTo: puzzleCard.trailingAnchor),
+            carouselScrollView.bottomAnchor.constraint(equalTo: puzzleCard.bottomAnchor),
+
+            carouselStack.topAnchor.constraint(equalTo: carouselScrollView.contentLayoutGuide.topAnchor),
+            carouselStack.leadingAnchor.constraint(equalTo: carouselScrollView.contentLayoutGuide.leadingAnchor),
+            carouselStack.trailingAnchor.constraint(equalTo: carouselScrollView.contentLayoutGuide.trailingAnchor),
+            carouselStack.bottomAnchor.constraint(equalTo: carouselScrollView.contentLayoutGuide.bottomAnchor),
+
+            carouselStack.heightAnchor.constraint(equalTo: carouselScrollView.frameLayoutGuide.heightAnchor),
+
 
             // 3. Pin the overlay to the puzzleImageView
-            overlayContainer.topAnchor.constraint(equalTo: puzzleImageView.topAnchor),
-            overlayContainer.leadingAnchor.constraint(equalTo: puzzleImageView.leadingAnchor),
-            overlayContainer.trailingAnchor.constraint(equalTo: puzzleImageView.trailingAnchor),
-            overlayContainer.bottomAnchor.constraint(equalTo: puzzleImageView.bottomAnchor),
+            overlayContainer.topAnchor.constraint(equalTo: carouselScrollView.topAnchor),
+            overlayContainer.leadingAnchor.constraint(equalTo: carouselScrollView.leadingAnchor),
+            overlayContainer.trailingAnchor.constraint(equalTo: carouselScrollView.trailingAnchor),
+            overlayContainer.bottomAnchor.constraint(equalTo: carouselScrollView.bottomAnchor),
             // --- END DYNAMIC PUZZLE FIX REMOVED ---
 
             // Page Control
@@ -386,6 +532,28 @@ final class SpringOnChildViewController: UIViewController {
         ])
     }
 
+    
+    private func configureCarousel(images: [UIImage]) {
+        carouselStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for image in images {
+            let iv = UIImageView(image: image)
+            iv.contentMode = .scaleAspectFill
+            iv.clipsToBounds = true
+            iv.translatesAutoresizingMaskIntoConstraints = false
+
+            carouselStack.addArrangedSubview(iv)
+
+            NSLayoutConstraint.activate([
+                iv.widthAnchor.constraint(equalTo: carouselScrollView.widthAnchor)
+            ])
+        }
+
+        picturePageControl.numberOfPages = images.count
+        picturePageControl.isHidden = images.count <= 1
+    }
+
+    
     // MARK: - Grid / Puzzle pieces
     
     private func buildGridIfNeeded() {
@@ -446,7 +614,9 @@ final class SpringOnChildViewController: UIViewController {
         
         guard !lockedIndices.isEmpty else { return }
         
-        let toUnlockCount = min(count, lockedIndices.count)
+        let remaining = 16 - unlockedPieces.filter { $0 }.count
+        let toUnlockCount = min(count, remaining)
+
         
         // Randomly choose tiles to unlock
         var indices = lockedIndices.shuffled()
@@ -479,12 +649,12 @@ final class SpringOnChildViewController: UIViewController {
         let total = unlockedPieces.count
         let unlocked = unlockedPieces.filter { $0 }.count
         let fraction = total > 0 ? Float(unlocked) / Float(total) : 0
-        
+
         progressBar.setProgress(fraction, animated: true)
         partsLabel.text = "\(unlocked)/\(total) Parts"
-        
-        let percent = Int(round(fraction * 100))
-        percentLabel.text = "\(percent)%"
+        percentLabel.text = "\(Int(round(fraction * 100)))%"
+
+        updateStoreButtons() // ✅ ADD THIS
     }
 
     // MARK: - Actions
@@ -493,12 +663,40 @@ final class SpringOnChildViewController: UIViewController {
         // This will work as long as this VC was pushed onto a navigation stack
         navigationController?.popViewController(animated: true)
     }
+    private func presentNotEnoughStarsPopup() {
+        let popup = LockedRewardPopupViewController()
+        popup.modalPresentationStyle = .overFullScreen
+        present(popup, animated: true)
+    }
 
     @objc private func storeButtonTapped(_ sender: UIButton) {
         let pieces = sender.tag
-        unlockPieces(count: pieces)
-        print("Buying \(pieces) piece(s)")
+        let cost = costForPieces(pieces)
+
+        // 🔒 Puzzle already complete
+        guard unlockedPieces.contains(false) else { return }
+
+        // 🚫 Not enough stars → SHOW POPUP (NOT DISABLE BUTTON)
+        let currentStars = progressReport?.current_balance ?? 0
+        if currentStars < cost {
+            presentNotEnoughStarsPopup()
+            return
+        }
+
+        let message = """
+        Do you want to spend ★\(cost)
+        to unlock \(pieces) puzzle pieces?
+        """
+
+        let popup = SpringOnConfirmPurchasePopupViewController(message: message)
+        popup.onConfirm = { [weak self] in
+            self?.performPurchase(pieces: pieces, cost: cost)
+        }
+
+        present(popup, animated: true)
     }
+
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
@@ -507,6 +705,107 @@ final class SpringOnChildViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setNavigationBarHidden(false, animated: false)
+    }
+    
+    private func costForPieces(_ pieces: Int) -> Int {
+        guard currentRewardIndex < springRewardIds.count else { return 0 }
+
+        let rewardId = springRewardIds[currentRewardIndex]
+        let totalPoints = springRewardPoints[rewardId] ?? 100
+
+        let base = totalPoints / 16
+        let remainder = totalPoints % 16
+
+        let unlocked = unlockedPieces.filter { $0 }.count
+        let remaining = 16 - unlocked
+
+        // If this purchase completes the puzzle → absorb remainder
+        if pieces >= remaining {
+            return base * pieces + remainder
+        }
+
+        return base * pieces
+    }
+    
+    private func rebuildStoreGrid() {
+        storeGrid.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        let counts = [1, 4, 8, 16]
+        let labels = ["1x", "4x", "8x", "16x"]
+
+        for row in 0..<2 {
+            let hStack = UIStackView()
+            hStack.axis = .horizontal
+            hStack.distribution = .fillEqually
+            hStack.spacing = 12
+
+            for col in 0..<2 {
+                let index = row * 2 + col
+                let pieces = counts[index]
+                let cost = costForPieces(pieces)   // ✅ CORRECT
+
+                let button = makeStoreButton(
+                    title: labels[index],
+                    cost: cost,
+                    pieces: pieces
+                )
+
+                hStack.addArrangedSubview(button)
+            }
+
+            storeGrid.addArrangedSubview(hStack)
+        }
+    }
+
+
+    
+    private func performPurchase(pieces: Int, cost: Int) {
+        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard currentRewardIndex < springRewardIds.count else { return }
+
+        let rewardId = springRewardIds[currentRewardIndex]
+        let oldStars = progressReport?.current_balance ?? 0
+
+        Task {
+            do {
+                let progress = try await SpringOnService.shared.unlockPieces(
+                    childId: childId,
+                    rewardId: rewardId,
+                    pieces: pieces,
+                    cost: cost
+                )
+
+                await MainActor.run {
+                    // Update puzzle
+                    unlockedPieces = Array(repeating: false, count: 16)
+                    for i in 0..<min(progress.unlocked_pieces, 16) {
+                        unlockedPieces[i] = true
+                    }
+
+                    pieceOverlays.forEach {
+                        $0.alpha = 1
+                        $0.isHidden = false
+                        $0.transform = .identity
+                    }
+
+                    for (index, isUnlocked) in unlockedPieces.enumerated() {
+                        if isUnlocked {
+                            pieceOverlays[index].isHidden = true
+                            pieceOverlays[index].alpha = 0
+                        }
+                    }
+
+                    updateProgressUI()
+                    updateStoreButtons()
+
+                    NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
+
+                }
+
+            } catch {
+                print("❌ Spring On purchase failed:", error)
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -624,5 +923,32 @@ final class SpringOnChildViewController: UIViewController {
             return CGSize(width: size.width + inset.left + inset.right,
                           height: size.height + inset.top + inset.bottom)
         }
+    }
+}
+
+extension SpringOnChildViewController: UIScrollViewDelegate {
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        guard scrollView == carouselScrollView else { return }
+
+        let page = Int(scrollView.contentOffset.x / scrollView.bounds.width)
+
+        guard page != currentRewardIndex,
+              page < springRewardIds.count else { return }
+
+        currentRewardIndex = page
+        picturePageControl.currentPage = page
+
+        // ✅ Load progress ONCE per page
+        updateRewardTitle()
+
+        Task {
+            await loadProgressForCurrentReward()
+            await MainActor.run {
+                self.rebuildStoreGrid()
+                self.updateStoreButtons()
+            }
+        }
+
     }
 }

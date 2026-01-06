@@ -19,9 +19,7 @@ final class NewRewardViewController: UIViewController {
     private var existingImageUrl: String? // To keep track if we don't upload a new one
     
     private var selectedClaimLimit: String?
-    
-    private let approvalRow = ApprovalToggleRow(title: "Approval")
-    
+      
     // MARK: - Reward Type Display Helper
     private func displayTitle(for subType: String) -> String {
         switch subType {
@@ -75,9 +73,10 @@ final class NewRewardViewController: UIViewController {
     private let dreamInput = CombinedTitleNotesView()
     private let quickInput = CombinedTitleNotesView()
     
-    private let pointsSpring = PointsRow()
-    private let pointsDream = PointsRow()
-    private let pointsQuick = PointsRow()
+    private let pointsSpring = PointsRow(minPoints: 100)
+    private let pointsDream  = PointsRow(minPoints: 100)
+    private let pointsQuick  = PointsRow(minPoints: 20)
+
     
     private let claimLimitRow = SelectRow(title: "Claim Limit")
     private let assignedToRow = SelectRow(title: "Assigned To*")
@@ -89,13 +88,9 @@ final class NewRewardViewController: UIViewController {
     private let claimOptions: [(title: String, isCustom: Bool)] = [
         ("Once", false),
         ("Daily", false),
-        ("Weekdays", false),
-        ("Weekends", false),
         ("Weekly", false),
         ("Monthly", false),
-        ("Every 3 Months", false),
-        ("Yearly", false),
-        ("Custom", true)
+
     ]
     
     private let rewardTypeOptions = ["Experience", "Toy", "Food", "Custom"]
@@ -175,10 +170,6 @@ final class NewRewardViewController: UIViewController {
         case .edit(let item, let category):
             // 1. Hide Segment (Locked Category)
             segment.isHidden = true
-            
-            if let approval = item.approval_required {
-                approvalRow.setOn(approval)
-            }
 
             
             // 2. Set Category manually
@@ -401,7 +392,6 @@ final class NewRewardViewController: UIViewController {
         claimLimitRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
         assignedToRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
         rewardTypeRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
-        approvalRow.heightAnchor.constraint(equalToConstant: 56).isActive = true
 
         
         uploadBox.heightAnchor.constraint(equalToConstant: 160).isActive = true
@@ -416,7 +406,7 @@ final class NewRewardViewController: UIViewController {
         
         dreamViews  = [subtitleLabel, dreamInput, pointsDream] + assignedBlock + [select3DBox]
         
-        quickViews  = [subtitleLabel, quickInput, pointsQuick,rewardTypeRow, claimLimitRow,approvalRow ]
+        quickViews  = [subtitleLabel, quickInput, pointsQuick,rewardTypeRow, claimLimitRow]
         + assignedBlock
         
     }
@@ -617,14 +607,20 @@ final class NewRewardViewController: UIViewController {
         switch segment.selectedSegmentIndex {
         case 0:
             subtitleLabel.text = "Fun experiences your child can unlock like a puzzle."
+            pointsSpring.countValue = max(pointsSpring.countValue, 100)
             selectedViews = springViews
+
         case 1:
             subtitleLabel.text = "Big dream rewards part by part at a time."
+            pointsDream.countValue = max(pointsDream.countValue, 100)
             selectedViews = dreamViews
+
         default:
             subtitleLabel.text = "Quick rewards your child can earn quick and fast."
+            pointsQuick.countValue = max(pointsQuick.countValue, 20)
             selectedViews = quickViews
         }
+
 
         // Add the views with fade-in animation
         selectedViews.forEach { v in
@@ -744,11 +740,6 @@ final class NewRewardViewController: UIViewController {
             : nil
 
         let subType = rewardTypeRow.detailValue
-        
-        let approvalRequired =
-            categoryName == "Quick Rewards"
-            ? approvalRow.isOn
-            : nil
 
         
         let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last
@@ -776,8 +767,7 @@ final class NewRewardViewController: UIViewController {
                         assignTo: Array(assignedSelections),
                         image: selectedImage,
                         claimLimit: claimLimit,
-                        subType: subType,
-                        approvalRequired:    approvalRequired
+                        subType: subType
                     )
                     
                 case .edit(let item, _):
@@ -791,8 +781,7 @@ final class NewRewardViewController: UIViewController {
                         image: selectedImage,
                         existingImageUrl: existingImageUrl,
                         claimLimit: claimLimit,
-                        subType: subType,
-                        approvalRequired:    approvalRequired
+                        subType: subType
                     )
                 }
                 

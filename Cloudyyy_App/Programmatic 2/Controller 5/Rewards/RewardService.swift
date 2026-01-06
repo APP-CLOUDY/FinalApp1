@@ -13,7 +13,6 @@ struct CreateRewardParams: Encodable, Sendable {
     let image_url_input: String?
     let claim_limit_input: String?
     let reward_sub_type_input: String?
-    let approval_required_input: Bool?
 
     enum CodingKeys: String, CodingKey {
         case title_input
@@ -24,7 +23,6 @@ struct CreateRewardParams: Encodable, Sendable {
         case image_url_input
         case claim_limit_input
         case reward_sub_type_input
-        case approval_required_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -37,10 +35,6 @@ struct CreateRewardParams: Encodable, Sendable {
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
-        if let approval = approval_required_input {
-            try container.encode(approval, forKey: .approval_required_input)
-        }
-
     }
 }
 struct UpdateRewardParams: Encodable, Sendable {
@@ -53,7 +47,6 @@ struct UpdateRewardParams: Encodable, Sendable {
     let claim_limit_input: String?
     let child_ids_input: [UUID]
     let reward_sub_type_input: String?
-    let approval_required_input: Bool?
 
     enum CodingKeys: String, CodingKey {
         case reward_id_input
@@ -65,7 +58,6 @@ struct UpdateRewardParams: Encodable, Sendable {
         case claim_limit_input
         case child_ids_input
         case reward_sub_type_input
-        case approval_required_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -79,9 +71,6 @@ struct UpdateRewardParams: Encodable, Sendable {
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
-        if let approval = approval_required_input {
-            try container.encode(approval, forKey: .approval_required_input)
-        }
 
     }
 }
@@ -131,7 +120,6 @@ struct RewardItemModel: Decodable, Sendable {
     let image_url: String?
     let claim_limit: String?
     let reward_sub_type: String?
-    let approval_required: Bool? = nil
 }
 
 
@@ -197,8 +185,7 @@ final class RewardService: Sendable {
         assignTo children: [UUID],
         image: UIImage?,
         claimLimit: String?,
-        subType: String?,
-        approvalRequired: Bool?
+        subType: String?
     ) async throws -> UUID {
 
         var imageUrl: String? = nil
@@ -214,8 +201,7 @@ final class RewardService: Sendable {
             child_ids_input: children,
             image_url_input: imageUrl,
             claim_limit_input: claimLimit,
-            reward_sub_type_input: subType,
-            approval_required_input: approvalRequired
+            reward_sub_type_input: subType
         )
 
         // ✅ DECODE AS ARRAY
@@ -243,7 +229,7 @@ final class RewardService: Sendable {
         return first.reward_id
     }
 
-    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?, approvalRequired:Bool?) async throws {
+    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?) async throws {
         
         var finalImageUrl = existingImageUrl
         
@@ -265,8 +251,7 @@ final class RewardService: Sendable {
             image_url_input: finalImageUrl,
             claim_limit_input: claimLimit,
             child_ids_input: children,
-            reward_sub_type_input: subType,
-            approval_required_input: approvalRequired
+            reward_sub_type_input: subType
         )
         
         try await client.rpc("update_existing_reward", params: params).execute()

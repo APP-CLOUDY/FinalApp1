@@ -287,7 +287,7 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
     private let minus = UIButton(type: .system)
     private let plus = UIButton(type: .system)
 
-    private let minPoints = 10   // ✅ enforced minimum
+    private let minPoints: Int   // ✅ configurable minimum
 
     private let valueField: UITextField = {
         let tf = UITextField()
@@ -303,7 +303,7 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
     }()
 
     // ✅ SINGLE SOURCE OF TRUTH
-    var countValue: Int = 10 {
+    var countValue: Int {
         didSet {
             if countValue < minPoints {
                 countValue = minPoints
@@ -313,8 +313,11 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
         }
     }
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    // ✅ Custom initializer
+    init(minPoints: Int) {
+        self.minPoints = minPoints
+        self.countValue = minPoints
+        super.init(frame: .zero)
 
         title.text = "Points"
         title.textColor = .white
@@ -329,9 +332,7 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
         plus.addTarget(self, action: #selector(inc), for: .touchUpInside)
 
         valueField.delegate = self
-        
         valueField.text = "\(minPoints)"
-            countValue = minPoints
 
         let h = UIStackView(arrangedSubviews: [title, UIView(), minus, valueField, plus])
         h.axis = .horizontal
@@ -350,18 +351,15 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
             valueField.widthAnchor.constraint(equalToConstant: 60),
             valueField.heightAnchor.constraint(equalToConstant: 36)
         ])
-
-        // ✅ FIX: sync UI + model on load
-        countValue = minPoints
     }
 
     // MARK: - Actions
     @objc private func inc() {
-        countValue += 5
+        countValue += 10
     }
 
     @objc private func dec() {
-        countValue = max(minPoints, countValue - 5)
+        countValue = max(minPoints, countValue - 10)
     }
 
     // MARK: - UITextFieldDelegate
@@ -375,17 +373,12 @@ class PointsRow: RewardCardView, UITextFieldDelegate {
         shouldChangeCharactersIn range: NSRange,
         replacementString string: String
     ) -> Bool {
-
-        // allow deletion
         if string.isEmpty { return true }
-
-        // allow only digits
         return string.rangeOfCharacter(from: .decimalDigits) != nil
     }
 
     required init?(coder: NSCoder) { fatalError() }
 }
-
 
 // ===========================================================
 // MARK: - UploadBoxCard

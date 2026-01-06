@@ -1,14 +1,20 @@
 import UIKit
 
-final class RewardTypeViewController: UIViewController {
+final class RewardTypeViewController: UIViewController,
+                                      UICollectionViewDelegate,
+                                      UICollectionViewDataSource,
+                                      UICollectionViewDelegateFlowLayout {
 
+    // MARK: - Callback
     var onSelect: ((String) -> Void)?
 
+    // MARK: - UI
     private let gradient = CAGradientLayer()
     private let header = HomeHeaderView(title: "Reward Type")
 
     private var selectedIndex: Int?
 
+    // MARK: - Data
     private let items: [(title: String, key: String, imageName: String)] = [
         ("Gadget Time", "gadget_time", "reward_screen_time"),
         ("TV Time", "tv_time", "reward_cartoon"),
@@ -24,7 +30,7 @@ final class RewardTypeViewController: UIViewController {
         ("Surprise", "surprise", "reward_surprise")
     ]
 
-
+    // MARK: - CollectionView
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.minimumInteritemSpacing = 16
@@ -40,6 +46,7 @@ final class RewardTypeViewController: UIViewController {
         return cv
     }()
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
@@ -55,19 +62,20 @@ final class RewardTypeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
-    private func styleHeaderTitle() {
-        if let label = findLabel(in: header) {
-            label.font = .systemFont(ofSize: 20, weight: .medium)
-            label.textColor = UIColor.white.withAlphaComponent(0.85)
-        }
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        gradient.frame = view.bounds
     }
 
-    private func findLabel(in view: UIView) -> UILabel? {
-        for v in view.subviews {
-            if let l = v as? UILabel { return l }
-            if let found = findLabel(in: v) { return found }
-        }
-        return nil
+    // MARK: - Setup
+    private func setupGradient() {
+        gradient.colors = [
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
+        ]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(gradient, at: 0)
     }
 
     private func setupHeader() {
@@ -102,27 +110,22 @@ final class RewardTypeViewController: UIViewController {
         ])
     }
 
-    private func setupGradient() {
-        gradient.colors = [
-            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
-            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0.5, y: 0)
-        gradient.endPoint = CGPoint(x: 0.5, y: 1)
-        view.layer.insertSublayer(gradient, at: 0)
+    private func styleHeaderTitle() {
+        if let label = findLabel(in: header) {
+            label.font = .systemFont(ofSize: 20, weight: .medium)
+            label.textColor = UIColor.white.withAlphaComponent(0.85)
+        }
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        gradient.frame = view.bounds
+    private func findLabel(in view: UIView) -> UILabel? {
+        for v in view.subviews {
+            if let l = v as? UILabel { return l }
+            if let found = findLabel(in: v) { return found }
+        }
+        return nil
     }
-}
 
-// MARK: - Collection
-extension RewardTypeViewController: UICollectionViewDelegate,
-                                   UICollectionViewDataSource,
-                                   UICollectionViewDelegateFlowLayout {
-
+    // MARK: - Collection DataSource
     func collectionView(_ collectionView: UICollectionView,
                         numberOfItemsInSection section: Int) -> Int {
         items.count
@@ -137,23 +140,21 @@ extension RewardTypeViewController: UICollectionViewDelegate,
         ) as! RewardGridCell
 
         let item = items[indexPath.item]
-        
         cell.configure(
             title: item.title,
             imageName: item.imageName,
             isSelected: indexPath.item == selectedIndex
         )
-
-
         return cell
     }
+
+    // MARK: - Selection
     func collectionView(_ collectionView: UICollectionView,
                         didSelectItemAt indexPath: IndexPath) {
 
         selectedIndex = indexPath.item
         collectionView.reloadData()
 
-        // ✅ SEND BACKEND KEY (NOT TITLE)
         onSelect?(items[indexPath.item].key)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -161,22 +162,21 @@ extension RewardTypeViewController: UICollectionViewDelegate,
         }
     }
 
-
+    // MARK: - Layout
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        
-        let width = (collectionView.bounds.width - 24) / 2
-        return CGSize(width: width, height: width - 10)
 
+        let width = (collectionView.bounds.width - 24) / 2
+        return CGSize(width: width, height: width + 40)
     }
 }
 
+// MARK: - Cell
 final class RewardGridCell: UICollectionViewCell {
 
     static let id = "RewardGridCell"
 
-    private let card = RewardCardView()
     private let imageView = UIImageView()
     private let titleLabel = UILabel()
     private let tick = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
@@ -184,55 +184,42 @@ final class RewardGridCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
 
-        // Card tuning (slightly clearer than default)
-        card.backgroundColor = UIColor.white.withAlphaComponent(0.08)
-        card.layer.cornerRadius = 22
-        card.translatesAutoresizingMaskIntoConstraints = false
+        contentView.backgroundColor = .clear
 
-        // Subtle border to separate from bg
-        card.layer.borderWidth = 1
-        card.layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
-
-        // Image
-        imageView.contentMode = .scaleAspectFit
+        // Image behaves like old card
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 22
+        imageView.layer.borderWidth = 1
+        imageView.layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
 
         // Title
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         titleLabel.textColor = UIColor.white.withAlphaComponent(0.95)
         titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         // Tick
-        tick.tintColor = .systemGreen
         tick.translatesAutoresizingMaskIntoConstraints = false
+        tick.tintColor = .systemGreen
         tick.isHidden = true
 
-        contentView.addSubview(card)
-        card.addSubview(imageView)
-        card.addSubview(titleLabel)
-        card.addSubview(tick)
+        contentView.addSubview(imageView)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(tick)
 
         NSLayoutConstraint.activate([
-            // Card
-            card.topAnchor.constraint(equalTo: contentView.topAnchor),
-            card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            imageView.heightAnchor.constraint(equalTo: contentView.widthAnchor),
 
-            // Bigger image
-            imageView.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-            imageView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
-            imageView.widthAnchor.constraint(equalToConstant: 90),
-            imageView.heightAnchor.constraint(equalToConstant: 90),
+            titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 10),
+            titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
 
-            // Title
-            titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 12),
-            titleLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-
-            // Tick
-            tick.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
-            tick.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -10),
+            tick.topAnchor.constraint(equalTo: imageView.topAnchor, constant: 10),
+            tick.trailingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: -10),
             tick.widthAnchor.constraint(equalToConstant: 22),
             tick.heightAnchor.constraint(equalToConstant: 22)
         ])
@@ -247,5 +234,8 @@ final class RewardGridCell: UICollectionViewCell {
         tick.isHidden = !isSelected
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }
+

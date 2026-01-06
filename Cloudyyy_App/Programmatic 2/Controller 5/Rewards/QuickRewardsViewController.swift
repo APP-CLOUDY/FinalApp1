@@ -231,7 +231,7 @@ final class QuickRewardsViewController: UIViewController {
         view.layer.insertSublayer(gradient, at: 0)
     }
 
-    private func setupHeader() {
+    private func setupHeader() { 
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
         header.showNotificationButton(false)

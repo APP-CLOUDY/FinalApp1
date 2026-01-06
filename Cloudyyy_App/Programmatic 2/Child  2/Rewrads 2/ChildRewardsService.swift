@@ -15,6 +15,11 @@ struct ChildRewardsResponse: Decodable {
     let history: [ChildRewardItem]
 }
 
+struct ClaimRewardResponse: Decodable {
+    let remaining_stars: Int
+}
+
+
 struct ChildRewardItem: Decodable {
     let id: UUID                 // reward_id
     let claim_id: UUID?          // reward_claim_id (nullable)
@@ -24,8 +29,6 @@ struct ChildRewardItem: Decodable {
     let image_url: String?
     let claim_limit: String?
     let reward_sub_type: String?
-    let approval_required: Bool
-    let claim_status: String?
 }
 
 // MARK: - Insert Payload (ENCODABLE – REQUIRED BY SUPABASE)
@@ -33,8 +36,6 @@ struct ChildRewardItem: Decodable {
 struct RewardClaimInsert: Encodable {
     let reward_id: UUID
     let child_id: UUID
-    let status: String
-    let submitted_at: String
     let redeemed_at: String?
 }
 
@@ -74,29 +75,19 @@ final class ChildRewardsService {
     // 🔹 Claim reward
     func claimReward(
         rewardId: UUID,
-        childId: UUID,
-        approvalRequired: Bool
-    ) async throws {
-        
-        let now = ISO8601DateFormatter().string(from: Date())
-        
-        let payload = RewardClaimInsert(
-            reward_id: rewardId,
-            child_id: childId,
-            status: approvalRequired ? "pending" : "approved",
-            submitted_at: now,
-            redeemed_at: approvalRequired ? nil : now
-        )
+        childId: UUID
+    ) async throws -> ClaimRewardResponse {
+
         try await SupabaseManager.shared.client
             .rpc(
-                "claim_reward",
+                "claim_quick_reward",
                 params: [
                     "reward_id_input": rewardId.uuidString,
-                    "child_id_input": childId.uuidString,
-                    "approval_required_input": approvalRequired ? "true" : "false"
+                    "child_id_input": childId.uuidString
                 ]
             )
             .execute()
-        
+            .value
     }
+
 }
