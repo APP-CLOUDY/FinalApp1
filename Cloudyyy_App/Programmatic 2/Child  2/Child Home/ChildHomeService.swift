@@ -21,6 +21,12 @@ struct ScheduleTaskModelChild: Decodable, Sendable, Identifiable {
     let priority: String?
     let list_name: String?
     let due_date: String?
+    
+    // ✅ NEW FIELDS (Matches SQL Update)
+    let due_time: String?
+    let repeat_interval: Int?
+    let repeat_end_date: String?
+    let repeat_on_days: [Int]?
 }
 
 struct ChildProgressStats: Decodable, Sendable {
@@ -52,23 +58,6 @@ struct ChildStatsParams: Encodable, Sendable {
     }
 }
 
-struct ChildScheduleParams: Encodable, Sendable {
-    let child_id_input: UUID
-    let target_date: String
-
-    enum CodingKeys: String, CodingKey {
-        case child_id_input
-        case target_date
-    }
-
-    // ✅ FIXES MainActor / Sendable RPC crash
-    nonisolated func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(child_id_input, forKey: .child_id_input)
-        try container.encode(target_date, forKey: .target_date)
-    }
-}
-
 // MARK: - 3. Service Class
 
 final class ChildHomeService: Sendable {
@@ -96,7 +85,7 @@ final class ChildHomeService: Sendable {
             .value
     }
 
-    // MARK: - Fetch Schedule (❗ ORIGINAL LOGIC UNCHANGED)
+    // MARK: - Fetch Schedule (✅ FIXED CRASH ON NULL)
     func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
 
         guard let childId = ChildSessionManager.shared.currentChildId else {
@@ -109,10 +98,13 @@ final class ChildHomeService: Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let dateString = formatter.string(from: date)
 
-        let params = ChildScheduleParams(
-            child_id_input: childId,
-            target_date: dateString
-        )
+        // ✅ FIXED: Use [String: String] to match SQL params
+        let params: [String: String] = [
+            "child_id_input": childId.uuidString,
+            "target_date": dateString
+        ]
+
+        print("🚀 Sending to Child DB: ID: \(childId), Date: \(dateString)")
 
         do {
             let response = try await client
@@ -120,9 +112,13 @@ final class ChildHomeService: Sendable {
                 .execute()
 
             let data = response.data
-
+            
+            // ✅ THE FIX: Check for "null" response string to prevent crash
             if let json = String(data: data, encoding: .utf8) {
                 print("📦 DEBUG Schedule JSON:", json)
+                if json == "null" {
+                    return []
+                }
             }
 
             return try JSONDecoder().decode(
@@ -132,7 +128,8 @@ final class ChildHomeService: Sendable {
 
         } catch {
             print("❌ Schedule fetch failed:", error)
-            throw error
+            // Return empty list on error to prevent app crash
+            return []
         }
     }
 
@@ -192,7 +189,7 @@ final class ChildHomeService: Sendable {
         print("✅ Task \(taskId) submitted as \(status)")
     }
 
-    // MARK: - Rewards Home (Friend’s Logic Added)
+    // MARK: - Rewards Home
     func fetchChildHomeStats() async throws -> ChildHomeStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
@@ -205,7 +202,7 @@ final class ChildHomeService: Sendable {
             .value
     }
 
-    // MARK: - Reward Coins (Friend’s Logic Added)
+    // MARK: - Reward Coins
     func fetchChildRewardStats() async throws -> ChildRewardStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)

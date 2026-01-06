@@ -15,7 +15,7 @@ struct CreateTaskParams: Encodable, Sendable {
     let due_time_input: String?
     let approval_required_input: Bool
     
-    // ✅ NEW: Custom Repeat Fields
+    // Custom Repeat Fields
     let repeat_interval_input: Int
     let repeat_end_date_input: String?
     let repeat_on_days_input: [Int]?
@@ -31,13 +31,11 @@ struct CreateTaskParams: Encodable, Sendable {
         case due_date_input
         case due_time_input
         case approval_required_input
-        // ✅ NEW Keys
         case repeat_interval_input
         case repeat_end_date_input
         case repeat_on_days_input
     }
 
-    // Explicit nonisolated encode to fix Main Actor errors
     nonisolated func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(title_input, forKey: .title_input)
@@ -50,8 +48,6 @@ struct CreateTaskParams: Encodable, Sendable {
         try container.encode(due_date_input, forKey: .due_date_input)
         try container.encode(due_time_input, forKey: .due_time_input)
         try container.encode(approval_required_input, forKey: .approval_required_input)
-        
-        // ✅ Encode NEW Fields
         try container.encode(repeat_interval_input, forKey: .repeat_interval_input)
         try container.encode(repeat_end_date_input, forKey: .repeat_end_date_input)
         try container.encode(repeat_on_days_input, forKey: .repeat_on_days_input)
@@ -71,7 +67,6 @@ struct UpdateTaskParams: Encodable, Sendable {
     let due_time_input: String?
     let approval_required_input: Bool
     
-    // ✅ NEW: Added Missing Repeat Fields
     let repeat_interval_input: Int
     let repeat_end_date_input: String?
     let repeat_on_days_input: [Int]?
@@ -80,7 +75,6 @@ struct UpdateTaskParams: Encodable, Sendable {
         case task_id_input, title_input, description_input, points_input, priority_input
         case frequency_input, list_id_input, child_ids_input, due_date_input, due_time_input
         case approval_required_input
-        // ✅ NEW Keys
         case repeat_interval_input
         case repeat_end_date_input
         case repeat_on_days_input
@@ -99,8 +93,6 @@ struct UpdateTaskParams: Encodable, Sendable {
         try container.encode(due_date_input, forKey: .due_date_input)
         try container.encode(due_time_input, forKey: .due_time_input)
         try container.encode(approval_required_input, forKey: .approval_required_input)
-        
-        // ✅ Encode NEW Fields
         try container.encode(repeat_interval_input, forKey: .repeat_interval_input)
         try container.encode(repeat_end_date_input, forKey: .repeat_end_date_input)
         try container.encode(repeat_on_days_input, forKey: .repeat_on_days_input)
@@ -111,7 +103,6 @@ struct DeleteTaskParams: Encodable, Sendable {
     let task_id_input: UUID
     enum CodingKeys: String, CodingKey { case task_id_input }
     
-    // Explicit nonisolated encode
     nonisolated func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(task_id_input, forKey: .task_id_input)
@@ -122,7 +113,6 @@ struct FetchAssignmentParams: Encodable, Sendable {
     let task_id_input: UUID
     enum CodingKeys: String, CodingKey { case task_id_input }
     
-    // Explicit nonisolated encode
     nonisolated func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(task_id_input, forKey: .task_id_input)
@@ -136,22 +126,22 @@ struct TaskResponse: Decodable, Sendable {
     let status: String
 }
 
-struct ScheduleTaskModel:Decodable, Identifiable, Sendable {
+struct ScheduleTaskModel: Decodable, Identifiable, Sendable {
     let id: UUID
     let title: String
     let description: String?
     let points: Int
     let priority: String?
     let frequency: String?
-    let due_date: String?
     
-    // Fields for UI logic
+    // ✅ FIXED: Added due_time so it can be decoded from DB
+    let due_date: String?
+    let due_time: String?
+    
     let submission_status: String?
     let approval_required: Bool?
     let list_name: String?
     
-    // ✅ NEW: Optional Custom Repeat Fields
-    // Marked optional so old tasks (which have nulls) don't crash the app
     let repeat_interval: Int?
     let repeat_end_date: String?
     let repeat_on_days: [Int]?
@@ -179,12 +169,9 @@ final class TaskService {
         points: Int,
         priority: String,
         frequency: String,
-        
-        // ✅ NEW: Custom Repeat Parameters
         repeatInterval: Int = 1,
         repeatEndDate: Date? = nil,
         repeatDays: [Int]? = nil,
-        
         listId: UUID,
         assignTo: [UUID],
         dueDate: Date?,
@@ -207,7 +194,7 @@ final class TaskService {
             timeString = timeFormatter.string(from: date)
         }
         
-        // 2. ✅ Format Repeat End Date
+        // 2. Format Repeat End Date
         var repeatEndString: String? = nil
         if let end = repeatEndDate {
             let df = DateFormatter()
@@ -228,7 +215,6 @@ final class TaskService {
             due_date_input: dateString,
             due_time_input: timeString,
             approval_required_input: approvalRequired,
-            // ✅ Pass New Fields
             repeat_interval_input: repeatInterval,
             repeat_end_date_input: repeatEndString,
             repeat_on_days_input: repeatDays
@@ -251,18 +237,17 @@ final class TaskService {
     }
     
     func fetchSchedule(for childId: UUID, date: Date) async throws -> [ScheduleTaskModel] {
-        var calendar = Calendar.current // Use device calendar
+        var calendar = Calendar.current
         let normalizedDate = calendar.startOfDay(for: date)
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        // Note: If you used TimeZone(secondsFromGMT: 0) before, try removing it or matching the calendar
         
         let dateString = formatter.string(from: normalizedDate)
 
-        // 🔍 DEBUG PRINT (Add this!)
-        print("🚀 SENDING TO DB -> Child: \(childId), Date: \(dateString)")
+        // DEBUG
+        print("🚀 Fetching Schedule -> Child: \(childId), Date: \(dateString)")
 
         let params = [
             "child_id_input": childId.uuidString,
@@ -273,9 +258,9 @@ final class TaskService {
             .rpc("get_child_schedule", params: params)
             .execute()
         
-        // 🔍 DEBUG PRINT (Add this!)
+        // DEBUG: Check if 'due_time' is present in raw JSON
         if let str = String(data: response.data, encoding: .utf8) {
-            print("📥 RAW RESPONSE FROM DB: \(str)")
+            print("📥 RAW RESPONSE: \(str)")
         }
             
         return try JSONDecoder().decode([ScheduleTaskModel].self, from: response.data)
@@ -288,18 +273,15 @@ final class TaskService {
             points: Int,
             priority: String,
             frequency_input: String,
-            
-            // ✅ NEW: Add Repeat Params here
             repeatInterval: Int = 1,
             repeatEndDate: Date? = nil,
             repeatDays: [Int]? = nil,
-            
             listId: UUID,
             childIds: [UUID],
             date: Date,
             approvalRequired: Bool
         ) async throws {
-                
+              
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd"
             dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -308,7 +290,6 @@ final class TaskService {
             timeFormatter.dateFormat = "HH:mm:ss"
             timeFormatter.locale = Locale(identifier: "en_US_POSIX")
             
-            // ✅ Format End Date
             var repeatEndString: String? = nil
             if let end = repeatEndDate {
                 repeatEndString = dateFormatter.string(from: end)
@@ -326,8 +307,6 @@ final class TaskService {
                 due_date_input: dateFormatter.string(from: date),
                 due_time_input: timeFormatter.string(from: date),
                 approval_required_input: approvalRequired,
-                
-                // ✅ Pass New Fields
                 repeat_interval_input: repeatInterval,
                 repeat_end_date_input: repeatEndString,
                 repeat_on_days_input: repeatDays
@@ -350,7 +329,6 @@ final class TaskService {
 
     // MARK: - Task Lists Management
     
-    // Use RPC 'fetch_task_lists' to avoid Timeouts
     func fetchTaskLists(familyId: UUID) async throws -> [TaskListModel] {
         let params = ["p_family_id": familyId.uuidString]
         
@@ -360,7 +338,6 @@ final class TaskService {
             .value
     }
     
-    // Decode raw UUID string from 'create_or_get_task_list'
     func createTaskList(name: String, familyId: UUID) async throws -> TaskListModel {
         let listId: UUID = try await client
             .rpc(
@@ -371,15 +348,14 @@ final class TaskService {
                 ]
             )
             .execute()
-            .value // Supabase handles scalar UUID decoding here
-       
+            .value
+        
         return TaskListModel(
             id: listId,
             name: name
         )
     }
     
-    // Use RPC to safely delete list + its tasks
     func deleteTaskList(id: UUID) async throws {
         let params = ["p_list_id": id.uuidString]
         

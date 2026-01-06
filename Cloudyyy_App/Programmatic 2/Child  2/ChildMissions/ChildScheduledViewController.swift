@@ -1,5 +1,6 @@
 import UIKit
-
+import Supabase
+// MARK: - Main View Controller
 final class KidAgendaViewController: UIViewController {
 
     // MARK: - UI Properties
@@ -48,6 +49,7 @@ final class KidAgendaViewController: UIViewController {
 
     // --- Filters ---
     private let statusFilterControl: UISegmentedControl = {
+        // Options: All | To Do | Done
         let control = UISegmentedControl(items: ["All", "To Do", "Done"])
         control.selectedSegmentIndex = 0
         control.translatesAutoresizingMaskIntoConstraints = false
@@ -100,19 +102,15 @@ final class KidAgendaViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(handleTaskCompletionRefresh), name: .taskDidComplete, object: nil)
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
+    deinit { NotificationCenter.default.removeObserver(self) }
     
     @objc private func handleTaskCompletionRefresh() {
-        print("🔄 Schedule Screen received update notification")
         fetchTasks(for: activeDate)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer.frame = view.bounds
-
         if let index = indexOfDate(activeDate), index < dateSelectionButtons.count {
             center(dateButton: dateSelectionButtons[index], animated: false)
         }
@@ -148,11 +146,12 @@ final class KidAgendaViewController: UIViewController {
         switch index {
         case 1: // "To Do"
             visibleTasks = allTasksForDate.filter { $0.submission_status == nil }
+            
         case 2: // "Done"
             visibleTasks = allTasksForDate.filter {
-                let status = $0.submission_status?.lowercased()
-                return status == "approved" || status == "pending"
+                $0.submission_status?.lowercased() == "approved"
             }
+            
         default: // "All"
             visibleTasks = allTasksForDate
         }
@@ -171,13 +170,8 @@ final class KidAgendaViewController: UIViewController {
         noTasksLabel.isHidden = true
 
         for task in visibleTasks {
-            // 1. Create Card
             let card = KidAgendaItemPanel(task: task)
-            
-            // 2. Apply Dynamic Color Logic (Strip changes color)
             configureCardAppearance(card: card, task: task)
-            
-            // 3. Add to Stack
             card.heightAnchor.constraint(equalToConstant: 84).isActive = true
             agendaVerticalStack.addArrangedSubview(card)
         }
@@ -187,25 +181,59 @@ final class KidAgendaViewController: UIViewController {
         agendaVerticalStack.addArrangedSubview(spacer)
     }
     
-    // ✅ DYNAMIC COLOR LOGIC
+    // MARK: - Dynamic Color Logic
     private func configureCardAppearance(card: KidAgendaItemPanel, task: ScheduleTaskModelChild) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let checkDate = calendar.startOfDay(for: activeDate)
+        let status = task.submission_status?.lowercased()
         
-        let isSubmitted = (task.submission_status != nil)
-        
-        if isSubmitted {
-            // GREEN: Task is done/submitted
+        if status == "approved" {
             card.setStatusColor(.systemGreen)
-        } else if checkDate < today {
-            // RED: Past Date & Not Done (Missed)
+            return
+        }
+        
+        if status == "pending" {
+            card.setStatusColor(.systemYellow)
+            return
+        }
+        
+        if isPastDue(dateStr: task.due_date, timeStr: task.due_time) {
             card.setStatusColor(.systemRed)
         } else {
-            // YELLOW: Today/Future & Not Done
             card.setStatusColor(.systemYellow)
         }
     }
+    
+    private func isPastDue(dateStr: String?, timeStr: String?) -> Bool {
+        guard let dateStr = dateStr else { return false }
+        
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        if let timeStr = timeStr {
+            let combinedString = "\(dateStr) \(timeStr)"
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            if let dueDateTime = formatter.date(from: combinedString) {
+                return Date() > dueDateTime
+            }
+        }
+        
+        formatter.dateFormat = "yyyy-MM-dd"
+        if let dueDate = formatter.date(from: dateStr) {
+            return Calendar.current.startOfDay(for: Date()) > Calendar.current.startOfDay(for: dueDate)
+        }
+
+        return false
+    }
+    
+    // MARK: - Lifecycle Updates
+        
+        // Add this method to auto-refresh data whenever the screen appears
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            
+            // Reload data for the currently selected date
+            print("🔄 Refreshing schedule data...")
+            fetchTasks(for: activeDate)
+        }
 
     // MARK: - Date Logic
     private func populateCurrentMonthDates() {
@@ -298,6 +326,32 @@ final class KidAgendaViewController: UIViewController {
         select(date: currentMonthDates[index], animated: true)
     }
 
+    // MARK: - Navigation Actions
+    // MARK: - Navigation Actions
+    @objc private func didTapApprovalsButton() {
+        // 1. Get the ID from your generic Session Manager (matches ChildHomeService logic)
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            print("❌ Error: No Child ID found in ChildSessionManager")
+            return
+        }
+        
+        print("✅ DEBUG: Found Child ID: \(childId)")
+        
+        // 2. SAVE the ID to UserDefaults so the next screen can read it
+        UserDefaults.standard.set(childId.uuidString, forKey: "selectedChildId")
+        
+        // 3. Navigate
+        let approvalsVC = KidsApprovalsViewController()
+        approvalsVC.hidesBottomBarWhenPushed = true
+        
+        if let navigationController = self.navigationController {
+            navigationController.pushViewController(approvalsVC, animated: true)
+        } else {
+            // Fallback if no navigation controller
+            present(approvalsVC, animated: true)
+        }
+    }
+
     // MARK: - UI Configuration
     private func configureGradientBackground() {
         backgroundGradientLayer.colors = [
@@ -314,6 +368,9 @@ final class KidAgendaViewController: UIViewController {
         view.addSubview(notificationButton)
         view.addSubview(profileAvatarButton)
         view.addSubview(approvalsIconButton)
+        
+        // ✅ Target added here to link the button to the function
+        approvalsIconButton.addTarget(self, action: #selector(didTapApprovalsButton), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
             titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
@@ -415,4 +472,5 @@ private extension Date {
         return df.string(from: self)
     }
 }
+
 

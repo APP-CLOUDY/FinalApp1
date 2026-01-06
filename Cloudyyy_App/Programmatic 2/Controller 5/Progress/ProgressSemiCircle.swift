@@ -21,7 +21,7 @@ final class ProgressSemiCircleView: UIView {
         track.lineCap = .round
         
         progress.fillColor = UIColor.clear.cgColor
-        progress.strokeColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1).cgColor
+        progress.strokeColor = UIColor(red: 64/255, green: 156/255, blue: 255/255, alpha: 1).cgColor
         progress.lineWidth = 14
         progress.lineCap = .round
         progress.strokeEnd = 0

@@ -213,40 +213,48 @@ class NewTaskViewController: UIViewController {
     }
 
     private func setupStack() {
-        contentView.addSubview(stack)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.axis = .vertical
-        stack.spacing = 16
-        stack.alignment = .fill
-        stack.distribution = .fill
+            contentView.addSubview(stack)
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            stack.axis = .vertical
+            stack.spacing = 16
+            stack.alignment = .fill
+            stack.distribution = .fill
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
-        ])
-        
-        let buttonWrapper = UIStackView(arrangedSubviews: [UIView(), dateDoneButton])
-        buttonWrapper.axis = .horizontal
-        buttonWrapper.distribution = .fill
-        
-        dateSectionStack.addArrangedSubview(datePicker)
-        dateSectionStack.addArrangedSubview(buttonWrapper)
-        
-        let fields: [UIView] = [
-            titleNotesView,
-            pointsRow,
-            assignedRow,
-            frequencyRow,
-            priorityRow,
-            dateRow,
-            dateSectionStack,
-            listRow,
-            approvalRow
-        ]
-        fields.forEach { stack.addArrangedSubview($0) }
-    }
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -28)
+            ])
+            
+            // Date Picker Button Wrapper (Done Button)
+            let buttonWrapper = UIStackView(arrangedSubviews: [UIView(), dateDoneButton])
+            buttonWrapper.axis = .horizontal
+            buttonWrapper.distribution = .fill
+            
+            dateSectionStack.addArrangedSubview(datePicker)
+            dateSectionStack.addArrangedSubview(buttonWrapper)
+            
+            // ✅ CHANGED ORDER: Date/Time is now before Frequency
+            let fields: [UIView] = [
+                titleNotesView,
+                pointsRow,
+                assignedRow,
+                
+                // 1. Date Row & Picker moved UP
+                dateRow,
+                dateSectionStack,
+                
+                // 2. Frequency moved DOWN
+                frequencyRow,
+                
+                priorityRow,
+                listRow,
+                approvalRow
+            ]
+            
+            fields.forEach { stack.addArrangedSubview($0) }
+        }
 
     private func setupHeights() {
         let rows = [

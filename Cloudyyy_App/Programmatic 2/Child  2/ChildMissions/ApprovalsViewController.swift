@@ -1,40 +1,32 @@
-// ApprovalsViewController.swift
-// Cloudyyy_App
+//
+//  KidsApprovalsViewController.swift
+//  Cloudyyy_App
+//
+//  Created by user on 06/01/26.
+//
 
 import UIKit
 
-final class ApprovalsViewController: UIViewController {
+final class KidsApprovalsViewController: UIViewController {
 
     // MARK: - UI Elements
     private let backgroundGradientLayer = CAGradientLayer()
     
-    // Header
-    private let backButton: UIButton = {
-        let btn = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
-        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        btn.tintColor = .systemBlue
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
-    }()
-    
     private let headerTitle: UILabel = {
         let lbl = UILabel()
-        lbl.text = "Approvals"
-        lbl.font = .systemFont(ofSize: 24, weight: .bold)
+        lbl.text = "Activity Status"
+        lbl.font = .systemFont(ofSize: 28, weight: .bold)
         lbl.textColor = .white
         lbl.translatesAutoresizingMaskIntoConstraints = false
         return lbl
     }()
     
-    // Segmented Control
     private let segmentControl: UISegmentedControl = {
         let sc = UISegmentedControl(items: ["Pending", "Approved", "Declined"])
         sc.selectedSegmentIndex = 0
         sc.translatesAutoresizingMaskIntoConstraints = false
         sc.backgroundColor = UIColor(white: 1, alpha: 0.1)
         sc.selectedSegmentTintColor = .white
-        
         sc.setTitleTextAttributes([.foregroundColor: UIColor.lightGray], for: .normal)
         sc.setTitleTextAttributes([.foregroundColor: UIColor.black, .font: UIFont.boldSystemFont(ofSize: 13)], for: .selected)
         return sc
@@ -42,20 +34,23 @@ final class ApprovalsViewController: UIViewController {
     
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
+    private let refreshControl = UIRefreshControl()
     
-    // Data
-    private var allItems: [ApprovalRequestItem] = [] // Stores source of truth
-    private var items: [ApprovalRequestItem] = []    // Stores visible items
+    // --- Data ---
+    private var allActivityItems: [ChildActivityItem] = [] // Raw Data from Service
+    private var displayItems: [ChildActivityItem] = []     // Filtered Data
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         setupGradient()
+        setupNavigationBar()
         setupLayout()
         
-        // Setup Actions
-        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        // Actions
         segmentControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+        refreshControl.addTarget(self, action: #selector(loadData), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
         
         loadData()
     }
@@ -74,36 +69,37 @@ final class ApprovalsViewController: UIViewController {
         view.layer.insertSublayer(backgroundGradientLayer, at: 0)
     }
     
+    private func setupNavigationBar() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.tintColor = .white
+        navigationItem.backButtonDisplayMode = .minimal
+    }
+    
     private func setupLayout() {
-        view.addSubview(backButton)
         view.addSubview(headerTitle)
         view.addSubview(segmentControl)
         
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
-        stackView.spacing = 16
+        stackView.spacing = 12 // Tighter spacing
         
         view.addSubview(scrollView)
         scrollView.addSubview(stackView)
         
         NSLayoutConstraint.activate([
-            // Header
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            backButton.widthAnchor.constraint(equalToConstant: 30),
-            backButton.heightAnchor.constraint(equalToConstant: 30),
+            headerTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            headerTitle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
             
-            headerTitle.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
-            headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            
-            // Segment
             segmentControl.topAnchor.constraint(equalTo: headerTitle.bottomAnchor, constant: 20),
             segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segmentControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             segmentControl.heightAnchor.constraint(equalToConstant: 36),
             
-            // List
             scrollView.topAnchor.constraint(equalTo: segmentControl.bottomAnchor, constant: 20),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -117,11 +113,48 @@ final class ApprovalsViewController: UIViewController {
     }
     
     // MARK: - Data Logic
-    private func loadData() {
-        // Fetch source data
-        allItems = KidCoordinator.shared.approvals(for: "kid_bob")
-        // Initial filter (Pending)
-        updateFilter()
+    
+    @objc private func loadData() {
+        Task {
+            // 1. Get the Child ID safely from UserDefaults
+            guard let childIdString = UserDefaults.standard.string(forKey: "selectedChildId"),
+                  let childId = UUID(uuidString: childIdString) else {
+                print("❌ DEBUG: No Child ID found in UserDefaults")
+                await MainActor.run {
+                    self.showErrorState(message: "No Child Selected")
+                    self.refreshControl.endRefreshing()
+                }
+                return
+            }
+            
+            print("✅ DEBUG: Fetching activity for Child ID: \(childId)")
+            
+            do {
+                // 2. Fetch Real Data from Supabase using the ID
+                let activities = try await ChildActivityService.shared.fetchAllActivity(for: childId)
+                
+                await MainActor.run {
+                    self.allActivityItems = activities
+                    self.updateFilter()
+                    self.refreshControl.endRefreshing()
+                }
+            } catch {
+                print("Error loading child activity: \(error)")
+                await MainActor.run {
+                    self.showErrorState(message: "Failed to load activity")
+                    self.refreshControl.endRefreshing()
+                }
+            }
+        }
+    }
+    
+    private func showErrorState(message: String) {
+        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let emptyLabel = UILabel()
+        emptyLabel.text = message
+        emptyLabel.textColor = .systemRed
+        emptyLabel.textAlignment = .center
+        stackView.addArrangedSubview(emptyLabel)
     }
     
     @objc private func segmentChanged() {
@@ -129,127 +162,172 @@ final class ApprovalsViewController: UIViewController {
     }
     
     private func updateFilter() {
-        let selectedIndex = segmentControl.selectedSegmentIndex
-        let filterType: String
-        
-        switch selectedIndex {
-        case 0: filterType = "Pending"
-        case 1: filterType = "Approved"
-        case 2: filterType = "Declined"
-        default: filterType = "Pending"
+        let filterStatus: String
+        switch segmentControl.selectedSegmentIndex {
+        case 0: filterStatus = "pending"
+        case 1: filterStatus = "approved"
+        case 2: filterStatus = "declined" // Handles 'declined' and 'rejected'
+        default: filterStatus = "pending"
         }
         
-        // Filter case-insensitively
-        items = allItems.filter { $0.type.localizedCaseInsensitiveContains(filterType) }
+        // Filter raw data
+        displayItems = allActivityItems.filter { item in
+            if filterStatus == "declined" {
+                return item.status == "declined" || item.status == "rejected"
+            }
+            return item.status == filterStatus
+        }
+        
         renderList()
     }
     
     private func renderList() {
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        if items.isEmpty {
+        if displayItems.isEmpty {
             let emptyLabel = UILabel()
             emptyLabel.text = "No items found"
             emptyLabel.textColor = .lightGray
             emptyLabel.textAlignment = .center
+            emptyLabel.font = .systemFont(ofSize: 16, weight: .medium)
             stackView.addArrangedSubview(emptyLabel)
             return
         }
         
-        for item in items {
-            let card = ApprovalCard(item: item)
-            card.heightAnchor.constraint(equalToConstant: 70).isActive = true
+        for item in displayItems {
+            // Map ChildActivityItem to UI Card
+            let card = ApprovalCard(
+                title: item.title,
+                points: item.points,
+                status: item.status, // "approved", "pending"
+                type: item.type // .task or .reward
+            )
+            card.heightAnchor.constraint(equalToConstant: 76).isActive = true
             stackView.addArrangedSubview(card)
         }
-    }
-    
-    @objc private func handleBack() {
-        dismiss(animated: true, completion: nil)
     }
 }
 
 // MARK: - Subcomponent: Approval Card
-// MARK: - Subcomponent: Approval Card
 class ApprovalCard: UIView {
-    init(item: ApprovalRequestItem) {
+    
+    init(title: String, points: Int, status: String, type: ChildActivityItem.ItemType) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = UIColor(white: 1, alpha: 0.15) // Glassy look
-        layer.cornerRadius = 10
+        
+        // Glassy Background
+        backgroundColor = UIColor(white: 1, alpha: 0.08)
+        layer.cornerRadius = 16
+        layer.borderWidth = 1
+        layer.borderColor = UIColor(white: 1, alpha: 0.1).cgColor
         clipsToBounds = true
         
-        let normalizedType = item.type.lowercased()
+        // Color Logic
+        let statusColor: UIColor
+        let statusIconName: String
         
-        // 1. Determine STRIPE Color (Status indicator)
-        let stripeColor: UIColor
-        switch normalizedType {
+        switch status.lowercased() {
         case "approved":
-            stripeColor = .systemGreen
-        case "declined":
-            stripeColor = .systemRed
-        default:
-            stripeColor = .systemYellow
+            statusColor = UIColor(red: 46/255, green: 204/255, blue: 113/255, alpha: 1) // Green
+            statusIconName = "checkmark.circle.fill"
+        case "declined", "rejected":
+            statusColor = UIColor(red: 231/255, green: 76/255, blue: 60/255, alpha: 1) // Red
+            statusIconName = "xmark.circle.fill"
+        default: // Pending
+            statusColor = UIColor(red: 241/255, green: 196/255, blue: 15/255, alpha: 1) // Yellow
+            statusIconName = "hourglass"
         }
         
-        // 2. Determine STAR Color
-        // User Request: Declined stars should be "regular" (Yellow), not Red.
-        let starTint: UIColor
-        if normalizedType == "declined" {
-            starTint = .systemYellow
-        } else {
-            // For Approved (Green) and Pending (Yellow), match the stripe
-            starTint = stripeColor
-        }
+        // --- UI Components ---
         
-        // Stripe (Tag)
+        // Left Color Stripe
         let stripe = UIView()
-        stripe.backgroundColor = stripeColor
+        stripe.backgroundColor = statusColor
         stripe.translatesAutoresizingMaskIntoConstraints = false
         stripe.layer.cornerRadius = 2
         
+        // Icon Container
+        let iconContainer = UIView()
+        iconContainer.backgroundColor = statusColor.withAlphaComponent(0.2)
+        iconContainer.layer.cornerRadius = 12
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        let iconView = UIImageView(image: UIImage(systemName: statusIconName))
+        iconView.tintColor = statusColor
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        
+        iconContainer.addSubview(iconView)
+        
         // Title
         let titleLbl = UILabel()
-        titleLbl.text = item.title
+        titleLbl.text = title
         titleLbl.font = .systemFont(ofSize: 16, weight: .semibold)
         titleLbl.textColor = .white
         titleLbl.translatesAutoresizingMaskIntoConstraints = false
         
-        // Star Icon
+        // Subtitle (Type)
+        let subtitleLbl = UILabel()
+        subtitleLbl.text = type == .task ? "TASK" : "REWARD"
+        subtitleLbl.font = .systemFont(ofSize: 12, weight: .medium)
+        subtitleLbl.textColor = UIColor.white.withAlphaComponent(0.6)
+        subtitleLbl.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Points
+        let pointsLabel = UILabel()
+        pointsLabel.text = "\(points)"
+        pointsLabel.font = .systemFont(ofSize: 18, weight: .bold)
+        pointsLabel.textColor = .systemYellow
+        pointsLabel.translatesAutoresizingMaskIntoConstraints = false
+        
         let starIcon = UIImageView(image: UIImage(systemName: "star.fill"))
-        starIcon.tintColor = starTint // Applies the fixed logic
+        starIcon.tintColor = .systemYellow
         starIcon.translatesAutoresizingMaskIntoConstraints = false
         
-        // Star Label
-        let starLabel = UILabel()
-        starLabel.text = "\(item.stars)"
-        starLabel.font = .systemFont(ofSize: 16, weight: .bold)
-        starLabel.textColor = .white
-        starLabel.textAlignment = .right
-        starLabel.translatesAutoresizingMaskIntoConstraints = false
-        
+        // --- Adding Views ---
         addSubview(stripe)
+        addSubview(iconContainer)
         addSubview(titleLbl)
+        addSubview(subtitleLbl)
+        addSubview(pointsLabel)
         addSubview(starIcon)
-        addSubview(starLabel)
         
+        // --- Constraints ---
         NSLayoutConstraint.activate([
+            // Stripe
             stripe.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
-            stripe.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            stripe.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
-            stripe.widthAnchor.constraint(equalToConstant: 5),
+            stripe.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+            stripe.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
+            stripe.widthAnchor.constraint(equalToConstant: 6),
             
-            titleLbl.leadingAnchor.constraint(equalTo: stripe.trailingAnchor, constant: 12),
-            titleLbl.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLbl.trailingAnchor.constraint(lessThanOrEqualTo: starLabel.leadingAnchor, constant: -10),
+            // Icon
+            iconContainer.leadingAnchor.constraint(equalTo: stripe.trailingAnchor, constant: 16),
+            iconContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconContainer.widthAnchor.constraint(equalToConstant: 40),
+            iconContainer.heightAnchor.constraint(equalToConstant: 40),
             
-            starIcon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            iconView.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 20),
+            iconView.heightAnchor.constraint(equalToConstant: 20),
+            
+            // Text
+            titleLbl.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
+            titleLbl.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLbl.trailingAnchor.constraint(lessThanOrEqualTo: pointsLabel.leadingAnchor, constant: -10),
+            
+            subtitleLbl.leadingAnchor.constraint(equalTo: titleLbl.leadingAnchor),
+            subtitleLbl.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 4),
+            
+            // Points (Right side)
+            starIcon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             starIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            starIcon.widthAnchor.constraint(equalToConstant: 16),
-            starIcon.heightAnchor.constraint(equalToConstant: 16),
+            starIcon.widthAnchor.constraint(equalToConstant: 18),
+            starIcon.heightAnchor.constraint(equalToConstant: 18),
             
-            starLabel.trailingAnchor.constraint(equalTo: starIcon.leadingAnchor, constant: -4),
-            starLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+            pointsLabel.trailingAnchor.constraint(equalTo: starIcon.leadingAnchor, constant: -4),
+            pointsLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
+    
     required init?(coder: NSCoder) { fatalError() }
 }

@@ -21,16 +21,24 @@ final class ProgressViewController: UIViewController {
     private let contentView = UIView()
     private let mainStack = UIStackView()
     
-    // 1. Segment Control
+    // 1. Segment Control (Updated Style to match Dashboard)
     private lazy var scopeSegment: UISegmentedControl = {
         let items = ["Weekly", "Monthly"]
         let sc = UISegmentedControl(items: items)
         sc.selectedSegmentIndex = 0
-        sc.backgroundColor = UIColor(red: 20/255, green: 25/255, blue: 40/255, alpha: 0.8)
-        sc.selectedSegmentTintColor = UIColor(red: 64/255, green: 156/255, blue: 255/255, alpha: 1)
         
-        let normalAttr: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white.withAlphaComponent(0.6)]
-        let selectedAttr: [NSAttributedString.Key: Any] = [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 13, weight: .semibold)]
+        // --- 🎨 NEW STYLE START ---
+        sc.selectedSegmentTintColor = .white
+        sc.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        
+        let normalAttr: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.white.withAlphaComponent(0.7)
+        ]
+        let selectedAttr: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.black,
+            .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
+        ]
+        // --- 🎨 NEW STYLE END ---
         
         sc.setTitleTextAttributes(normalAttr, for: .normal)
         sc.setTitleTextAttributes(selectedAttr, for: .selected)
@@ -70,7 +78,7 @@ final class ProgressViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .clear // Changed to clear to show gradient
         
         setupGradient()
         setupHeader()
@@ -280,10 +288,12 @@ final class ProgressViewController: UIViewController {
     
     // MARK: - Layout Setup
     private func setupGradient() {
+        // --- 🎨 NEW GRADIENT START (Matches Dashboard) ---
         gradient.colors = [
-            UIColor(red: 10/255, green: 12/255, blue: 20/255, alpha: 1).cgColor,
-            UIColor(red: 28/255, green: 40/255, blue: 70/255, alpha: 1).cgColor
+            UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
+            UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
         ]
+        // --- 🎨 NEW GRADIENT END ---
         gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(gradient, at: 0)
