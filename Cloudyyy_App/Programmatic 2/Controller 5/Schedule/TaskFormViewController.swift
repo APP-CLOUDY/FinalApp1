@@ -33,7 +33,7 @@ final class TaskFormViewController: UIViewController {
     )
 
     private let priorityRow = SelectRow(title: "Priority")
-    private let pointsRow = PointsRow()
+    private let pointsRow = PointsRow(minPoints: 10)
     
     // --- Date Section ---
     private let dateRow = SelectRow(title: "Due Date & Time")

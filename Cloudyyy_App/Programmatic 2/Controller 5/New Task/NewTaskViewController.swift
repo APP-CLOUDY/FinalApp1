@@ -35,7 +35,7 @@ class NewTaskViewController: UIViewController {
     )
 
     private let priorityRow = SelectRow(title: "Priority")
-    private let pointsRow = PointsRow()
+    private let pointsRow = PointsRow(minPoints: 10)
     
     private let dateRow = SelectRow(title: "Date & Time")
     
