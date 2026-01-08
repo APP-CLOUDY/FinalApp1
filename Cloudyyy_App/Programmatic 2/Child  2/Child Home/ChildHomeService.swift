@@ -194,24 +194,35 @@ final class ChildHomeService: Sendable {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
-
-        return try await client
-            .rpc("get_child_home_stats",
-                 params: ["child_id_input": childId])
+        
+        let result: [ChildHomeStats] = try await client
+            .rpc("get_child_home_stats", params: ["child_id_input": childId])
             .execute()
             .value
+        
+        guard let stats = result.first else {
+            throw NSError(domain: "Empty home stats", code: 0)
+        }
+        
+        return stats
     }
 
     // MARK: - Reward Coins
     func fetchChildRewardStats() async throws -> ChildRewardStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            throw NSError(domain: "ChildApp", code: 401)
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                throw NSError(domain: "ChildApp", code: 401)
+            }
+
+            let stats: ChildRewardStats = try await client
+                .rpc(
+                    "get_child_reward_stats",
+                    params: ["child_id_input": childId]
+                )
+                .execute()
+                .value   // ✅ DIRECT OBJECT (NOT ARRAY)
+
+            return stats
         }
 
-        return try await client
-            .rpc("get_child_reward_stats",
-                 params: ["child_id_input": childId])
-            .execute()
-            .value
-    }
+
 }

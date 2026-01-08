@@ -11,3 +11,7 @@ struct QuickRewardItem {
     let imageName: String
     let isEnabled: Bool
 }
+
+struct ClaimQuickRewardResponse: Decodable {
+    let remaining_stars: Int
+}

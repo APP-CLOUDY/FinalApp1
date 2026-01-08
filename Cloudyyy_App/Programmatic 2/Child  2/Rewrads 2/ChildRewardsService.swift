@@ -21,15 +21,19 @@ struct ClaimRewardResponse: Decodable {
 
 
 struct ChildRewardItem: Decodable {
-    let id: UUID                 // reward_id
-    let claim_id: UUID?          // reward_claim_id (nullable)
+    let id: UUID
+    let claim_id: UUID?
     let title: String
     let description: String?
     let points: Int
     let image_url: String?
     let claim_limit: String?
     let reward_sub_type: String?
+    let claimed_count: Int?
+    let is_locked: Bool?
 }
+
+
 
 // MARK: - Insert Payload (ENCODABLE – REQUIRED BY SUPABASE)
 
@@ -73,21 +77,26 @@ final class ChildRewardsService {
     }
 
     // 🔹 Claim reward
-    func claimReward(
-        rewardId: UUID,
-        childId: UUID
-    ) async throws -> ClaimRewardResponse {
+    func claimQuickReward(
+        childId: UUID,
+        rewardId: UUID
+    ) async throws -> ClaimQuickRewardResponse {
 
-        try await SupabaseManager.shared.client
+        let response = try await SupabaseManager.shared.client
             .rpc(
                 "claim_quick_reward",
                 params: [
-                    "reward_id_input": rewardId.uuidString,
-                    "child_id_input": childId.uuidString
+                    "child_id_input": childId.uuidString,
+                    "reward_id_input": rewardId.uuidString
                 ]
             )
             .execute()
-            .value
+
+        return try JSONDecoder().decode(
+            ClaimQuickRewardResponse.self,
+            from: response.data
+        )
     }
+
 
 }

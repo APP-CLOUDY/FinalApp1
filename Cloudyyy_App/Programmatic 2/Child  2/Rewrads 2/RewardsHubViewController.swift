@@ -124,22 +124,27 @@ final class RewardsViewController: UIViewController {
                 
                 let mappedRewards = rewardsForType.map { item in
                     AssignedQuickReward(
-                        id: item.id,                 // reward_id
-                        claimId: item.claim_id,      // ✅ REQUIRED FOR REDEEM
+                        id: item.id,
+                        claimId: item.claim_id,
                         title: item.title,
                         cost: item.points,
-                        imageName: type.image
+                        imageName: type.image,
+                        isLocked: item.is_locked ?? false
                     )
                 }
-                
+
+                let hasAvailable = rewardsForType.contains {
+                    !($0.is_locked ?? false)
+                }
                 
                 items.append(
                     QuickRewardItem(
                         title: type.title,
                         imageName: type.image,
-                        isEnabled: !rewardsForType.isEmpty   // 🔒 LOCKED FIX
+                        isEnabled: hasAvailable
                     )
                 )
+
                 
                 if !mappedRewards.isEmpty {
                     rewardsMap[type.key] = mappedRewards
@@ -763,21 +768,21 @@ final class RewardsViewController: UIViewController {
         }
     }
     
-    
     private func presentQuickRewardClaimPopup(reward: AssignedQuickReward) {
         let popup = QuickRewardClaimPopupViewController()
-        popup.modalPresentationStyle = .overFullScreen
         popup.reward = reward
-        popup.currentBalance = progressReport?.current_balance ?? 0
-        
-        popup.onClaim = { [weak self] in
-            Task {
-                await self?.loadRewardsHomeData()
-            }
+        popup.modalPresentationStyle = .overFullScreen
+
+        popup.onBalanceUpdate = { [weak self] newBalance in
+            guard let self = self else { return }
+
+            let oldCoins = Int(self.coinLabel.text ?? "0") ?? 0
+            self.animateCoins(from: oldCoins, to: newBalance)
         }
-        
+
         present(popup, animated: true)
     }
+
 }
 
 // MARK: - Collection View Extension
@@ -845,7 +850,6 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
             let vc = AssignedQuickRewardViewController()
             vc.rewardTypeTitle = item.title
             vc.rewardIconName = item.imageName
-            vc.currentStars = progressReport?.current_balance ?? 0
             vc.assignedRewards = rewards
             navigationController?.pushViewController(vc, animated: true)
         }

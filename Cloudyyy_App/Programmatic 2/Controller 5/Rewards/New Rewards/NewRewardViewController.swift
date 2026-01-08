@@ -427,14 +427,9 @@ final class NewRewardViewController: UIViewController {
                     },
 
                     
-                    UIAction(title: "Weekdays") { [weak self] _ in
-                        self?.claimLimitRow.setDetail("Weekdays")
-                        self?.selectedClaimLimit = "Weekdays"
-                    },
-                    
-                    UIAction(title: "Weekends") { [weak self] _ in
-                        self?.claimLimitRow.setDetail("Weekends")
-                        self?.selectedClaimLimit = "Weekends"
+                    UIAction(title: "3 days once") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("3 days once")
+                        self?.selectedClaimLimit = "3 days once"
                     },
                     
                     UIAction(title: "Weekly") { [weak self] _ in
@@ -451,6 +446,10 @@ final class NewRewardViewController: UIViewController {
                     UIAction(title: "Yearly") { [weak self] _ in
                         self?.claimLimitRow.setDetail("Yearly")
                         self?.selectedClaimLimit = "Yearly"
+                    },
+                    UIAction(title: "Unlimited") { [weak self] _ in
+                        self?.claimLimitRow.setDetail("Unlimited")
+                        self?.selectedClaimLimit = nil 
                     }
 
                 ])

@@ -1,15 +1,13 @@
 import UIKit
-import Supabase
-import PostgREST
-
 
 final class QuickRewardClaimPopupViewController: UIViewController {
 
     // MARK: - Data
     var reward: AssignedQuickReward!
-    var currentBalance: Int = 0
     var onClaim: (() -> Void)?
     private var isSubmitting = false
+    var onBalanceUpdate: ((Int) -> Void)?
+
 
 
     // MARK: - Gradient
@@ -104,7 +102,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         setupLayout()
         setupData()
         addMascotFloatAnimation()
-        setupGestures()
     }
 
     override func viewDidLayoutSubviews() {
@@ -226,10 +223,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         mascotImageView.layer.add(float, forKey: "float")
     }
 
-    private func setupGestures() {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(claimTapped))
-        view.addGestureRecognizer(tap)
-    }
     private func showConfetti() {
         let emitter = CAEmitterLayer()
         emitter.emitterPosition = CGPoint(x: view.bounds.midX, y: -10)
@@ -269,16 +262,9 @@ final class QuickRewardClaimPopupViewController: UIViewController {
             emitter.removeFromSuperlayer()
         }
     }
+    
     @objc private func claimTapped() {
         guard !isSubmitting else { return }
-
-        // ⭐ Not enough points
-        if currentBalance < reward.cost {
-            showNotEnoughStarsPopup()
-            return
-        }
-
-        // 🚀 Instant redeem
         redeemInstantReward()
     }
     
@@ -287,16 +273,21 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         guard !isSubmitting else { return }
         isSubmitting = true
 
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            isSubmitting = false
+            return
+        }
+
         Task {
             do {
-                let response = try await ChildRewardsService.shared.claimReward(
-                    rewardId: reward.id,
-                    childId: ChildSessionManager.shared.currentChildId!
-                )
+                let response = try await ChildRewardsService.shared
+                    .claimQuickReward(
+                        childId: childId,
+                        rewardId: reward.id
+                    )
 
                 await MainActor.run {
-                    // 🔥 IMMEDIATE BALANCE UPDATE
-                    self.currentBalance = response.remaining_stars
+                    self.onBalanceUpdate?(response.remaining_stars)
 
                     NotificationCenter.default.post(
                         name: .rewardRedeemed,
@@ -307,37 +298,15 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                 }
 
             } catch {
-                isSubmitting = false
-                showError(error.localizedDescription)
-            }
-        }
-    }
-
-
-    private func claimReward() {
-
-        guard !isSubmitting else { return }
-        isSubmitting = true
-
-        Task {
-            do {
-                try await ChildRewardsService.shared.claimReward(
-                    rewardId: reward.id,
-                    childId: ChildSessionManager.shared.currentChildId!,
-                )
-
                 await MainActor.run {
-                    dismiss(animated: true)
-                    NotificationCenter.default.post(name: .rewardApproved, object: nil)
-                }
+                    self.isSubmitting = false
 
-            } catch {
-                isSubmitting = false   // 🔓 unlock on failure
-                showError("Something went wrong. Try again.")
+                    // ✅ BACKEND DECIDES
+                    self.showNotEnoughStarsPopup()
+                }
             }
         }
     }
-
 
 
     private func showNotEnoughStarsPopup() {

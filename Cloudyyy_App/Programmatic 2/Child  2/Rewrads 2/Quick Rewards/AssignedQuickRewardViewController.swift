@@ -3,14 +3,13 @@ import UIKit
 //AssignedQuickrewardVC
 // MARK: - Model
 struct AssignedQuickReward {
- let id: UUID
- let claimId: UUID?
- let title: String
- let cost: Int
- let imageName: String
+    let id: UUID
+    let claimId: UUID?
+    let title: String
+    let cost: Int
+    let imageName: String
+    let isLocked: Bool
 }
-
-
 // MARK: - View Controller
 final class AssignedQuickRewardViewController: UIViewController {
 
@@ -18,7 +17,7 @@ final class AssignedQuickRewardViewController: UIViewController {
  var rewardTypeTitle: String = ""
  var rewardIconName: String = ""
  var assignedRewards: [AssignedQuickReward] = []
- var currentStars: Int = 0
+ var currentBalance: Int = 0
 
  // MARK: - UI
  private let gradient = CAGradientLayer()
@@ -62,6 +61,8 @@ final class AssignedQuickRewardViewController: UIViewController {
  @objc private func backTapped() {
      navigationController?.popViewController(animated: true)
  }
+    
+    
 }
 
 // MARK: - Header
@@ -151,29 +152,35 @@ extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewD
      return cell
  }
 
- func tableView(_ tableView: UITableView,
-                didSelectRowAt indexPath: IndexPath) {
+    func tableView(_ tableView: UITableView,
+                   didSelectRowAt indexPath: IndexPath) {
 
-     let cell = tableView.cellForRow(at: indexPath)
-     UIView.animate(withDuration: 0.12, animations: {
-         cell?.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
-     }) { _ in
-         UIView.animate(withDuration: 0.12) {
-             cell?.transform = .identity
-         }
-     }
+        let cell = tableView.cellForRow(at: indexPath)
+        UIView.animate(withDuration: 0.12, animations: {
+            cell?.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+        }) { _ in
+            UIView.animate(withDuration: 0.12) {
+                cell?.transform = .identity
+            }
+        }
 
-     let reward = assignedRewards[indexPath.row]
-     presentClaimPopup(for: reward)
+        let reward = assignedRewards[indexPath.row]
+        guard !reward.isLocked else {
+            presentPendingApprovalPopup()
+            return
+        }
 
- }
+        presentClaimPopup(for: reward)
 
- private func presentClaimPopup(for reward: AssignedQuickReward) {
-     let vc = QuickRewardClaimPopupViewController()
-     vc.reward = reward
-     vc.modalPresentationStyle = .overFullScreen
-     present(vc, animated: false)
- }
+    }
+
+    private func presentClaimPopup(for reward: AssignedQuickReward) {
+        let vc = QuickRewardClaimPopupViewController()
+        vc.reward = reward
+        vc.modalPresentationStyle = .overFullScreen
+        present(vc, animated: true)
+    }
+
 
  private func presentPendingApprovalPopup() {
      let vc = LockedRewardPopupViewController()
@@ -292,15 +299,23 @@ final class AssignedQuickRewardCell: UITableViewCell {
      ])
  }
 
- func configure(_ reward: AssignedQuickReward) {
-     rewardImage.image = UIImage(named: reward.imageName)
-     titleLabel.text = reward.title
-     starsLabel.text = "⭐ \(reward.cost) Stars"
-     subtitleLabel.text = "Redeem this reward"
-     badge.text = "Instant"
-     badge.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.35)
+    func configure(_ reward: AssignedQuickReward) {
+        rewardImage.image = UIImage(named: reward.imageName)
+        titleLabel.text = reward.title
+        starsLabel.text = "⭐ \(reward.cost) Stars"
 
- }
+        if reward.isLocked {
+            badge.text = "Locked"
+            badge.backgroundColor = UIColor.systemGray.withAlphaComponent(0.4)
+            subtitleLabel.text = "Not available"
+            card.alpha = 0.5
+        } else {
+            badge.text = "Instant"
+            badge.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.35)
+            subtitleLabel.text = "Redeem this reward"
+            card.alpha = 1.0
+        }
+    }
 
  required init?(coder: NSCoder) { fatalError() }
 }
