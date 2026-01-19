@@ -3,17 +3,18 @@ import UIKit
 class ProfileViewController: UIViewController {
 
     // MARK: - Properties
+    private let backgroundGradientLayer = CAGradientLayer()
     
-    private let gradientLayer = CAGradientLayer()
-
     // MARK: - UI Components
 
-    private let fixedHeaderBackground: UIView = {
+    // 1. Full Screen Background
+    private let fullBackgroundView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
+    // 2. ScrollView
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
@@ -29,17 +30,21 @@ class ProfileViewController: UIViewController {
         view.backgroundColor = .clear
         return view
     }()
-
-    private let headerContentContainer: UIView = {
+    
+    // 3. Header
+    private let headerContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
     private let backButton: UIButton = {
         let btn = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        btn.backgroundColor = UIColor(white: 1, alpha: 0.1)
+        btn.layer.cornerRadius = 20
+        btn.layer.borderWidth = 1
+        btn.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
         btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
         btn.tintColor = .white
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -48,175 +53,184 @@ class ProfileViewController: UIViewController {
     
     private let headerTitle: UILabel = {
         let lbl = UILabel()
-        lbl.text = "Happy Home"
-        lbl.font = .systemFont(ofSize: 22, weight: .bold)
+        lbl.text = "My Profile"
+        lbl.font = .systemFont(ofSize: 20, weight: .semibold)
         lbl.textColor = .white
         lbl.textAlignment = .center
         lbl.translatesAutoresizingMaskIntoConstraints = false
         return lbl
     }()
 
-    private let whiteSheetView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .white
+    // 4. Profile Glass Card
+    private let profileGlassView: UIVisualEffectView = {
+        let blurEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+        let view = UIVisualEffectView(effect: blurEffect)
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.layer.cornerRadius = 30
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.layer.cornerRadius = 24
+        view.clipsToBounds = true
+        view.contentView.backgroundColor = UIColor(white: 1, alpha: 0.05)
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor(white: 1, alpha: 0.1).cgColor
         return view
     }()
-
+    
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
-        // Ensure you have an image named "ridu_mom_avatar" or it falls back to person.fill
-        iv.image = UIImage(named: "ridu_mom_avatar") ?? UIImage(systemName: "person.fill")
+        // Default placeholder
+        iv.image = UIImage(systemName: "person.crop.circle.fill")
         iv.tintColor = .lightGray
         iv.contentMode = .scaleAspectFill
         iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.layer.cornerRadius = 60
+        iv.layer.cornerRadius = 35 // Exact half of width (70)
         iv.clipsToBounds = true
-        iv.backgroundColor = .systemGray5
-        iv.layer.borderColor = UIColor.white.cgColor
-        iv.layer.borderWidth = 6
-        iv.isUserInteractionEnabled = true
+        iv.layer.borderWidth = 2
+        iv.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
         return iv
-    }()
-
-    private let editAvatarButton: UIButton = {
-        let button = UIButton(type: .custom)
-        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)
-        button.setImage(UIImage(systemName: "pencil", withConfiguration: config), for: .normal)
-        button.tintColor = .white
-        button.backgroundColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 0.9)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.layer.cornerRadius = 18
-        button.layer.borderColor = UIColor.white.cgColor
-        button.layer.borderWidth = 3
-        return button
     }()
 
     private let nameLabel: UILabel = {
         let label = UILabel()
-        label.text = "Ridu"
-        label.font = .systemFont(ofSize: 28, weight: .bold)
-        label.textColor = .black
-        label.textAlignment = .center
+        label.text = "Loading..."
+        label.font = .systemFont(ofSize: 22, weight: .bold)
+        label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-
-    private let subtitleLabel: UILabel = {
+    
+    private let roleLabel: UILabel = {
         let label = UILabel()
         label.text = "Chore Champion"
-        label.font = .systemFont(ofSize: 16, weight: .regular)
-        label.textColor = .gray
-        label.textAlignment = .center
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.textColor = UIColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 1.0) // Gold Color
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let menuCardView: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .white
-        view.layer.cornerRadius = 24
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.08
-        view.layer.shadowOffset = CGSize(width: 0, height: 4)
-        view.layer.shadowRadius = 12
-        return view
+    private let editProfileButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        btn.setImage(UIImage(systemName: "square.and.pencil", withConfiguration: config), for: .normal)
+        btn.tintColor = .white
+        btn.backgroundColor = UIColor(white: 1, alpha: 0.1)
+        btn.layer.cornerRadius = 12
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
     }()
 
+    // 5. Menu Stack
     private let menuStackView: UIStackView = {
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 0
+        stack.spacing = 15
         stack.distribution = .fill
         return stack
     }()
 
-    // MARK: - Lifecycle & Init
-    
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-        hidesBottomBarWhenPushed = true
-    }
-    
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        hidesBottomBarWhenPushed = true
-    }
+    // MARK: - Init & Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
-        navigationController?.setNavigationBarHidden(true, animated: false)
-        
+        setupGradient()
         setupLayout()
         addMenuItems()
-        setupGradient()
         setupActions()
+        
+        fetchProfileData()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        self.tabBarController?.tabBar.isHidden = false
+        fetchProfileData()
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        gradientLayer.frame = fixedHeaderBackground.bounds
+        backgroundGradientLayer.frame = view.bounds
     }
     
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
+    override var preferredStatusBarStyle: UIStatusBarStyle { return .lightContent }
+
+    // MARK: - Backend Logic
+    
+    private func fetchProfileData() {
+        _Concurrency.Task {
+            do {
+                let profile = try await ProfileService.shared.fetchUserProfile()
+                
+                await MainActor.run {
+                    self.nameLabel.text = profile.first_name
+                    
+                    // 1. Get Avatar Name
+                    let avatarName = profile.avatar_id ?? "tiger.png"
+                    
+                    // 2. Get URL String from Service
+                    // ✅ FIX: No 'if let' here because getAvatarURL returns a non-optional String
+                    let urlString = ProfileService.shared.getAvatarURL(fileName: avatarName)
+                    
+                    // 3. Convert String to URL and Download
+                    if let url = URL(string: urlString) {
+                        self.downloadImage(from: url)
+                    }
+                }
+            } catch {
+                print("Error fetching profile: \(error)")
+                await MainActor.run {
+                    self.nameLabel.text = "Kid"
+                    self.avatarImageView.image = UIImage(systemName: "person.crop.circle.fill")
+                }
+            }
+        }
+    }
+    
+    // ✅ INTERNAL IMAGE DOWNLOADER helper
+    private func downloadImage(from url: URL) {
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let data = data, let image = UIImage(data: data) else { return }
+            DispatchQueue.main.async {
+                self?.avatarImageView.image = image
+            }
+        }.resume()
     }
 
-    // MARK: - Setup Actions
-    private func setupActions() {
-        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
-        editAvatarButton.addTarget(self, action: #selector(editAvatarTapped), for: .touchUpInside)
-        
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(editAvatarTapped))
-        avatarImageView.addGestureRecognizer(tapGesture)
-    }
-
-    // MARK: - Gradient Setup
+    // MARK: - UI Setup
     private func setupGradient() {
         let colorTop = UIColor(red: 0x0C/255.0, green: 0x0C/255.0, blue: 0x0C/255.0, alpha: 1.0).cgColor
         let colorBottom = UIColor(red: 0x20/255.0, green: 0x3B/255.0, blue: 0x6F/255.0, alpha: 1.0).cgColor
-        
-        gradientLayer.colors = [colorTop, colorBottom]
-        gradientLayer.locations = [0.0, 1.0]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
-        
-        fixedHeaderBackground.layer.insertSublayer(gradientLayer, at: 0)
+        backgroundGradientLayer.colors = [colorTop, colorBottom]
+        backgroundGradientLayer.locations = [0.0, 1.0]
+        backgroundGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        backgroundGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        fullBackgroundView.layer.addSublayer(backgroundGradientLayer)
     }
 
-    // MARK: - Layout Setup
     private func setupLayout() {
-        view.addSubview(fixedHeaderBackground)
-        
+        view.addSubview(fullBackgroundView)
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
-        contentView.addSubview(headerContentContainer)
-        headerContentContainer.addSubview(backButton)
-        headerContentContainer.addSubview(headerTitle)
+        contentView.addSubview(headerContainer)
+        headerContainer.addSubview(backButton)
+        headerContainer.addSubview(headerTitle)
         
-        contentView.addSubview(whiteSheetView)
+        contentView.addSubview(profileGlassView)
+        profileGlassView.contentView.addSubview(avatarImageView)
         
-        contentView.addSubview(avatarImageView)
-        contentView.addSubview(editAvatarButton)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(subtitleLabel)
+        profileGlassView.contentView.addSubview(nameLabel)
+        profileGlassView.contentView.addSubview(roleLabel)
+        profileGlassView.contentView.addSubview(editProfileButton)
         
-        contentView.addSubview(menuCardView)
-        menuCardView.addSubview(menuStackView)
+        contentView.addSubview(menuStackView)
         
         NSLayoutConstraint.activate([
-            fixedHeaderBackground.topAnchor.constraint(equalTo: view.topAnchor),
-            fixedHeaderBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            fixedHeaderBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            fixedHeaderBackground.heightAnchor.constraint(equalToConstant: 300),
+            fullBackgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            fullBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            fullBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            fullBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -226,131 +240,152 @@ class ProfileViewController: UIViewController {
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-            contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor),
             
-            headerContentContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
-            headerContentContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            headerContentContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            headerContentContainer.heightAnchor.constraint(equalToConstant: 180),
+            headerContainer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            headerContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            headerContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            headerContainer.heightAnchor.constraint(equalToConstant: 50),
             
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            backButton.leadingAnchor.constraint(equalTo: headerContentContainer.leadingAnchor, constant: 20),
+            backButton.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor),
+            backButton.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
             backButton.widthAnchor.constraint(equalToConstant: 40),
             backButton.heightAnchor.constraint(equalToConstant: 40),
             
-            headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            headerTitle.centerXAnchor.constraint(equalTo: headerContentContainer.centerXAnchor),
+            headerTitle.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
+            headerTitle.centerXAnchor.constraint(equalTo: headerContainer.centerXAnchor),
             
-            whiteSheetView.topAnchor.constraint(equalTo: headerContentContainer.bottomAnchor, constant: -50),
-            whiteSheetView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            whiteSheetView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            whiteSheetView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            // Profile Card
+            profileGlassView.topAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: 30),
+            profileGlassView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            profileGlassView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            profileGlassView.heightAnchor.constraint(equalToConstant: 110),
             
-            avatarImageView.centerYAnchor.constraint(equalTo: whiteSheetView.topAnchor),
-            avatarImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            avatarImageView.widthAnchor.constraint(equalToConstant: 120),
-            avatarImageView.heightAnchor.constraint(equalToConstant: 120),
+            avatarImageView.leadingAnchor.constraint(equalTo: profileGlassView.leadingAnchor, constant: 16),
+            avatarImageView.centerYAnchor.constraint(equalTo: profileGlassView.centerYAnchor),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 70),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 70),
             
-            editAvatarButton.bottomAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 0),
-            editAvatarButton.trailingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: -4),
-            editAvatarButton.widthAnchor.constraint(equalToConstant: 36),
-            editAvatarButton.heightAnchor.constraint(equalToConstant: 36),
+            nameLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 16),
+            nameLabel.trailingAnchor.constraint(equalTo: editProfileButton.leadingAnchor, constant: -8),
+            nameLabel.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor, constant: -12),
             
-            nameLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
-            nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            roleLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
+            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             
-            subtitleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            editProfileButton.trailingAnchor.constraint(equalTo: profileGlassView.trailingAnchor, constant: -16),
+            editProfileButton.centerYAnchor.constraint(equalTo: profileGlassView.centerYAnchor),
+            editProfileButton.widthAnchor.constraint(equalToConstant: 34),
+            editProfileButton.heightAnchor.constraint(equalToConstant: 34),
             
-            menuCardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 30),
-            menuCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            menuCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            menuCardView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -50),
-            
-            menuStackView.topAnchor.constraint(equalTo: menuCardView.topAnchor, constant: 20),
-            menuStackView.leadingAnchor.constraint(equalTo: menuCardView.leadingAnchor, constant: 20),
-            menuStackView.trailingAnchor.constraint(equalTo: menuCardView.trailingAnchor, constant: -20),
-            menuStackView.bottomAnchor.constraint(equalTo: menuCardView.bottomAnchor, constant: -20)
+            menuStackView.topAnchor.constraint(equalTo: profileGlassView.bottomAnchor, constant: 30),
+            menuStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            menuStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            menuStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40)
         ])
     }
 
     // MARK: - Menu Setup
     private func addMenuItems() {
-        let items = ["Family Members", "Account", "Privacy and Policy"]
+        let items: [(title: String, icon: String)] = [
+            ("Family Members", "person.2.fill"),
+            ("Account", "person.crop.circle"),
+            ("Privacy & Policy", "hand.raised.fill")
+        ]
         
-        for title in items {
-            let row = createMenuRow(title: title, isDestructive: false)
+        for item in items {
+            let row = createGlassMenuRow(title: item.title, icon: item.icon, isDestructive: false)
             menuStackView.addArrangedSubview(row)
             
-            // Handle Navigation for specific rows
-            if title == "Family Members" {
-                row.isUserInteractionEnabled = true
-                let tap = UITapGestureRecognizer(target: self, action: #selector(handleFamilyMembers))
-                row.addGestureRecognizer(tap)
-            } else if title == "Account" {
-                // MARK: Account Logic Added Here
-                row.isUserInteractionEnabled = true
-                let tap = UITapGestureRecognizer(target: self, action: #selector(handleAccount))
-                row.addGestureRecognizer(tap)
+            row.isUserInteractionEnabled = true
+            if item.title == "Family Members" {
+                row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleFamilyMembers)))
+            } else if item.title == "Account" {
+                row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleAccount)))
             }
         }
         
-        let logoutRow = createMenuRow(title: "Logout", isDestructive: true)
+        let logoutRow = createGlassMenuRow(title: "Logout", icon: "rectangle.portrait.and.arrow.right", isDestructive: true)
         logoutRow.isUserInteractionEnabled = true
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleLogout))
-        logoutRow.addGestureRecognizer(tapGesture)
-        
+        logoutRow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleLogout)))
         menuStackView.addArrangedSubview(logoutRow)
     }
     
-    private func createMenuRow(title: String, isDestructive: Bool) -> UIView {
+    private func createGlassMenuRow(title: String, icon: String, isDestructive: Bool) -> UIView {
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.heightAnchor.constraint(equalToConstant: 56).isActive = true
+        container.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        container.backgroundColor = UIColor(white: 1, alpha: 0.05)
+        container.layer.cornerRadius = 20
+        container.layer.borderWidth = 1
+        container.layer.borderColor = UIColor(white: 1, alpha: 0.1).cgColor
+        
+        let iconContainer = UIView()
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.backgroundColor = UIColor(white: 1, alpha: 0.1)
+        iconContainer.layer.cornerRadius = 18
+        
+        let iconImg = UIImageView()
+        iconImg.translatesAutoresizingMaskIntoConstraints = false
+        iconImg.image = UIImage(systemName: icon)
+        iconImg.tintColor = isDestructive ? .systemRed : .white
+        iconImg.contentMode = .scaleAspectFit
         
         let label = UILabel()
         label.text = title
-        label.font = .systemFont(ofSize: 17, weight: .medium)
-        label.textColor = isDestructive ? .systemRed : .black
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = isDestructive ? .systemRed : .white
         label.translatesAutoresizingMaskIntoConstraints = false
         
         let chevron = UIImageView()
-        let config = UIImage.SymbolConfiguration(weight: .semibold)
-        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: config)
-        chevron.tintColor = UIColor(white: 0.8, alpha: 1.0)
+        chevron.image = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
+        chevron.tintColor = UIColor(white: 0.6, alpha: 1.0)
         chevron.contentMode = .scaleAspectFit
         chevron.translatesAutoresizingMaskIntoConstraints = false
         
+        container.addSubview(iconContainer)
+        iconContainer.addSubview(iconImg)
         container.addSubview(label)
         container.addSubview(chevron)
         
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            iconContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            iconContainer.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            iconContainer.widthAnchor.constraint(equalToConstant: 36),
+            iconContainer.heightAnchor.constraint(equalToConstant: 36),
+            
+            iconImg.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            iconImg.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
+            iconImg.widthAnchor.constraint(equalToConstant: 18),
+            iconImg.heightAnchor.constraint(equalToConstant: 18),
+            
+            label.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 16),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             
-            chevron.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            chevron.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
             chevron.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            chevron.widthAnchor.constraint(equalToConstant: 14),
+            chevron.widthAnchor.constraint(equalToConstant: 12),
             chevron.heightAnchor.constraint(equalToConstant: 14)
         ])
         
         return container
     }
     
-    // MARK: - Action Handlers
+    // MARK: - Actions
+    private func setupActions() {
+        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        editProfileButton.addTarget(self, action: #selector(editAvatarTapped), for: .touchUpInside)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(editAvatarTapped))
+        avatarImageView.isUserInteractionEnabled = true
+        avatarImageView.addGestureRecognizer(tap)
+    }
+    
     @objc private func handleBack() {
         navigationController?.popViewController(animated: true)
     }
     
     @objc private func editAvatarTapped() {
-        print("Edit Avatar Tapped")
-    }
-    
-    @objc private func handleAccount() {
-        let accountVC = ChildAccountViewController()
-        navigationController?.pushViewController(accountVC, animated: true)
+        let vc = AvatarSelectViewController()
+        navigationController?.pushViewController(vc, animated: true)
     }
     
     @objc private func handleFamilyMembers() {
@@ -358,61 +393,28 @@ class ProfileViewController: UIViewController {
         navigationController?.pushViewController(childMembersVC, animated: true)
     }
     
+    @objc private func handleAccount() {
+        let accountVC = ChildAccountViewController()
+        navigationController?.pushViewController(accountVC, animated: true)
+    }
+    
     @objc private func handleLogout() {
-        // 1. Clear User Data
-        UserDefaults.standard.removeObject(forKey: "isLoggedIn")
-        
-        // 2. Setup the Login/Select User Screen
-        let selectUserVC = SelectUserViewController()
-        let newNavController = UINavigationController(rootViewController: selectUserVC)
-        newNavController.isNavigationBarHidden = true
-        
-        // 3. Swap Root View Controller
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            
-            UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
-                window.rootViewController = newNavController
-            }, completion: nil)
+        _Concurrency.Task {
+            do {
+                try await ProfileService.shared.signOut()
+                
+                await MainActor.run {
+                    if let window = view.window {
+                        let authVC = SelectUserViewController()
+                        let nav = UINavigationController(rootViewController: authVC)
+                        nav.isNavigationBarHidden = true
+                        window.rootViewController = nav
+                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                    }
+                }
+            } catch {
+                print("Logout Failed: \(error)")
+            }
         }
     }
 }
-
-// MARK: - Destination Controllers (Dummy Implementations)
-// These ensure the code compiles and runs. Replace with your actual files if they exist.
-
-//class ChildAccountViewController: UIViewController {
-//    override func viewDidLoad() {
-//        super.viewDidLoad()
-//        view.backgroundColor = .systemBackground
-//        title = "Account"
-//        
-//        let label = UILabel()
-//        label.text = "Child Account Details"
-//        label.font = .boldSystemFont(ofSize: 20)
-//        label.translatesAutoresizingMaskIntoConstraints = false
-//        view.addSubview(label)
-//        NSLayoutConstraint.activate([
-//            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-//            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-//        ])
-//    }
-//}
-//
-//class ChildMembersView: UIViewController {
-//    override func viewDidLoad() {
-//        super.viewDidLoad()
-//        view.backgroundColor = .systemBackground
-//        title = "Family Members"
-//        
-//        let label = UILabel()
-//        label.text = "Family Members List"
-//        label.font = .boldSystemFont(ofSize: 20)
-//        label.translatesAutoresizingMaskIntoConstraints = false
-//        view.addSubview(label)
-//        NSLayoutConstraint.activate([
-//            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-//            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-//        ])
-//    }
-//}

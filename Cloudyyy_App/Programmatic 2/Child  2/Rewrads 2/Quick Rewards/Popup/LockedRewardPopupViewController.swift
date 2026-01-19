@@ -134,4 +134,11 @@ Your parent can unlock it for you!
     @objc private func dismissPopup() {
         dismiss(animated: true)
     }
+    
+    // MARK: - Public Override
+    func overrideMessage(title: String, message: String) {
+        titleLabel.text = title
+        messageLabel.text = message
+    }
+
 }

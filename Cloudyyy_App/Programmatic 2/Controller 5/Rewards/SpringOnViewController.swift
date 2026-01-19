@@ -211,8 +211,14 @@ final class SpringOnViewController: UIViewController {
         guard let uuid = UUID(uuidString: item.id) else { return }
         
         let model = RewardItemModel(
-            id: uuid, title: item.title, description: item.subtitle, points: item.points, image_url: item.imageName,
-            claim_limit: item.claimLimit, reward_sub_type: item.subType
+            id: uuid,
+            title: item.title,
+            description: item.subtitle,
+            points: item.points,
+            image_url: item.imageName,
+            claim_limit: item.claimLimit,
+            reward_sub_type: item.subType,
+            object_3d_id: nil   // ✅ IMPORTANT
         )
         
         let vc = NewRewardViewController()

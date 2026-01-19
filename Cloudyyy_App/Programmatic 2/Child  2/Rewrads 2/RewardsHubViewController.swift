@@ -17,6 +17,11 @@ final class RewardsViewController: UIViewController {
     
     private var progressReport: ProgressReport?
     
+    // 🔁 Multiple Dream It rewards (unique)
+    private var dreamRewardIds: [UUID] = []
+    private var currentRewardIndex: Int = 0
+
+    
     // Coin Badge Container
     private let coinBadgeView: UIView = {
         let v = UIView()
@@ -123,15 +128,31 @@ final class RewardsViewController: UIViewController {
                 let rewardsForType = backendGrouped[type.key] ?? []
                 
                 let mappedRewards = rewardsForType.map { item in
-                    AssignedQuickReward(
+
+                    let isLocked = item.is_locked ?? false
+
+                    let lockReason: QuickRewardLockReason? = {
+                        guard isLocked else { return nil }
+
+                        // 🔒 Backend-driven lock reasons
+                        if item.claim_id != nil {
+                            return .alreadyClaimed
+                        } else {
+                            return .notAssigned
+                        }
+                    }()
+
+                    return AssignedQuickReward(
                         id: item.id,
                         claimId: item.claim_id,
                         title: item.title,
                         cost: item.points,
                         imageName: type.image,
-                        isLocked: item.is_locked ?? false
+                        isLocked: isLocked,
+                        lockReason: lockReason
                     )
                 }
+
 
                 let hasAvailable = rewardsForType.contains {
                     !($0.is_locked ?? false)
@@ -573,7 +594,6 @@ final class RewardsViewController: UIViewController {
         
         contentView.addSubview(carouselCard)
         contentView.addSubview(carouselTitle)
-        contentView.addSubview(pageControl)
         
         bottomPaddingView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(bottomPaddingView)
@@ -669,11 +689,8 @@ final class RewardsViewController: UIViewController {
             carouselTitle.topAnchor.constraint(equalTo: carouselCard.bottomAnchor, constant: 16),
             carouselTitle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             
-            pageControl.topAnchor.constraint(equalTo: carouselTitle.bottomAnchor, constant: 5),
-            pageControl.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            
             // Bottom padding
-            bottomPaddingView.topAnchor.constraint(equalTo: pageControl.bottomAnchor, constant: 20),
+            bottomPaddingView.topAnchor.constraint(equalTo: carouselTitle.bottomAnchor, constant: 20),
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bottomPaddingView.heightAnchor.constraint(equalToConstant: 100), // Extra space for FAB
             
@@ -772,17 +789,8 @@ final class RewardsViewController: UIViewController {
         let popup = QuickRewardClaimPopupViewController()
         popup.reward = reward
         popup.modalPresentationStyle = .overFullScreen
-
-        popup.onBalanceUpdate = { [weak self] newBalance in
-            guard let self = self else { return }
-
-            let oldCoins = Int(self.coinLabel.text ?? "0") ?? 0
-            self.animateCoins(from: oldCoins, to: newBalance)
-        }
-
         present(popup, animated: true)
     }
-
 }
 
 // MARK: - Collection View Extension

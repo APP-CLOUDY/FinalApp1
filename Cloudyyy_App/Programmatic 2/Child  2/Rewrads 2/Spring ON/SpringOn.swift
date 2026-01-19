@@ -309,7 +309,7 @@ final class SpringOnChildViewController: UIViewController {
                     new: progress.current_balance
                 )
             }
-        } catch {
+        } catch { 
             print("❌ Failed to load stars:", error)
         }
     }

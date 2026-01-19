@@ -450,58 +450,68 @@ class UploadBoxCard: RewardCardView {
 // ===========================================================
 // MARK: - Select3DCard (shows selected 3D object & opens 3D selector)
 // ===========================================================
+final class Select3DCard: RewardCardView {
 
-class Select3DCard: RewardCardView {
-
-    private let icon = UIImageView(image: UIImage(systemName: "cube.box.fill"))
+    private let imageView = UIImageView()
     private let titleLabel = UILabel()
-    private let detailLabel = UILabel()
-    var selectedValue: String?
+
     var onTap: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        setupUI()
+    }
 
-        icon.tintColor = .white
-        icon.contentMode = .scaleAspectFit
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
-        titleLabel.text = "3D Object"
-        titleLabel.textColor = .white
-        titleLabel.font = .systemFont(ofSize: 16)
+    private func setupUI() {
 
-        detailLabel.text = "Tap to choose"
-        detailLabel.textColor = UIColor.white.withAlphaComponent(0.6)
-        detailLabel.font = .systemFont(ofSize: 14)
+        // Image
+        imageView.contentMode = .scaleAspectFit
+        imageView.tintColor = .white
+        imageView.image = UIImage(systemName: "cube.box")
+        imageView.translatesAutoresizingMaskIntoConstraints = false
 
-        let h = UIStackView(arrangedSubviews: [icon, titleLabel, UIView(), detailLabel])
-        h.axis = .horizontal
-        h.alignment = .center
-        h.spacing = 12
-        h.translatesAutoresizingMaskIntoConstraints = false
+        // Title
+        titleLabel.text = "Tap to choose 3D Object"
+        titleLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(h)
+        let stack = UIStackView(arrangedSubviews: [imageView, titleLabel])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            imageView.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.38),
+            imageView.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.38)
+        ])
 
         isUserInteractionEnabled = true
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
-
-        NSLayoutConstraint.activate([
-            h.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            h.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            h.topAnchor.constraint(equalTo: topAnchor),
-            h.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
     }
 
-    func setDetail(_ value: String) {
-        selectedValue = value
-        detailLabel.text = value
-        detailLabel.textColor = .white
+    // ✅ Call this after selecting an object
+    func configure(title: String, image: UIImage?) {
+        titleLabel.text = title
+        titleLabel.textColor = .white
+        imageView.image = image ?? UIImage(systemName: "cube.box")
     }
 
-    @objc private func tapped() { onTap?() }
-    required init?(coder: NSCoder) { fatalError() }
+    @objc private func tapped() {
+        onTap?()
+    }
 }
-
 // ===========================================================
 // MARK: - ApprovalToggleRow (FIXED)
 // ===========================================================

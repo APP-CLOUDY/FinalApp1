@@ -6,10 +6,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     var reward: AssignedQuickReward!
     var onClaim: (() -> Void)?
     private var isSubmitting = false
-    var onBalanceUpdate: ((Int) -> Void)?
-
-
-
     // MARK: - Gradient
     private let gradientLayer = CAGradientLayer()
 
@@ -287,13 +283,10 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                     )
 
                 await MainActor.run {
-                    self.onBalanceUpdate?(response.remaining_stars)
-
                     NotificationCenter.default.post(
                         name: .rewardRedeemed,
                         object: nil
                     )
-
                     self.dismiss(animated: true)
                 }
 

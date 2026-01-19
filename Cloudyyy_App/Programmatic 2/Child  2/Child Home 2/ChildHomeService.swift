@@ -35,7 +35,8 @@ struct ChildProgressStats: Decodable, Sendable {
     let progress_percent: Double
 }
 
-struct TaskSubmission: Encodable, Sendable {
+// 🔥 RENAMED struct to 'TaskSubmissionPayload' to fix the "Extra arguments" conflict
+struct TaskSubmissionPayload: Encodable, Sendable {
     let task_id: UUID
     let child_id: UUID
     let status: String
@@ -86,52 +87,59 @@ final class ChildHomeService: Sendable {
     }
 
     // MARK: - Fetch Schedule (✅ FIXED CRASH ON NULL)
-    func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
+    // MARK: - Fetch Schedule
+        func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
 
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            print("❌ DEBUG: No Child ID found")
-            return []
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let dateString = formatter.string(from: date)
-
-        // ✅ FIXED: Use [String: String] to match SQL params
-        let params: [String: String] = [
-            "child_id_input": childId.uuidString,
-            "target_date": dateString
-        ]
-
-        print("🚀 Sending to Child DB: ID: \(childId), Date: \(dateString)")
-
-        do {
-            let response = try await client
-                .rpc("get_child_schedule", params: params)
-                .execute()
-
-            let data = response.data
-            
-            // ✅ THE FIX: Check for "null" response string to prevent crash
-            if let json = String(data: data, encoding: .utf8) {
-                print("📦 DEBUG Schedule JSON:", json)
-                if json == "null" {
-                    return []
-                }
+            guard let childId = ChildSessionManager.shared.currentChildId else {
+                print("❌ DEBUG: No Child ID found")
+                return []
             }
 
-            return try JSONDecoder().decode(
-                [ScheduleTaskModelChild].self,
-                from: data
-            )
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            let dateString = formatter.string(from: date)
 
-        } catch {
-            print("❌ Schedule fetch failed:", error)
-            // Return empty list on error to prevent app crash
-            return []
+            let params: [String: String] = [
+                "child_id_input": childId.uuidString,
+                "target_date": dateString
+            ]
+
+            print("🚀 Sending to Child DB: ID: \(childId), Date: \(dateString)")
+
+            do {
+                let response = try await client
+                    .rpc("get_child_schedule", params: params)
+                    .execute()
+
+                let data = response.data
+                
+                if let json = String(data: data, encoding: .utf8), json == "null" {
+                    return []
+                }
+
+                let decoder = JSONDecoder()
+                let tasks = try decoder.decode([ScheduleTaskModelChild].self, from: data)
+                
+                // 🔥 FIX: Deduplicate tasks by ID
+                // This filters out "Ghost" duplicates caused by SQL Joins
+                var seenIDs = Set<UUID>()
+                let uniqueTasks = tasks.filter { task in
+                    if seenIDs.contains(task.id) {
+                        return false // Skip duplicate
+                    } else {
+                        seenIDs.insert(task.id)
+                        return true // Keep new
+                    }
+                }
+                
+                return uniqueTasks
+
+            } catch {
+                print("❌ Schedule fetch failed:", error)
+                return []
+            }
         }
-    }
 
     // MARK: - Upload Proof Image
     func uploadProof(image: UIImage, childId: UUID) async throws -> String {
@@ -158,13 +166,8 @@ final class ChildHomeService: Sendable {
         return "https://\(projectRef).supabase.co/storage/v1/object/public/\(bucketName)/\(fileName)"
     }
 
-    // MARK: - Submit Task (❗ ORIGINAL + AUTO-APPROVAL FIX)
-    func submitTask(
-        taskId: UUID,
-        photoUrl: String? = nil,
-        approvalRequired: Bool
-    ) async throws {
-
+    // MARK: - Submit Task (Centralized Update)
+    func submitTask(taskId: UUID, photoUrl: String? = nil, approvalRequired: Bool) async throws {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
@@ -172,7 +175,7 @@ final class ChildHomeService: Sendable {
         let status = approvalRequired ? "pending" : "approved"
         let approvedAt = approvalRequired ? nil : Date()
 
-        let submission = TaskSubmission(
+        let submission = TaskSubmissionPayload(
             task_id: taskId,
             child_id: childId,
             status: status,
@@ -181,14 +184,17 @@ final class ChildHomeService: Sendable {
             approved_at: approvedAt
         )
 
-        try await client
-            .from("task_submissions")
-            .insert(submission)
-            .execute()
+        // 1. Save to Database
+        try await client.from("task_submissions").insert(submission).execute()
 
         print("✅ Task \(taskId) submitted as \(status)")
+        
+        // 2. 🔥 BROADCAST SIGNAL FROM HERE
+        // Now, whether you submit from ChatBot, Schedule, or Camera, the app will ALWAYS refresh.
+        await MainActor.run {
+            NotificationCenter.default.post(name: .taskDidComplete, object: nil)
+        }
     }
-
     // MARK: - Rewards Home
     func fetchChildHomeStats() async throws -> ChildHomeStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
@@ -223,6 +229,4 @@ final class ChildHomeService: Sendable {
 
             return stats
         }
-
-
 }

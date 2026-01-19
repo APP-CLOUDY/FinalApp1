@@ -2,6 +2,11 @@
 import UIKit
 //AssignedQuickrewardVC
 // MARK: - Model
+enum QuickRewardLockReason {
+    case notAssigned
+    case alreadyClaimed
+}
+
 struct AssignedQuickReward {
     let id: UUID
     let claimId: UUID?
@@ -9,7 +14,9 @@ struct AssignedQuickReward {
     let cost: Int
     let imageName: String
     let isLocked: Bool
+    let lockReason: QuickRewardLockReason?
 }
+
 // MARK: - View Controller
 final class AssignedQuickRewardViewController: UIViewController {
 
@@ -44,14 +51,21 @@ final class AssignedQuickRewardViewController: UIViewController {
      setupHeader()
      setupMascot()
      setupTable()
+     assert(
+         assignedRewards.allSatisfy {
+             !$0.isLocked || $0.lockReason != nil
+         },
+         "❌ Locked reward must always have a lockReason"
+     )
+
  }
 
-    override func viewWillAppear(_ animated: Bool) {
+  override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
         // 🔄 Refresh list when screen appears
         tableView.reloadData()
-    }
+}
 
  override func viewDidLayoutSubviews() {
      super.viewDidLayoutSubviews()
@@ -110,51 +124,51 @@ private extension AssignedQuickRewardViewController {
 
 // MARK: - Table
 extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewDelegate {
-
- func setupTable() {
-     tableView.register(AssignedQuickRewardCell.self,
-                        forCellReuseIdentifier: AssignedQuickRewardCell.id)
-     tableView.dataSource = self
-     tableView.delegate = self
-     tableView.backgroundColor = .clear
-     tableView.separatorStyle = .none
-     tableView.showsVerticalScrollIndicator = false
-
-     view.addSubview(tableView)
-     tableView.translatesAutoresizingMaskIntoConstraints = false
-
-     NSLayoutConstraint.activate([
-         tableView.topAnchor.constraint(equalTo: mascotImageView.bottomAnchor, constant: 12),
-         tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-         tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-         tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-     ])
- }
-
- func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-     assignedRewards.count
- }
-
- func tableView(_ tableView: UITableView,
-                heightForRowAt indexPath: IndexPath) -> CGFloat {
-     return 160
- }
-
- func tableView(_ tableView: UITableView,
-                cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
-     let cell = tableView.dequeueReusableCell(
-         withIdentifier: AssignedQuickRewardCell.id,
-         for: indexPath
-     ) as! AssignedQuickRewardCell
-
-     cell.configure(assignedRewards[indexPath.row])
-     return cell
- }
-
+    
+    func setupTable() {
+        tableView.register(AssignedQuickRewardCell.self,
+                           forCellReuseIdentifier: AssignedQuickRewardCell.id)
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.showsVerticalScrollIndicator = false
+        
+        view.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: mascotImageView.bottomAnchor, constant: 12),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        assignedRewards.count
+    }
+    
+    func tableView(_ tableView: UITableView,
+                   heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 160
+    }
+    
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: AssignedQuickRewardCell.id,
+            for: indexPath
+        ) as! AssignedQuickRewardCell
+        
+        cell.configure(assignedRewards[indexPath.row])
+        return cell
+    }
+    
     func tableView(_ tableView: UITableView,
                    didSelectRowAt indexPath: IndexPath) {
-
+        
         let cell = tableView.cellForRow(at: indexPath)
         UIView.animate(withDuration: 0.12, animations: {
             cell?.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
@@ -163,40 +177,53 @@ extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewD
                 cell?.transform = .identity
             }
         }
-
+        
         let reward = assignedRewards[indexPath.row]
-        guard !reward.isLocked else {
-            presentPendingApprovalPopup()
+        
+        // 🔒 Locked → show locked popup
+        if reward.isLocked {
+            presentLockedPopup(reason: reward.lockReason)
             return
         }
-
+        
+        // ⭐ Unlocked → always allow claim attempt
         presentClaimPopup(for: reward)
-
     }
-
+    
     private func presentClaimPopup(for reward: AssignedQuickReward) {
         let vc = QuickRewardClaimPopupViewController()
         vc.reward = reward
         vc.modalPresentationStyle = .overFullScreen
         present(vc, animated: true)
     }
+    private func presentLockedPopup(reason: QuickRewardLockReason?) {
 
+        let vc = LockedRewardPopupViewController()
 
- private func presentPendingApprovalPopup() {
-     let vc = LockedRewardPopupViewController()
-     vc.modalPresentationStyle = .overFullScreen
-     present(vc, animated: false)
- }
+        switch reason {
+        case .alreadyClaimed:
+            vc.overrideMessage(
+                title: "Already Claimed",
+                message: "You’ve already claimed this reward 😊"
+            )
 
- private func presentDeclinedPopup() {
-     let alert = UIAlertController(
-         title: "Not Approved",
-         message: "Your parent didn’t approve this reward yet 😊",
-         preferredStyle: .alert
-     )
-     alert.addAction(UIAlertAction(title: "Okay", style: .default))
-     present(alert, animated: true)
- }
+        case .notAssigned:
+            vc.overrideMessage(
+                title: "Locked",
+                message: "This reward is not assigned to you yet."
+            )
+
+        case .none:
+            vc.overrideMessage(
+                title: "Locked",
+                message: "This reward is currently unavailable."
+            )
+        }
+
+        vc.modalPresentationStyle = .overFullScreen
+        present(vc, animated: true)
+    }
+
 }
 
 // MARK: - Gradient
@@ -305,7 +332,18 @@ final class AssignedQuickRewardCell: UITableViewCell {
         starsLabel.text = "⭐ \(reward.cost) Stars"
 
         if reward.isLocked {
-            badge.text = "Locked"
+#if DEBUG
+switch reward.lockReason {
+case .alreadyClaimed:
+    badge.text = "CLAIMED"
+case .notAssigned:
+    badge.text = "NOT ASSIGNED"
+case .none:
+    badge.text = "LOCKED"
+}
+#else
+badge.text = "Locked"
+#endif
             badge.backgroundColor = UIColor.systemGray.withAlphaComponent(0.4)
             subtitleLabel.text = "Not available"
             card.alpha = 0.5

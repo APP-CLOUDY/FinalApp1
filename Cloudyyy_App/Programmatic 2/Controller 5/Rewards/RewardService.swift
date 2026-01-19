@@ -13,6 +13,7 @@ struct CreateRewardParams: Encodable, Sendable {
     let image_url_input: String?
     let claim_limit_input: String?
     let reward_sub_type_input: String?
+    let object_3d_id_input: UUID?
 
     enum CodingKeys: String, CodingKey {
         case title_input
@@ -23,6 +24,7 @@ struct CreateRewardParams: Encodable, Sendable {
         case image_url_input
         case claim_limit_input
         case reward_sub_type_input
+        case object_3d_id_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -35,8 +37,10 @@ struct CreateRewardParams: Encodable, Sendable {
         try container.encode(image_url_input, forKey: .image_url_input)
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
+        try container.encode(object_3d_id_input, forKey: .object_3d_id_input)
     }
 }
+
 struct UpdateRewardParams: Encodable, Sendable {
     let reward_id_input: UUID
     let title_input: String
@@ -47,6 +51,7 @@ struct UpdateRewardParams: Encodable, Sendable {
     let claim_limit_input: String?
     let child_ids_input: [UUID]
     let reward_sub_type_input: String?
+    let object_3d_id_input: UUID?
 
     enum CodingKeys: String, CodingKey {
         case reward_id_input
@@ -58,6 +63,7 @@ struct UpdateRewardParams: Encodable, Sendable {
         case claim_limit_input
         case child_ids_input
         case reward_sub_type_input
+        case object_3d_id_input
     }
 
     nonisolated func encode(to encoder: Encoder) throws {
@@ -71,6 +77,7 @@ struct UpdateRewardParams: Encodable, Sendable {
         try container.encode(claim_limit_input, forKey: .claim_limit_input)
         try container.encode(child_ids_input, forKey: .child_ids_input)
         try container.encode(reward_sub_type_input, forKey: .reward_sub_type_input)
+        try container.encode(object_3d_id_input, forKey: .object_3d_id_input)
 
     }
 }
@@ -120,7 +127,9 @@ struct RewardItemModel: Decodable, Sendable {
     let image_url: String?
     let claim_limit: String?
     let reward_sub_type: String?
+    let object_3d_id: String?   // ✅ ADD
 }
+
 
 
 // MARK: - 3. Service Class
@@ -185,7 +194,8 @@ final class RewardService: Sendable {
         assignTo children: [UUID],
         image: UIImage?,
         claimLimit: String?,
-        subType: String?
+        rewardSubType: String?,
+        dreamObjectId: UUID?
     ) async throws -> UUID {
 
         var imageUrl: String? = nil
@@ -201,7 +211,8 @@ final class RewardService: Sendable {
             child_ids_input: children,
             image_url_input: imageUrl,
             claim_limit_input: claimLimit,
-            reward_sub_type_input: subType
+            reward_sub_type_input: rewardSubType,
+            object_3d_id_input: dreamObjectId
         )
 
         // ✅ DECODE AS ARRAY
@@ -229,7 +240,7 @@ final class RewardService: Sendable {
         return first.reward_id
     }
 
-    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?) async throws {
+    func updateReward(rewardId: UUID, title: String, description: String, points: Int, category: String, assignTo children: [UUID], image: UIImage?, existingImageUrl: String?, claimLimit: String?, subType: String?, dreamObjectId: UUID? ) async throws {
         
         var finalImageUrl = existingImageUrl
         
@@ -242,6 +253,12 @@ final class RewardService: Sendable {
             }
         }
         
+        let rewardSubType =
+            category == "Quick Rewards" ? subType : nil
+
+        let object3DUrl =
+            category == "Dream It" ? subType : nil
+
         let params = UpdateRewardParams(
             reward_id_input: rewardId,
             title_input: title,
@@ -251,8 +268,10 @@ final class RewardService: Sendable {
             image_url_input: finalImageUrl,
             claim_limit_input: claimLimit,
             child_ids_input: children,
-            reward_sub_type_input: subType
+            reward_sub_type_input: rewardSubType,
+            object_3d_id_input: dreamObjectId
         )
+
         
         try await client.rpc("update_existing_reward", params: params).execute()
         await MainActor.run { NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil) }

@@ -99,7 +99,11 @@ final class KidAgendaViewController: UIViewController {
         
         select(date: Date(), animated: false)
         
-        NotificationCenter.default.addObserver(self, selector: #selector(handleTaskCompletionRefresh), name: .taskDidComplete, object: nil)
+        NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleTaskCompletionRefresh),
+                name: .taskDidComplete, // This now comes from CloudyTheme.swift
+                object: nil)
     }
     
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -472,5 +476,6 @@ private extension Date {
         return df.string(from: self)
     }
 }
+
 
 

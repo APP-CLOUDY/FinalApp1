@@ -37,6 +37,8 @@ final class NewRewardViewController: UIViewController {
         }
     }
 
+    private var selectedDreamObjectKey: String?   // UI only (cycle/chess)
+    private var selectedDreamObjectId: UUID?      // DB only (UUID)
 
 
     // MARK: - UI Base Containers
@@ -219,6 +221,18 @@ final class NewRewardViewController: UIViewController {
             
             deleteButton.isHidden = false
             applySegment(animated: false)
+            
+            if category == "Dream It", let type = item.reward_sub_type {
+                selectedDreamObjectKey = type
+                selectedDreamObjectId = UUID(uuidString: item.object_3d_id ?? "")
+
+
+                select3DBox.configure(
+                    title: type.replacingOccurrences(of: "_", with: " ").capitalized,
+                    image: UIImage(named: type == "cycle" ? "Cycle" : "Chess")
+                )
+            }
+
         }
     }
     
@@ -406,8 +420,8 @@ final class NewRewardViewController: UIViewController {
         
         dreamViews  = [subtitleLabel, dreamInput, pointsDream] + assignedBlock + [select3DBox]
         
-        quickViews  = [subtitleLabel, quickInput, pointsQuick,rewardTypeRow, claimLimitRow]
-        + assignedBlock
+        quickViews  = [subtitleLabel, quickInput, pointsQuick] + assignedBlock + [rewardTypeRow, claimLimitRow]
+         
         
     }
     // MARK: - Menus
@@ -534,12 +548,37 @@ final class NewRewardViewController: UIViewController {
     // MARK: - Actions
     private func setupActions() {
         uploadBox.onTap = { [weak self] in self?.openImagePicker() }
+
+        // ✅ ADD THIS
+        select3DBox.onTap = { [weak self] in
+            self?.openDream3DSelector()
+        }
+
         deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
 
-        rewardTypeRow.enableNavigationTap()   // ✅ ADD THIS
+        rewardTypeRow.enableNavigationTap()
         rewardTypeRow.onTap = { [weak self] in
             self?.openRewardTypeSelector()
         }
+    }
+    private func openDream3DSelector() {
+        let vc = Dream3DObjectSelectorViewController()
+
+        vc.onSelect = { [weak self] object in
+            guard let self = self else { return }
+
+            // ✅ Store backend value
+            self.selectedDreamObjectKey = object.objectKey     // UI usage (unchanged)
+            self.selectedDreamObjectId  = object.uuid          // UUID from DB
+
+            // ✅ Update UI preview
+            self.select3DBox.configure(
+                title: object.displayName,
+                image: object.previewImage
+            )
+        }
+
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private func openRewardTypeSelector() {
@@ -738,7 +777,18 @@ final class NewRewardViewController: UIViewController {
             ? selectedClaimLimit
             : nil
 
-        let subType = rewardTypeRow.detailValue
+        let subType: String?
+
+        if categoryName == "Dream It" {
+            subType = selectedDreamObjectKey
+        } else {
+            subType = rewardTypeRow.detailValue
+        }
+
+        let dreamObjectId: UUID? =
+            categoryName == "Dream It"
+            ? selectedDreamObjectId
+            : nil
 
         
         let doneBtn = customHeaderView.subviews.compactMap { $0 as? UIButton }.last
@@ -766,7 +816,8 @@ final class NewRewardViewController: UIViewController {
                         assignTo: Array(assignedSelections),
                         image: selectedImage,
                         claimLimit: claimLimit,
-                        subType: subType
+                        rewardSubType: subType,          // 👈 unchanged
+                        dreamObjectId: dreamObjectId     // 👈 NEW
                     )
                     
                 case .edit(let item, _):
@@ -780,7 +831,9 @@ final class NewRewardViewController: UIViewController {
                         image: selectedImage,
                         existingImageUrl: existingImageUrl,
                         claimLimit: claimLimit,
-                        subType: subType
+                        subType: subType,
+                        dreamObjectId: dreamObjectId
+                        
                     )
                 }
                 

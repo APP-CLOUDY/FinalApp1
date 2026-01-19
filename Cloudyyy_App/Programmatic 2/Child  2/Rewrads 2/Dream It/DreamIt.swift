@@ -33,15 +33,6 @@ class BadgeLabel: UILabel {
     }
 }
 
-// MARK: - Data Model
-struct BikePart {
-    let id: String
-    let name: String
-    let iconName: String
-    let price: String
-    let videoEndTime: Double
-}
-
 // MARK: - DreamIt View Controller
 
 final class ChildDreamItViewController: UIViewController {
@@ -53,15 +44,66 @@ final class ChildDreamItViewController: UIViewController {
     private var timeObserver: Any?
     private var currentVideoEndTime: Double = 0.0
     private var nextPurchaseIndex = 0
+    // 🔁 Multiple Dream It rewards (unique per object)
+    private var dreamRewardIds: [UUID] = []
+    private var currentRewardIndex: Int = 0
+
+    private var progressReport: ProgressReport?
+    private var currentStars: Int = 0
     
-    // ⚠️ Check your timestamps match your video!
-    private let bikeParts: [BikePart] = [
-        BikePart(id: "frame", name: "Frame", iconName: "frame", price: "500", videoEndTime: 2.5),
-        BikePart(id: "fork", name: "Fork", iconName: "fork", price: "300", videoEndTime: 4.0),
-        BikePart(id: "wheel", name: "Wheels", iconName: "wheel", price: "200", videoEndTime: 6.0),
-        BikePart(id: "seat", name: "Seat", iconName: "seat", price: "150", videoEndTime: 7.5)
-    ]
+    private var parts: [DreamObjectPart] = []
+    private var totalSeconds: Int = 0
+    private var rewardPoints: Int = 0
     
+    private var pendingSeekTime: Double?
+    private var playerStatusObserver: NSKeyValueObservation?
+    private var isPurchasing = false
+
+
+
+
+    
+    // 🔥 Backend-driven state
+    var rewardId: UUID!   // passed from RewardsViewController
+    private var childId: UUID!
+
+
+    private var progress: DreamItProgress?
+
+    private func loadStars() async {
+        guard let childId = childId else { return }
+
+        let oldStars = currentStars
+
+        do {
+            let stats = try await ProgressService.shared.fetchStats(
+                childId: childId,
+                scope: .monthly
+            )
+
+            await MainActor.run {
+                self.currentStars = stats.current_balance
+                self.updateCoinBadge(old: oldStars, new: stats.current_balance)
+            }
+        } catch {
+            print("❌ Failed to load stars:", error)
+        }
+    }
+
+    private func updateCoinBadge(old: Int, new: Int) {
+        coinBadge.text = "★ \(new)"
+
+        guard old != new else { return }
+
+        UIView.animate(withDuration: 0.15, animations: {
+            self.coinBadge.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
+        }) { _ in
+            UIView.animate(withDuration: 0.15) {
+                self.coinBadge.transform = .identity
+            }
+        }
+    }
+
     // --- UI COMPONENTS ---
     private let backgroundGradientLayer = CAGradientLayer()
     private let scrollView = UIScrollView()
@@ -72,7 +114,7 @@ final class ChildDreamItViewController: UIViewController {
     private let backButton = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let coinBadge = BadgeLabel(top: 4, left: 10, bottom: 4, right: 10)
-    private let profileButton = UIButton(type: .system)
+    
     
     // Banner Section (Updated for Glass Look)
     private let bannerContainer = UIView()
@@ -93,13 +135,198 @@ final class ChildDreamItViewController: UIViewController {
         setupTopBar()
         setupBanner()
         setupStoreSection()
-        setupVideoPlayer()
         layoutUI()
         
         updateStoreItemStates()
         player?.pause()
+        
+        childId = ChildSessionManager.shared.currentChildId
+
+        Task {
+            await loadStars()
+            await loadDreamItRewards()
+        }
+        print("👶 Current Child ID:", childId ?? "nil")
+        print("🎁 Reward ID:", rewardId ?? "nil")
+
     }
     
+    private func loadDreamItRewards() async {
+        guard let childId = childId else { return }
+
+        do {
+            let ids = try await DreamItService.shared
+                .fetchDreamItRewardIds(childId: childId)
+
+            // 🔍 ADD THIS DEBUG LINE
+            print("🎯 DreamIt Reward IDs:", ids)
+
+            guard !ids.isEmpty else {
+                print("⚠️ No Dream It rewards found for child:", childId)
+                return
+            }
+
+            dreamRewardIds = ids
+            currentRewardIndex = 0
+            rewardId = ids.first
+
+            // 🔍 ADD THIS TOO (VERY IMPORTANT)
+            print("🎁 Selected Reward ID:", rewardId ?? "nil")
+
+            await MainActor.run {
+                let count = self.dreamRewardIds.count
+
+                self.pageControl.numberOfPages = count
+                self.pageControl.currentPage = 0
+
+                // ✅ SHOW DOT ONLY IF 2 OR MORE REWARDS
+                self.pageControl.isHidden = count < 2
+            }
+
+
+            await loadDreamItProgress()
+
+        } catch {
+            print("❌ Failed to load Dream It rewards:", error)
+        }
+    }
+
+
+    private func loadDreamItProgress() async {
+        guard let childId = childId, let rewardId = rewardId else { return }
+
+        do {
+            async let partsTask =
+                DreamItService.shared.fetchDreamItParts(rewardId: rewardId)
+
+            async let mediaTask =
+                DreamItService.shared.fetchDreamItRewardMedia(rewardId: rewardId)
+
+            let progress = try await DreamItService.shared.fetchProgress(
+                childId: childId,
+                rewardId: rewardId
+            )
+
+            let (parts, media) = try await (partsTask, mediaTask)
+
+            await MainActor.run {
+                self.progress = progress
+                self.parts = parts
+                self.rewardPoints = media.points
+                self.totalSeconds = media.totalSeconds
+
+                self.applyProgressToUI(progress)   // FIRST
+                self.rebuildStoreUI()              // THEN build UI
+                self.setupVideo(url: media.url)
+
+            }
+
+        } catch {
+            // 🔑 NEW LOGIC
+            print("⚠️ Progress not found, starting fresh Dream It")
+
+            let parts = try? await DreamItService.shared.fetchDreamItParts(rewardId: rewardId)
+            let media = try? await DreamItService.shared.fetchDreamItRewardMedia(rewardId: rewardId)
+
+            await MainActor.run {
+                self.resetDreamItState()
+                self.progress = DreamItProgress(
+                    unlocked_parts: 0,
+                    total_seconds: media?.totalSeconds ?? 0,
+                    completed: false
+                )
+                self.parts = parts ?? []
+                self.rebuildStoreUI()
+                if let url = media?.url {
+                    self.setupVideo(url: url)
+                }
+            }
+        }
+        print("🧩 Parts loaded:", parts.count)
+
+    }
+
+
+    private func presentErrorState() {
+        let alert = UIAlertController(
+            title: "Something went wrong",
+            message: "This Dream could not be loaded. Please ask your parent to reassign it.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func setupStoreSection() {
+        storeTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        storeTitleLabel.text = "Build Your Dream"
+        storeTitleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        storeTitleLabel.textColor = .white
+
+        storeGridStack.translatesAutoresizingMaskIntoConstraints = false
+        storeGridStack.axis = .vertical
+        storeGridStack.spacing = 16
+        storeGridStack.alignment = .fill
+        storeGridStack.distribution = .fill
+
+        contentView.addSubview(storeTitleLabel)
+        contentView.addSubview(storeGridStack)
+    }
+    
+    private func performPurchase(at index: Int) {
+        let part = parts[index]
+        let cost = costForPart(part)
+
+        // ✅ Soft UI check (NOT authoritative)
+        if currentStars < cost {
+            presentNotEnoughStarsPopup()
+            return
+        }
+
+        let message = """
+        Do you want to unlock the \(part.name) for ★\(cost)?
+        """
+
+        let popup = SpringOnConfirmPurchasePopupViewController(message: message)
+        popup.onConfirm = { [weak self] in
+            self?.confirmUnlock(seconds: 1, part: part)
+        }
+
+        present(popup, animated: true)
+        print("🧮 Cost:", cost)
+        print("⭐ Current Stars:", currentStars)
+
+    }
+
+    
+    private func costForPart(_ part: DreamObjectPart) -> Int {
+        guard parts.count > 0 else { return 0 }
+
+        // total reward points (from media, already fetched)
+        let totalRewardPoints = rewardPoints   // 120
+
+        // equal cost per part
+        return totalRewardPoints / parts.count
+    }
+
+
+    private func applyProgressToUI(_ progress: DreamItProgress) {
+        let unlockedParts = progress.unlocked_parts
+        nextPurchaseIndex = unlockedParts
+
+        updateStoreItemStates()
+
+        pendingSeekTime = allowedVideoTime(for: unlockedParts)
+        currentVideoEndTime = pendingSeekTime ?? 0
+        
+        if progress.completed {
+            pendingSeekTime = Double(totalSeconds)
+        }
+
+
+        print("🧠 Pending seek set to:", pendingSeekTime ?? -1)
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
@@ -122,41 +349,85 @@ final class ChildDreamItViewController: UIViewController {
     
     // MARK: - Video Setup
     
-    private func setupVideoPlayer() {
-        guard let path = Bundle.main.path(forResource: "bike_animation", ofType: "mp4") else {
-            print("Video file not found")
-            return
+    private func setupVideo(url: URL) {
+        player?.pause()
+        timeObserver.map { player?.removeTimeObserver($0) }
+
+        let playerItem = AVPlayerItem(url: url)
+        let newPlayer = AVPlayer(playerItem: playerItem)
+        newPlayer.actionAtItemEnd = .pause
+
+        let newLayer = AVPlayerLayer(player: newPlayer)
+        newLayer.videoGravity = .resizeAspect
+        newLayer.frame = videoWrapperView.bounds
+
+        videoWrapperView.layer.sublayers?.removeAll()
+        videoWrapperView.layer.addSublayer(newLayer)
+
+        player = newPlayer
+        playerLayer = newLayer
+
+        // ✅ WAIT FOR READY STATE
+        playerStatusObserver = playerItem.observe(
+            \.status,
+            options: [.initial, .new]
+        ) { [weak self] item, _ in
+            guard let self = self else { return }
+
+
+            if item.status == .readyToPlay {
+                DispatchQueue.main.async {
+                    let seekTime = self.pendingSeekTime ?? 0
+                    print("🎬 Seeking video to:", seekTime)
+
+                    self.player?.seek(
+                        to: CMTime(seconds: seekTime, preferredTimescale: 600),
+                        toleranceBefore: .zero,
+                        toleranceAfter: .zero
+                    )
+
+                    self.pendingSeekTime = nil
+                }
+            }
         }
-        
-        let url = URL(fileURLWithPath: path)
-        player = AVPlayer(url: url)
-        player?.actionAtItemEnd = .pause
-        
-        playerLayer = AVPlayerLayer(player: player)
-        playerLayer?.videoGravity = .resizeAspect // Ensures the whole bike fits
-        
-        videoWrapperView.layer.addSublayer(playerLayer!)
-        
+
         let interval = CMTime(seconds: 0.05, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+        timeObserver = player?.addPeriodicTimeObserver(
+            forInterval: interval,
+            queue: .main
+        ) { [weak self] time in
             self?.checkVideoProgress(currentTime: time.seconds)
         }
     }
+
+
     
     private func checkVideoProgress(currentTime: Double) {
-        if nextPurchaseIndex == 0 {
-            if currentTime > 0.1 { player?.pause(); player?.seek(to: .zero) }
-            return
-        }
-        if currentTime >= currentVideoEndTime {
+        guard let progress = progress else { return }
+
+        let allowedTime = allowedVideoTime(for: progress.unlocked_parts)
+
+        if currentTime >= allowedTime {
             player?.pause()
         }
+        if progress.completed {
+            return // allow full playback
+        }
+
     }
+
+
     
     // MARK: - Purchase Logic
     
     @objc private func handleStoreItemTap(_ sender: UITapGestureRecognizer) {
         guard let view = sender.view else { return }
+        
+        // 🔒 BLOCK ALL PURCHASES IF COMPLETED
+           if progress?.completed == true {
+               return
+           }
+        
         let tappedIndex = view.tag
         
         if tappedIndex == nextPurchaseIndex {
@@ -170,38 +441,130 @@ final class ChildDreamItViewController: UIViewController {
         }
     }
     
-    private func performPurchase(at index: Int) {
-        let part = bikeParts[index]
-        currentVideoEndTime = part.videoEndTime
-        player?.play()
-        nextPurchaseIndex += 1
-        updateStoreItemStates()
-        showCongratulationsPopup(for: part)
+    private func confirmUnlock(seconds: Int, part: DreamObjectPart) {
+        guard !isPurchasing else { return }
+        isPurchasing = true
+
+        Task {
+            defer { isPurchasing = false }   // 🔑 CRITICAL
+
+            do {
+                let response = try await DreamItService.shared.unlockNextPart(
+                    childId: childId,
+                    rewardId: rewardId
+                )
+
+
+                let refreshed = try await DreamItService.shared.fetchProgress(
+                    childId: childId,
+                    rewardId: rewardId
+                )
+
+                await MainActor.run {
+                    guard let newStars = response.remaining_stars else {
+                        Task { await self.loadStars() }
+                        return
+                    }
+
+                    let oldStars = self.currentStars
+                    self.currentStars = newStars
+                    self.updateCoinBadge(old: oldStars, new: newStars)
+
+                    self.progress = refreshed
+                    self.applyProgressToUI(refreshed)
+                    self.rebuildStoreUI()
+                    self.player?.play()
+                    self.showCongratulationsPopup(for: part)
+                }
+
+            }  catch {
+                let raw = error.localizedDescription
+                print("❌ Unlock failed:", raw)
+
+                await MainActor.run {
+                    if raw.contains("E_NOT_ENOUGH_STARS") {
+                        self.presentNotEnoughStarsPopup()
+                    } else if raw.contains("E_PROGRESS_NOT_FOUND") {
+                        self.showDebugError(
+                            title: "Progress Error",
+                            message: "Progress row missing in DB"
+                        )
+                    } else if raw.contains("E_NO_PARTS") {
+                        self.showDebugError(
+                            title: "Config Error",
+                            message: "No parts mapped to this reward"
+                        )
+                    } else if raw.contains("E_REWARD_NOT_FOUND") {
+                        self.showDebugError(
+                            title: "Reward Error",
+                            message: "Reward missing in DB"
+                        )
+                    } else {
+                        self.showDebugError(
+                            title: "Unknown Error",
+                            message: raw
+                        )
+                    }
+                }
+            }
+
+        }
     }
-    
+
+    private func showDebugError(title: String, message: String) {
+        let alert = UIAlertController(
+            title: title,
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func showGenericErrorPopup() {
+        let alert = UIAlertController(
+            title: "Something went wrong",
+            message: "Please try again in a moment.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     // MARK: - Helper: Update Visual States (Locks)
     private func updateStoreItemStates() {
-        for (index, _) in bikeParts.enumerated() {
+        guard let progress = progress else {
+            storeGridStack.arrangedSubviews.forEach { row in
+                row.alpha = 1
+                row.isUserInteractionEnabled = false
+            }
+            return
+        }
+
+        let completed = progress.completed
+
+
+        for (index, _) in parts.enumerated() {
             guard let card = findCardView(by: index) else { continue }
             card.viewWithTag(999)?.removeFromSuperview()
-            
+
+            card.isUserInteractionEnabled = !completed
+
+            if completed {
+                card.alpha = 0.4
+                continue
+            }
+
             if index < nextPurchaseIndex {
-                UIView.animate(withDuration: 0.3) {
-                    card.alpha = 0.5
-                    card.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
-                }
+                card.alpha = 0.5
             } else if index == nextPurchaseIndex {
-                UIView.animate(withDuration: 0.3) {
-                    card.alpha = 1.0
-                    card.transform = .identity
-                }
-            } else {
                 card.alpha = 1.0
-                card.transform = .identity
+            } else {
                 addLockOverlay(to: card)
             }
         }
     }
+
     
     private func addLockOverlay(to card: UIView) {
         let overlay = UIView()
@@ -243,7 +606,7 @@ final class ChildDreamItViewController: UIViewController {
     
     // MARK: - Congratulations Popup
     
-    private func showCongratulationsPopup(for part: BikePart) {
+    private func showCongratulationsPopup(for part: DreamObjectPart) {
         let dimView = UIView(frame: view.bounds)
         dimView.backgroundColor = UIColor.black.withAlphaComponent(0.6)
         dimView.alpha = 0
@@ -345,37 +708,32 @@ final class ChildDreamItViewController: UIViewController {
     private func setupTopBar() {
         topBarContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(topBarContainer)
-        
-        let backConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
-        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: backConfig), for: .normal)
-        backButton.tintColor = UIColor(red: 0.2, green: 0.7, blue: 1.0, alpha: 1.0)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
+
+        backButton.translatesAutoresizingMaskIntoConstraints = false   // ✅ REQUIRED
+        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        backButton.tintColor = .white
+        backButton.backgroundColor = UIColor.white.withAlphaComponent(0.18)
+        backButton.layer.cornerRadius = 18
+        backButton.layer.masksToBounds = true
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-        
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false   // (already correct)
         titleLabel.text = "Dream it"
-        titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textColor = .white
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        coinBadge.text = "★ 207"
+
+        coinBadge.translatesAutoresizingMaskIntoConstraints = false
         coinBadge.font = .systemFont(ofSize: 14, weight: .bold)
-        coinBadge.textColor = UIColor(red: 0.2, green: 0.15, blue: 0.05, alpha: 1.0)
-        coinBadge.backgroundColor = UIColor(red: 1.0, green: 0.75, blue: 0.1, alpha: 1)
+        coinBadge.textColor = .black
+        coinBadge.backgroundColor = UIColor(red: 1.0, green: 0.82, blue: 0.0, alpha: 1)
         coinBadge.layer.cornerRadius = 14
         coinBadge.layer.masksToBounds = true
-        coinBadge.translatesAutoresizingMaskIntoConstraints = false
-        
-        let profileConfig = UIImage.SymbolConfiguration(pointSize: 28, weight: .light)
-        profileButton.setImage(UIImage(systemName: "person.circle", withConfiguration: profileConfig), for: .normal)
-        profileButton.tintColor = .white
-        profileButton.translatesAutoresizingMaskIntoConstraints = false
-        
+
         topBarContainer.addSubview(backButton)
         topBarContainer.addSubview(titleLabel)
         topBarContainer.addSubview(coinBadge)
-        topBarContainer.addSubview(profileButton)
     }
-    
+
     // MARK: - UPDATED BANNER (GLASS EFFECT)
     private func setupBanner() {
         bannerContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -404,16 +762,7 @@ final class ChildDreamItViewController: UIViewController {
         glassContainerView.layer.borderWidth = 1.5
         glassContainerView.layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
 
-        // 2. Glowing Shadow (Behind the glass)
-        let glowView = UIView()
-        glowView.translatesAutoresizingMaskIntoConstraints = false
-        glowView.backgroundColor = UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 0.5) // Cyan Glow
-        glowView.layer.cornerRadius = 32
-        glowView.layer.shadowColor = UIColor(red: 0.2, green: 0.8, blue: 1.0, alpha: 1).cgColor
-        glowView.layer.shadowOpacity = 0.6
-        glowView.layer.shadowOffset = .zero
-        glowView.layer.shadowRadius = 30 // Big soft glow
-        bannerContainer.addSubview(glowView)
+  
         
         bannerContainer.addSubview(glassContainerView)
 
@@ -427,9 +776,27 @@ final class ChildDreamItViewController: UIViewController {
 
         // 4. Page Control
         pageControl.translatesAutoresizingMaskIntoConstraints = false
-        pageControl.numberOfPages = 3
+        pageControl.numberOfPages = 0
         pageControl.currentPage = 0
         bannerContainer.addSubview(pageControl)
+        pageControl.isHidden = true
+
+        
+        let swipeLeft = UISwipeGestureRecognizer(
+            target: self,
+            action: #selector(handleDreamRewardSwipe(_:))
+        )
+        swipeLeft.direction = .left
+
+        let swipeRight = UISwipeGestureRecognizer(
+            target: self,
+            action: #selector(handleDreamRewardSwipe(_:))
+        )
+        swipeRight.direction = .right
+
+        bannerContainer.addGestureRecognizer(swipeLeft)
+        bannerContainer.addGestureRecognizer(swipeRight)
+
 
         // Layout Constraints
         NSLayoutConstraint.activate([
@@ -450,12 +817,6 @@ final class ChildDreamItViewController: UIViewController {
             glassContainerView.widthAnchor.constraint(equalTo: bannerContainer.widthAnchor, multiplier: 0.9), // Wider
             glassContainerView.heightAnchor.constraint(equalTo: glassContainerView.widthAnchor, multiplier: 0.8), // Taller frame
             
-            // Glow matches glass size
-            glowView.centerXAnchor.constraint(equalTo: glassContainerView.centerXAnchor),
-            glowView.centerYAnchor.constraint(equalTo: glassContainerView.centerYAnchor),
-            glowView.widthAnchor.constraint(equalTo: glassContainerView.widthAnchor),
-            glowView.heightAnchor.constraint(equalTo: glassContainerView.heightAnchor),
-            
             // Video sits inside Glass with padding
             videoWrapperView.topAnchor.constraint(equalTo: glassContainerView.topAnchor, constant: 12),
             videoWrapperView.bottomAnchor.constraint(equalTo: glassContainerView.bottomAnchor, constant: -12),
@@ -466,35 +827,69 @@ final class ChildDreamItViewController: UIViewController {
             pageControl.bottomAnchor.constraint(equalTo: bannerContainer.bottomAnchor, constant: -10)
         ])
     }
+    
+    @objc private func handleDreamRewardSwipe(_ gesture: UISwipeGestureRecognizer) {
+        guard dreamRewardIds.count > 1 else { return } // 🔒 ADD THIS
 
-    private func setupStoreSection() {
-        storeTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        storeTitleLabel.text = "Store"
-        storeTitleLabel.font = .systemFont(ofSize: 24, weight: .bold)
-        storeTitleLabel.textColor = .white
-        contentView.addSubview(storeTitleLabel)
-        
-        storeGridStack.translatesAutoresizingMaskIntoConstraints = false
-        storeGridStack.axis = .vertical
-        storeGridStack.distribution = .fillEqually
-        storeGridStack.spacing = 16
-        contentView.addSubview(storeGridStack)
-        
-        var currentRowStack: UIStackView?
-        for (index, part) in bikeParts.enumerated() {
-            if index % 2 == 0 {
-                currentRowStack = UIStackView()
-                currentRowStack?.axis = .horizontal
-                currentRowStack?.distribution = .fillEqually
-                currentRowStack?.spacing = 16
-                storeGridStack.addArrangedSubview(currentRowStack!)
-            }
-            let card = createStoreItemCard(part: part, index: index)
-            currentRowStack?.addArrangedSubview(card)
+        if gesture.direction == .left {
+            currentRewardIndex = min(currentRewardIndex + 1, dreamRewardIds.count - 1)
+        } else {
+            currentRewardIndex = max(currentRewardIndex - 1, 0)
+        }
+
+        rewardId = dreamRewardIds[currentRewardIndex]
+        pageControl.currentPage = currentRewardIndex
+
+        resetDreamItState()
+
+        Task {
+            await loadDreamItProgress()
+            await loadStars()
         }
     }
+
     
-    private func createStoreItemCard(part: BikePart, index: Int) -> UIView {
+    private func resetDreamItState() {
+        progress = nil
+        nextPurchaseIndex = 0
+        currentVideoEndTime = 0
+        pendingSeekTime = nil
+        player?.pause()
+    }
+
+    
+    private func rebuildStoreUI() {
+        storeGridStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        var currentRow: UIStackView?
+
+        for (index, part) in parts.enumerated() {
+            if index % 2 == 0 {
+                currentRow = UIStackView()
+                currentRow?.axis = .horizontal
+                currentRow?.distribution = .fillEqually
+                currentRow?.spacing = 16
+                storeGridStack.addArrangedSubview(currentRow!)
+            }
+
+            let card = createStoreItemCard(part: part, index: index)
+            currentRow?.addArrangedSubview(card)
+        }
+
+        updateStoreItemStates()
+        
+        print("🧮 rewardPoints:", rewardPoints)
+        print("⏱ totalSeconds:", totalSeconds)
+        print("🔓 unlocked:", progress?.unlocked_parts ?? -1)
+
+
+        // 🔥 ADD THESE
+        storeGridStack.layoutIfNeeded()
+        contentView.layoutIfNeeded()
+    }
+
+
+    private func createStoreItemCard(part: DreamObjectPart, index: Int)->UIView {
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
         container.backgroundColor = .clear
@@ -527,12 +922,13 @@ final class ChildDreamItViewController: UIViewController {
         
         let priceBadge = BadgeLabel(top: 4, left: 10, bottom: 4, right: 10)
         priceBadge.translatesAutoresizingMaskIntoConstraints = false
-        priceBadge.text = "★ \(part.price)"
         priceBadge.font = .systemFont(ofSize: 12, weight: .bold)
         priceBadge.textColor = UIColor(red: 0.2, green: 0.15, blue: 0.05, alpha: 1.0)
         priceBadge.backgroundColor = UIColor(red: 1.0, green: 0.75, blue: 0.1, alpha: 1)
         priceBadge.layer.cornerRadius = 10
         priceBadge.layer.masksToBounds = true
+        
+        priceBadge.text = "★ \(costForPart(part))"
         
         container.addSubview(imageView)
         container.addSubview(priceBadge)
@@ -574,18 +970,13 @@ final class ChildDreamItViewController: UIViewController {
             
             backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: p),
             backButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 30),
-            backButton.heightAnchor.constraint(equalToConstant: 30),
+            backButton.widthAnchor.constraint(equalToConstant: 32),
+            backButton.heightAnchor.constraint(equalToConstant: 32),
             
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
             titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            
-            profileButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -p),
-            profileButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 34),
-            profileButton.heightAnchor.constraint(equalToConstant: 34),
-            
-            coinBadge.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
+
+            coinBadge.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -p),
             coinBadge.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
             
             scrollView.topAnchor.constraint(equalTo: topBarContainer.bottomAnchor),
@@ -617,4 +1008,15 @@ final class ChildDreamItViewController: UIViewController {
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
     }
+    
+    private func presentNotEnoughStarsPopup() {
+        let popup = LockedRewardPopupViewController()
+        popup.modalPresentationStyle = .overFullScreen
+        present(popup, animated: true)
+    }
+    private func allowedVideoTime(for unlockedParts: Int) -> Double {
+        guard parts.count > 0 else { return 0 }
+        return (Double(unlockedParts) / Double(parts.count)) * Double(totalSeconds)
+    }
+
 }

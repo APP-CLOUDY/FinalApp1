@@ -168,7 +168,7 @@ final class RewardTypeViewController: UIViewController,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
 
         let width = (collectionView.bounds.width - 24) / 2
-        return CGSize(width: width, height: width + 40)
+        return CGSize(width: width, height: width + 30)
     }
 }
 
@@ -213,7 +213,7 @@ final class RewardGridCell: UICollectionViewCell {
             imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
             imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            imageView.heightAnchor.constraint(equalTo: contentView.widthAnchor),
+            imageView.heightAnchor.constraint(equalTo: contentView.widthAnchor, multiplier: 0.82),
 
             titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 10),
             titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
