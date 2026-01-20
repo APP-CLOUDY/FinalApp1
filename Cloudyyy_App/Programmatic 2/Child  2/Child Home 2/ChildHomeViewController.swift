@@ -1,5 +1,19 @@
 import UIKit
-import SwiftUI // 🔥 1. IMPORT SWIFTUI
+import SwiftUI
+
+// MARK: - Physics Helper Class
+// This tracks the velocity and view for each bubble in UIKit
+final class PhysicsBubble {
+    let view: UIView
+    var velocity: CGPoint
+    let radius: CGFloat
+    
+    init(view: UIView, velocity: CGPoint, radius: CGFloat) {
+        self.view = view
+        self.velocity = velocity
+        self.radius = radius
+    }
+}
 
 final class ChildHomeViewController: UIViewController {
 
@@ -24,9 +38,18 @@ final class ChildHomeViewController: UIViewController {
     private let bubbleContainerView = UIView()
     private let bottomPaddingView = UIView()
     
-    // 🔥 2. DATA STORAGE
-    // We need to store tasks here so "bubbleTapped" knows which task was clicked
+    // MARK: - Physics & Data State
     private var currentTasks: [ScheduleTaskModelChild] = []
+    private var physicsBubbles: [PhysicsBubble] = []
+    private var displayLink: CADisplayLink?
+    
+    // 🎨 Neon Palette (Matching CloudyTheme.swift)
+    private let bubbleColors: [UIColor] = [
+        UIColor(red: 1.0, green: 0.6, blue: 0.7, alpha: 1.0), // Neon Pink
+        UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 1.0), // Neon Blue
+        UIColor(red: 0.4, green: 0.8, blue: 0.6, alpha: 1.0), // Neon Green
+        UIColor(red: 1.0, green: 0.9, blue: 0.4, alpha: 1.0)  // Neon Yellow
+    ]
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -42,12 +65,98 @@ final class ChildHomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: animated)
         startMascotFloatingAnimation()
         fetchAndDisplayData()
+        startPhysicsEngine() // Start the loop
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        stopPhysicsEngine() // Stop loop to save battery
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
         scrollView.contentSize = contentView.bounds.size
+    }
+    
+    // MARK: - Physics Engine (The "Roaming" Logic)
+    private func startPhysicsEngine() {
+        stopPhysicsEngine()
+        displayLink = CADisplayLink(target: self, selector: #selector(updatePhysics))
+        displayLink?.add(to: .main, forMode: .common)
+    }
+    
+    private func stopPhysicsEngine() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+    
+    @objc private func updatePhysics() {
+        let containerW = bubbleContainerView.bounds.width
+        let containerH = bubbleContainerView.bounds.height
+        
+        // 1. Move Bubbles & Check Walls
+        for i in 0..<physicsBubbles.count {
+            let b1 = physicsBubbles[i]
+            var center = b1.view.center
+            
+            // Apply Velocity
+            center.x += b1.velocity.x
+            center.y += b1.velocity.y
+            
+            // Wall Bouncing (Keep inside container)
+            if center.x < b1.radius {
+                center.x = b1.radius
+                b1.velocity.x *= -1
+            } else if center.x > containerW - b1.radius {
+                center.x = containerW - b1.radius
+                b1.velocity.x *= -1
+            }
+            
+            if center.y < b1.radius {
+                center.y = b1.radius
+                b1.velocity.y *= -1
+            } else if center.y > containerH - b1.radius {
+                center.y = containerH - b1.radius
+                b1.velocity.y *= -1
+            }
+            
+            b1.view.center = center
+            
+            // 2. Collision Logic (Bubble vs Bubble)
+            for j in (i + 1)..<physicsBubbles.count {
+                let b2 = physicsBubbles[j]
+                let center2 = b2.view.center
+                
+                let dx = center2.x - center.x
+                let dy = center2.y - center.y
+                let distance = sqrt(dx*dx + dy*dy)
+                let minDistance = b1.radius + b2.radius
+                
+                if distance < minDistance {
+                    let angle = atan2(dy, dx)
+                    let force: CGFloat = 0.5 // Bounce factor
+                    
+                    let fx = cos(angle) * force
+                    let fy = sin(angle) * force
+                    
+                    b1.velocity.x -= fx
+                    b1.velocity.y -= fy
+                    b2.velocity.x += fx
+                    b2.velocity.y += fy
+                    
+                    // Separate them so they don't get stuck
+                    let overlap = minDistance - distance
+                    let separationX = cos(angle) * overlap * 0.5
+                    let separationY = sin(angle) * overlap * 0.5
+                    
+                    b1.view.center.x -= separationX
+                    b1.view.center.y -= separationY
+                    b2.view.center.x += separationX
+                    b2.view.center.y += separationY
+                }
+            }
+        }
     }
     
     // MARK: - Data Logic
@@ -70,14 +179,14 @@ final class ChildHomeViewController: UIViewController {
     
     // MARK: - Bubble UI Logic
     private func updateDynamicBubblesUI(tasks: [ScheduleTaskModelChild]) {
+        // Clear existing views and physics objects
         bubbleContainerView.subviews.forEach { $0.removeFromSuperview() }
+        physicsBubbles.removeAll()
         
-        // 🔥 FIX: Hide "pending" tasks too so the bubble disappears immediately
         let activeTasks = tasks.filter {
             $0.submission_status != "approved" && $0.submission_status != "pending"
         }
         
-        // 🔥 3. STORE DATA FOR LATER
         self.currentTasks = activeTasks
 
         if activeTasks.isEmpty {
@@ -85,105 +194,91 @@ final class ChildHomeViewController: UIViewController {
             return
         }
         
-        // (Logic remains same, just ensuring we use activeTasks safely)
-        let displayTasks = activeTasks.prefix(5)
-        var occupiedFrames: [CGRect] = []
+        let displayTasks = activeTasks.prefix(6) // Limit to 6 bubbles
         let bubbleSize: CGFloat = 100
+        let radius = bubbleSize / 2
         let containerW = view.bounds.width
         let containerH: CGFloat = 450
         
         for (index, task) in displayTasks.enumerated() {
-            var finalFrame = CGRect.zero
-            var isPositionValid = false
-            var attempts = 0
             
-            while !isPositionValid && attempts < 50 {
-                let randomX = CGFloat.random(in: 10...(containerW - bubbleSize - 10))
-                let randomY = CGFloat.random(in: 10...(containerH - bubbleSize - 10))
-                let proposedFrame = CGRect(x: randomX, y: randomY, width: bubbleSize, height: bubbleSize)
-                
-                let intersects = occupiedFrames.contains { existingFrame in
-                    return proposedFrame.intersects(existingFrame.insetBy(dx: -10, dy: -10))
-                }
-                
-                if !intersects {
-                    finalFrame = proposedFrame
-                    isPositionValid = true
-                }
-                attempts += 1
-            }
+            // Random Position (safe from edges)
+            let safeX = CGFloat.random(in: radius...(containerW - radius))
+            let safeY = CGFloat.random(in: radius...(containerH - radius))
+            let frame = CGRect(x: safeX - radius, y: safeY - radius, width: bubbleSize, height: bubbleSize)
             
-            if !isPositionValid {
-                finalFrame = CGRect(x: CGFloat(index * 20) + 20, y: CGFloat(index * 50) + 20, width: bubbleSize, height: bubbleSize)
-            }
+            // Random Velocity (Movement speed)
+            let vx = CGFloat.random(in: -0.8...0.8)
+            let vy = CGFloat.random(in: -0.8...0.8)
             
-            occupiedFrames.append(finalFrame)
-            
-            // Note: passing 'index' as tag is crucial here
-            let bubble = createBubbleView(for: task, frame: finalFrame, index: index)
+            // Create View
+            let bubble = createBubbleView(for: task, frame: frame, index: index)
             bubbleContainerView.addSubview(bubble)
             
-            startBubbleFloatAnimation(view: bubble, delay: Double(index) * 0.4)
+            // Add to Physics System
+            let node = PhysicsBubble(view: bubble, velocity: CGPoint(x: vx, y: vy), radius: radius)
+            physicsBubbles.append(node)
         }
     }
 
     private func createBubbleView(for task: ScheduleTaskModelChild, frame: CGRect, index: Int) -> UIView {
-            let bubble = UIView(frame: frame)
-            
-            let categoryName = task.list_name ?? "General"
-            let themeColor = getColorForCategory(categoryName)
-            
-            // 🎨 1. GLASSY BACKGROUND (Semi-transparent black)
-            bubble.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-            
-            // 🎨 2. THIN BORDER (Subtle Stroke)
-            bubble.layer.borderColor = themeColor.withAlphaComponent(0.6).cgColor
-            bubble.layer.borderWidth = 1.0 // Thinner than before (was 2.0)
-            bubble.layer.cornerRadius = frame.width / 2
-            
-            // 🎨 3. SOFT GLOW (Reduced Shadow)
-            bubble.layer.shadowColor = themeColor.cgColor
-            bubble.layer.shadowOpacity = 0.2 // Much softer than before (was 0.6)
-            bubble.layer.shadowOffset = .zero
-            bubble.layer.shadowRadius = 8
-            
-            // TEXT CONTENT
-            let titleLabel = UILabel()
-            titleLabel.text = task.title ?? "Task"
-            titleLabel.textColor = themeColor
-            titleLabel.font = .systemFont(ofSize: 14, weight: .semibold) // Slightly larger, readable
-            titleLabel.textAlignment = .center
-            titleLabel.numberOfLines = 2
-            
-            let subLabel = UILabel()
-            // 🔥 CHANGE: Show Frequency (e.g. "Daily") instead of Category ("LEARNING")
-            subLabel.text = (task.frequency ?? "Once").capitalized
-            subLabel.textColor = UIColor.white.withAlphaComponent(0.6) // Faded white text
-            subLabel.font = .systemFont(ofSize: 11, weight: .regular)
-            subLabel.textAlignment = .center
-            
-            let textStack = UIStackView(arrangedSubviews: [titleLabel, subLabel])
-            textStack.axis = .vertical
-            textStack.spacing = 2
-            textStack.alignment = .center
-            textStack.translatesAutoresizingMaskIntoConstraints = false
-            
-            bubble.addSubview(textStack)
-            
-            NSLayoutConstraint.activate([
-                textStack.centerXAnchor.constraint(equalTo: bubble.centerXAnchor),
-                textStack.centerYAnchor.constraint(equalTo: bubble.centerYAnchor),
-                textStack.widthAnchor.constraint(equalTo: bubble.widthAnchor, constant: -10)
-            ])
-            
-            // Interaction
-            let tap = UITapGestureRecognizer(target: self, action: #selector(bubbleTapped(_:)))
-            bubble.addGestureRecognizer(tap)
-            bubble.isUserInteractionEnabled = true
-            bubble.tag = index
-            
-            return bubble
-        }
+        let bubble = UIView(frame: frame)
+        
+        // 🔥 RANDOM COLOR SELECTION
+        let themeColor = bubbleColors.randomElement() ?? bubbleColors[0]
+        
+        // 1. Simple Glassy Background
+        bubble.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        
+        // 2. Thin Neon Border
+        bubble.layer.borderColor = themeColor.withAlphaComponent(0.6).cgColor
+        bubble.layer.borderWidth = 1.0
+        bubble.layer.cornerRadius = frame.width / 2
+        
+        // 3. Soft Glow
+        bubble.layer.shadowColor = themeColor.cgColor
+        bubble.layer.shadowOpacity = 0.2
+        bubble.layer.shadowOffset = .zero
+        bubble.layer.shadowRadius = 8
+        
+        // TEXT
+        let titleLabel = UILabel()
+        titleLabel.text = task.title ?? "Task"
+        titleLabel.textColor = themeColor
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        titleLabel.textAlignment = .center
+        titleLabel.numberOfLines = 2
+        
+        let subLabel = UILabel()
+        // Show Frequency like ChatBot
+        subLabel.text = (task.frequency ?? "Once").capitalized
+        subLabel.textColor = UIColor.white.withAlphaComponent(0.6)
+        subLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        subLabel.textAlignment = .center
+        
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, subLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+        textStack.alignment = .center
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        bubble.addSubview(textStack)
+        
+        NSLayoutConstraint.activate([
+            textStack.centerXAnchor.constraint(equalTo: bubble.centerXAnchor),
+            textStack.centerYAnchor.constraint(equalTo: bubble.centerYAnchor),
+            textStack.widthAnchor.constraint(equalTo: bubble.widthAnchor, constant: -10)
+        ])
+        
+        // Tap Gesture
+        let tap = UITapGestureRecognizer(target: self, action: #selector(bubbleTapped(_:)))
+        bubble.addGestureRecognizer(tap)
+        bubble.isUserInteractionEnabled = true
+        bubble.tag = index
+        
+        return bubble
+    }
+    
     private func showEmptyState() {
         let emptyLabel = UILabel()
         emptyLabel.text = "All caught up! 🎉"
@@ -195,23 +290,7 @@ final class ChildHomeViewController: UIViewController {
         bubbleContainerView.addSubview(emptyLabel)
     }
 
-    // MARK: - Helper: Colors
-    private func getColorForCategory(_ name: String) -> UIColor {
-        let lower = name.lowercased()
-        if lower.contains("test") || lower.contains("daily") {
-            return UIColor(red: 1.0, green: 0.4, blue: 0.6, alpha: 1.0)
-        }
-        if lower.contains("math") || lower.contains("study") {
-            return UIColor(red: 0.0, green: 0.8, blue: 1.0, alpha: 1.0)
-        }
-        if lower.contains("clean") || lower.contains("chore") {
-            return UIColor(red: 0.2, green: 1.0, blue: 0.5, alpha: 1.0)
-        }
-        return UIColor(red: 0.8, green: 0.4, blue: 1.0, alpha: 1.0)
-    }
-
-    // MARK: - Setup Gradient, UI, Layout, Animations
-    // (These functions remain exactly as you wrote them)
+    // MARK: - Setup Gradient, UI, Layout
     private func setupGradient() {
         gradientLayer.colors = [
             UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
@@ -346,18 +425,6 @@ final class ChildHomeViewController: UIViewController {
         mascotImageView.layer.add(floatAnimation, forKey: "floating")
     }
     
-    private func startBubbleFloatAnimation(view: UIView, delay: Double) {
-        let upDown = CABasicAnimation(keyPath: "transform.translation.y")
-        upDown.fromValue = -5
-        upDown.toValue = 5
-        upDown.duration = Double.random(in: 2.0...3.5)
-        upDown.autoreverses = true
-        upDown.repeatCount = .infinity
-        upDown.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        upDown.beginTime = CACurrentMediaTime() + delay
-        view.layer.add(upDown, forKey: "bubbleFloat")
-    }
-    
     // MARK: - Actions
     private func setupActions() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(mascotTapped))
@@ -371,7 +438,7 @@ final class ChildHomeViewController: UIViewController {
         self.tabBarController?.selectedIndex = 3
     }
 
-    // 🔥 4. UPDATED TAP ACTION TO NAVIGATE TO SWIFTUI
+    // 🔥 4. BUBBLE TAP + ANIMATION
     @objc private func bubbleTapped(_ sender: UITapGestureRecognizer) {
         guard let bubble = sender.view else { return }
         
@@ -383,7 +450,6 @@ final class ChildHomeViewController: UIViewController {
             } completion: { [weak self] _ in
                 guard let self = self else { return }
                 
-                // 1. Get the Task Model
                 let index = bubble.tag
                 if index < self.currentTasks.count {
                     let task = self.currentTasks[index]
@@ -395,33 +461,27 @@ final class ChildHomeViewController: UIViewController {
     
     // 🔥 5. NAVIGATION FUNCTION
     private func navigateToMissionDetail(for task: ScheduleTaskModelChild) {
-        // 1. Convert Backend Task -> UI Mission Class
         let approvalNeeded = task.approval_required ?? false
         
+        // We set up the Mission object but color is not crucial here as it will re-randomize in Detail View
         let mission = Mission(
             id: task.id,
             title: task.title ?? "Unknown",
             time: task.frequency ?? "Today",
             requiresPhoto: approvalNeeded,
             approvalRequired: approvalNeeded,
-            color: Color(getColorForCategory(task.list_name ?? "")),
-            size: 100, // Static for Detail View
+            color: .blue,
+            size: 100,
             x: 0,
             y: 0
         )
         
-        // 2. Wrap the SwiftUI View
-        // We pass a closure 'onDismiss' so the SwiftUI view can tell UIKit to go back
         let detailContainer = MissionDetailContainer(mission: mission) {
-            // This runs when SwiftUI says "Back" or "Done"
             self.navigationController?.popViewController(animated: true)
-            // Optional: Refresh data to remove completed task
             self.fetchAndDisplayData()
         }
         
-        // 3. Create Host and Push
         let host = UIHostingController(rootView: detailContainer)
-        // Ensure nav bar stays hidden or styled as preferred
         self.navigationController?.pushViewController(host, animated: true)
     }
 
@@ -435,19 +495,22 @@ final class ChildHomeViewController: UIViewController {
 }
 
 // 🔥 6. SWIFTUI BRIDGE VIEW
-// This wraps your existing MissionDetailView to make it work easily inside UIKit
 struct MissionDetailContainer: View {
     let mission: Mission
-    var onDismiss: () -> Void // Callback to UIKit
+    var onDismiss: () -> Void
     
-    // We create dummy state to satisfy MissionDetailView's bindings
-    @State private var currentState: AppState = .missionDetail(Mission(id: UUID(), title: "", time: "", requiresPhoto: false, approvalRequired: false, color: .blue, size: 0, x: 0, y: 0))
+    @State private var currentState: AppState
     @State private var completedMissionIDs: Set<UUID> = []
     @State private var dissolvingMissionID: UUID? = nil
     
+    init(mission: Mission, onDismiss: @escaping () -> Void) {
+        self.mission = mission
+        self.onDismiss = onDismiss
+        _currentState = State(initialValue: .missionDetail(mission))
+    }
+    
     var body: some View {
         ZStack {
-            // Background
             LinearGradient(
                 gradient: Gradient(colors: [.bgGradientStart, .bgGradientEnd]),
                 startPoint: .top,
@@ -455,8 +518,6 @@ struct MissionDetailContainer: View {
             )
             .ignoresSafeArea()
             
-            // Your Existing View
-            // We pass the mission we created from UIKit
             MissionDetailView(
                 currentState: $currentState,
                 mission: mission,
@@ -464,7 +525,6 @@ struct MissionDetailContainer: View {
                 dissolvingMissionID: $dissolvingMissionID
             )
         }
-        // Watch for state changes. If currentState changes from .missionDetail -> .missionCluster (which happens when you click "Back"), we dismiss UIKit.
         .onChange(of: currentState) { newState in
             if case .missionCluster = newState {
                 onDismiss()
