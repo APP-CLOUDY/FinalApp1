@@ -76,12 +76,11 @@ class ProfileViewController: UIViewController {
     
     private let avatarImageView: UIImageView = {
         let iv = UIImageView()
-        // Default placeholder
         iv.image = UIImage(systemName: "person.crop.circle.fill")
         iv.tintColor = .lightGray
         iv.contentMode = .scaleAspectFill
         iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.layer.cornerRadius = 35 // Exact half of width (70)
+        iv.layer.cornerRadius = 35
         iv.clipsToBounds = true
         iv.layer.borderWidth = 2
         iv.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
@@ -99,7 +98,7 @@ class ProfileViewController: UIViewController {
     
     private let roleLabel: UILabel = {
         let label = UILabel()
-        label.text = "Chore Champion"
+        label.text = "..."
         label.font = .systemFont(ofSize: 15, weight: .medium)
         label.textColor = UIColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 1.0) // Gold Color
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -136,6 +135,7 @@ class ProfileViewController: UIViewController {
         addMenuItems()
         setupActions()
         
+        // Initial Fetch
         fetchProfileData()
     }
     
@@ -143,6 +143,8 @@ class ProfileViewController: UIViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         self.tabBarController?.tabBar.isHidden = false
+        
+        // Fetch every time we appear to keep data fresh
         fetchProfileData()
     }
     
@@ -153,39 +155,46 @@ class ProfileViewController: UIViewController {
     
     override var preferredStatusBarStyle: UIStatusBarStyle { return .lightContent }
 
-    // MARK: - Backend Logic
+    // MARK: - Backend Logic (✅ UPDATED FOR CHILD)
     
-    private func fetchProfileData() {
-        _Concurrency.Task {
-            do {
-                let profile = try await ProfileService.shared.fetchUserProfile()
-                
-                await MainActor.run {
-                    self.nameLabel.text = profile.first_name
+    // In ProfileViewController.swift
+
+        private func fetchProfileData() {
+            _Concurrency.Task {
+                do {
+                    let child = try await ProfileService.shared.fetchChildProfile()
                     
-                    // 1. Get Avatar Name
-                    let avatarName = profile.avatar_id ?? "tiger.png"
-                    
-                    // 2. Get URL String from Service
-                    // ✅ FIX: No 'if let' here because getAvatarURL returns a non-optional String
-                    let urlString = ProfileService.shared.getAvatarURL(fileName: avatarName)
-                    
-                    // 3. Convert String to URL and Download
-                    if let url = URL(string: urlString) {
-                        self.downloadImage(from: url)
+                    await MainActor.run {
+                        // 1. Name (Always show the real name)
+                        self.nameLabel.text = child.name
+                        
+                        // 2. Role (Show Nickname as the Fun Title)
+                        // If nickname is empty, default to "Chore Champion"
+                        if let roleTitle = child.nickname, !roleTitle.isEmpty {
+                            self.roleLabel.text = roleTitle
+                        } else {
+                            self.roleLabel.text = "Chore Champion"
+                        }
+                        
+                        // 3. Avatar (From Child Bucket)
+                        let avatarName = child.avatar_url ?? "tiger.png"
+                        let urlString = ProfileService.shared.getChildAvatarURL(fileName: avatarName)
+                        
+                        if let url = URL(string: urlString) {
+                            self.downloadImage(from: url)
+                        }
                     }
-                }
-            } catch {
-                print("Error fetching profile: \(error)")
-                await MainActor.run {
-                    self.nameLabel.text = "Kid"
-                    self.avatarImageView.image = UIImage(systemName: "person.crop.circle.fill")
+                } catch {
+                    print("❌ Error fetching child profile: \(error)")
+                    await MainActor.run {
+                        self.nameLabel.text = "Kid"
+                        self.roleLabel.text = "..."
+                        self.avatarImageView.image = UIImage(systemName: "person.crop.circle.fill")
+                    }
                 }
             }
         }
-    }
-    
-    // ✅ INTERNAL IMAGE DOWNLOADER helper
+    // Internal Image Downloader
     private func downloadImage(from url: URL) {
         URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             guard let data = data, let image = UIImage(data: data) else { return }
@@ -384,7 +393,8 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func editAvatarTapped() {
-        let vc = AvatarSelectViewController()
+        // ✅ Uses the new Child-specific avatar picker
+        let vc = ChildAvatarSelectViewController()
         navigationController?.pushViewController(vc, animated: true)
     }
     

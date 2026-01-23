@@ -531,7 +531,15 @@ final class ChildHomeViewController: UIViewController {
     }
 
     @objc private func profileButtonTapped() {
-        print("Navigating to Profile")
+        let profileVC = ProfileViewController()
+        
+        // 🔥 This is the key line to HIDE the Tab Bar
+        profileVC.hidesBottomBarWhenPushed = true
+        
+        // We still show the Navigation Bar so the user has a "Back" button
+        navigationController?.setNavigationBarHidden(false, animated: true)
+        
+        self.navigationController?.pushViewController(profileVC, animated: true)
     }
     
     @objc private func bellButtonTapped() {

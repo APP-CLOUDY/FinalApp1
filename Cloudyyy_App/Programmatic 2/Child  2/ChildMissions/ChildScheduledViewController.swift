@@ -355,6 +355,20 @@ final class KidAgendaViewController: UIViewController {
             present(approvalsVC, animated: true)
         }
     }
+    
+    @objc private func didTapProfileButton() {
+            let profileVC = ProfileViewController()
+            
+            // 1. Hide the Tab Bar
+            profileVC.hidesBottomBarWhenPushed = true
+            
+            // 2. Unhide Navigation Bar so the "Back" button appears
+            navigationController?.setNavigationBarHidden(false, animated: true)
+            
+            // 3. Push
+            navigationController?.pushViewController(profileVC, animated: true)
+        }
+    
 
     // MARK: - UI Configuration
     private func configureGradientBackground() {
@@ -375,6 +389,9 @@ final class KidAgendaViewController: UIViewController {
         
         // ✅ Target added here to link the button to the function
         approvalsIconButton.addTarget(self, action: #selector(didTapApprovalsButton), for: .touchUpInside)
+        
+        // 👇 ADD THIS LINE: Connect Profile Button
+                profileAvatarButton.addTarget(self, action: #selector(didTapProfileButton), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
             titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
