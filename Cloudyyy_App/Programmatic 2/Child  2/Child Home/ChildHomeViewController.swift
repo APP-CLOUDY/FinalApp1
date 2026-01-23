@@ -428,8 +428,12 @@ final class ChildHomeViewController: UIViewController {
     }
 
     @objc private func profileButtonTapped() {
-        print("Navigating to Profile")
-    }
+            // 1. Instantiate the Child Profile View Controller
+            let profileVC = ProfileViewController()
+            
+            // 2. Push it onto the navigation stack
+            navigationController?.pushViewController(profileVC, animated: true)
+        }
     
     @objc private func bellButtonTapped() {
         print("Navigating to Notifications")
