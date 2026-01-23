@@ -186,7 +186,7 @@ class CloudyViewModel: ObservableObject {
         isAIThinking = true
         
         Task {
-            let response = await OllamaAIService.shared.sendMessage(
+            let response = await GeminiAIService.shared.sendMessage(
                 userQuery: userText,
                 missions: missions,
                 rewardsBalance: 100

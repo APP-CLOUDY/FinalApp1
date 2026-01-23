@@ -331,7 +331,7 @@ final class ChildHomeViewController: UIViewController {
         mascotImageView.contentMode = .scaleAspectFit
         mascotImageView.isUserInteractionEnabled = true
         
-        bubbleInstructionLabel.text = "Tap a bubble to start"
+        bubbleInstructionLabel.text = ""
         bubbleInstructionLabel.font = UIFont.boldSystemFont(ofSize: 18)
         bubbleInstructionLabel.textColor = .white
         

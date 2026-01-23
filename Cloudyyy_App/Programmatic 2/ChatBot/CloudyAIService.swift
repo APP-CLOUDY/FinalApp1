@@ -1,11 +1,17 @@
 import Foundation
 
-actor OllamaAIService {
+actor GeminiAIService {
 
-    static let shared = OllamaAIService()
+    static let shared = GeminiAIService()
 
-    private let endpoint = "http://localhost:11434/api/generate"
-    private let model = "llama3"
+    // ⚠️ Move this to backend / env for production
+    private let apiKey = "AIzaSyC5I55ka54x0y-uMgFnX1liRxN3cY8Dpgc"
+
+    // CONFIRMED working model for your key
+    private let model = "models/gemini-2.5-flash"
+
+    private let endpoint =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
     func sendMessage(
         userQuery: String,
@@ -34,34 +40,43 @@ actor OllamaAIService {
         \(userQuery)
         """
 
-        let body: [String: Any] = [
-            "model": model,
-            "prompt": prompt,
-            "stream": false
-        ]
-
-        guard let url = URL(string: endpoint) else {
+        let urlString = "\(endpoint)?key=\(apiKey)"
+        guard let url = URL(string: urlString) else {
             return fallback
         }
+
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "role": "user",
+                    "parts": [
+                        ["text": prompt]
+                    ]
+                ]
+            ]
+        ]
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                print("❌ Ollama HTTP Error:", http.statusCode)
-                print(String(data: data, encoding: .utf8) ?? "")
+            guard
+                let http = response as? HTTPURLResponse,
+                http.statusCode == 200
+            else {
                 return fallback
             }
 
             if
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let text = json["response"] as? String
+                let candidates = json["candidates"] as? [[String: Any]],
+                let content = candidates.first?["content"] as? [String: Any],
+                let parts = content["parts"] as? [[String: Any]],
+                let text = parts.first?["text"] as? String
             {
                 return text.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -69,7 +84,7 @@ actor OllamaAIService {
             return fallback
 
         } catch {
-            print("❌ Ollama Network Error:", error)
+            print("❌ Gemini Network Error:", error)
             return fallback
         }
     }
