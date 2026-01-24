@@ -9,13 +9,15 @@ struct WelcomeView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 25) {
+            // ⚡️ Reduced spacing from 25 to 15 to pull things up
+            VStack(spacing: 15) {
+                
                 Image("cloudyy_logo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 150)
                     .shadow(color: .white.opacity(0.15), radius: 15)
-                    .padding(.top, 40)
+                    // ❌ REMOVED: .padding(.top, 10) -> Removed completely to move it up.
                
                 ChatBubbleContainer {
                     HStack(spacing: 12) {
@@ -70,7 +72,7 @@ struct WelcomeView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.top, 5) // ⚡️ Reduced from 20 to 5. Now it sits tight to the header.
         }
     }
 }

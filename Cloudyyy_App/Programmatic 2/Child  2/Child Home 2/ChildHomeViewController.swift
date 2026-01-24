@@ -18,6 +18,9 @@ final class PhysicsBubble {
 final class ChildHomeViewController: UIViewController {
 
     // MARK: - UI Elements
+    // 🔥 Added reference to the height constraint for dynamic resizing
+    private var bubbleContainerHeightConstraint: NSLayoutConstraint?
+    
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let gradientLayer = CAGradientLayer()
@@ -190,24 +193,48 @@ final class ChildHomeViewController: UIViewController {
         self.currentTasks = activeTasks
 
         if activeTasks.isEmpty {
+            // Reset to default height if empty
+            self.bubbleContainerHeightConstraint?.constant = 400
             showEmptyState()
             return
         }
         
-        let displayTasks = activeTasks.prefix(6) // Limit to 6 bubbles
-        let bubbleSize: CGFloat = 100
-        let radius = bubbleSize / 2
+        // 1. UNLIMITED TASKS (Removed the .prefix(10) limit)
+        let displayTasks = activeTasks
+        
+        // 2. 🔥 DYNAMIC HEIGHT CALCULATION
+        // Base height 450. We add ~80px per bubble to ensure they have vertical room to float.
+        let baseHeight: CGFloat = 450
+        let requiredHeight = max(baseHeight, CGFloat(displayTasks.count) * 50)
+        
+        // 3. APPLY HEIGHT UPDATE
+        self.bubbleContainerHeightConstraint?.constant = requiredHeight
+        self.view.layoutIfNeeded() // Force layout update so physics bounds are correct
+        
         let containerW = view.bounds.width
-        let containerH: CGFloat = 450
+        let containerH = requiredHeight // Use new dynamic height
         
         for (index, task) in displayTasks.enumerated() {
             
-            // Random Position (safe from edges)
-            let safeX = CGFloat.random(in: radius...(containerW - radius))
-            let safeY = CGFloat.random(in: radius...(containerH - radius))
+            // 🔥 4. DYNAMIC SIZE LOGIC BASED ON POINTS
+            // 20 points = 90 size, 30 points = 100 size.
+            // Clamped between 80 (min) and 150 (max) to prevent tiny or huge bubbles.
+            let pointsValue = CGFloat(task.points)
+            let bubbleSize = min(150, max(80, 70 + pointsValue))
+            let radius = bubbleSize / 2
+            
+            // Random Position (safe from edges using the specific radius of this bubble)
+            let minX = radius
+            let maxX = max(radius, containerW - radius)
+            let minY = radius
+            let maxY = max(radius, containerH - radius)
+            
+            let safeX = CGFloat.random(in: minX...maxX)
+            let safeY = CGFloat.random(in: minY...maxY)
+            
             let frame = CGRect(x: safeX - radius, y: safeY - radius, width: bubbleSize, height: bubbleSize)
             
-            // Random Velocity (Movement speed)
+            // Random Velocity
             let vx = CGFloat.random(in: -0.8...0.8)
             let vy = CGFloat.random(in: -0.8...0.8)
             
@@ -219,6 +246,10 @@ final class ChildHomeViewController: UIViewController {
             let node = PhysicsBubble(view: bubble, velocity: CGPoint(x: vx, y: vy), radius: radius)
             physicsBubbles.append(node)
         }
+        
+        // 🔥 5. Update ScrollView Content Size
+        // This ensures the user can scroll down to see the new extended area
+        scrollView.contentSize = contentView.bounds.size
     }
 
     private func createBubbleView(for task: ScheduleTaskModelChild, frame: CGRect, index: Int) -> UIView {
@@ -250,8 +281,8 @@ final class ChildHomeViewController: UIViewController {
         titleLabel.numberOfLines = 2
         
         let subLabel = UILabel()
-        // Show Frequency like ChatBot
-        subLabel.text = (task.frequency ?? "Once").capitalized
+        // Show Points
+        subLabel.text = "\(task.points) ⭐️"
         subLabel.textColor = UIColor.white.withAlphaComponent(0.6)
         subLabel.font = .systemFont(ofSize: 11, weight: .regular)
         subLabel.textAlignment = .center
@@ -355,6 +386,10 @@ final class ChildHomeViewController: UIViewController {
     }
 
     private func setupLayout() {
+        // 🔥 Create the height constraint separately so we can store it
+        let heightConstraint = bubbleContainerView.heightAnchor.constraint(equalToConstant: 450)
+        self.bubbleContainerHeightConstraint = heightConstraint
+        
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -384,16 +419,24 @@ final class ChildHomeViewController: UIViewController {
             bellButton.heightAnchor.constraint(equalToConstant: 30),
 
             mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65),
-            mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 10),
+            mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             mascotImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.55),
             mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
 
-            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 40),
-            quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 20),
-            quoteBubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            quoteBubble.widthAnchor.constraint(equalToConstant: 180),
-            quoteBubble.heightAnchor.constraint(equalToConstant: 75),
-            
+            // ... inside setupLayout ...
+
+                        quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70), // Vertical overlap
+                        
+                        // 1. Move RIGHT: Increase this number to overlap more into the cloud
+                        // (e.g., 60 means the bubble goes 60pts past the start of the mascot)
+                        quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 60),
+                        
+                        // 2. FIXED SIZE: Keep these so it doesn't stretch
+                        quoteBubble.widthAnchor.constraint(equalToConstant: 180),
+                        quoteBubble.heightAnchor.constraint(equalToConstant: 75),
+                        
+                        // ❌ DELETE OR COMMENT OUT THIS LINE 👇
+                        // quoteBubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),m
             quoteLabel.centerYAnchor.constraint(equalTo: quoteBubble.centerYAnchor),
             quoteLabel.leadingAnchor.constraint(equalTo: quoteBubble.leadingAnchor, constant: 16),
             quoteLabel.trailingAnchor.constraint(equalTo: quoteBubble.trailingAnchor, constant: -16),
@@ -401,10 +444,12 @@ final class ChildHomeViewController: UIViewController {
             bubbleInstructionLabel.topAnchor.constraint(equalTo: mascotImageView.bottomAnchor, constant: 30),
             bubbleInstructionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
-            bubbleContainerView.topAnchor.constraint(equalTo: bubbleInstructionLabel.bottomAnchor, constant: 10),
+            bubbleContainerView.topAnchor.constraint(equalTo: bubbleInstructionLabel.bottomAnchor, constant: -100),
             bubbleContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bubbleContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            bubbleContainerView.heightAnchor.constraint(equalToConstant: 450),
+            
+            // 🔥 Active the stored constraint
+            heightConstraint,
 
             bottomPaddingView.topAnchor.constraint(equalTo: bubbleContainerView.bottomAnchor, constant: 20),
             bottomPaddingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),

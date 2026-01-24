@@ -4,7 +4,7 @@ import Combine
 @MainActor
 class CloudyViewModel: ObservableObject {
     
-    // ⚡️ UPDATED: Logic to Auto-Start/Stop Physics AND Reload Data
+    // ⚡️ Logic to Auto-Start/Stop Physics AND Reload Data
     @Published var currentState: AppState = .chatWelcome {
         didSet {
             // If we just switched TO the bubbles screen...
@@ -12,8 +12,7 @@ class CloudyViewModel: ObservableObject {
                 print("🟢 Entered Cluster: Starting Physics & Loading Data")
                 startPhysics()
                 
-                // 🔥 FIX: Force reload missions every time we enter this screen
-                // This ensures new tasks assigned by Parent appear instantly.
+                // 🔥 FIX: Force reload missions & rewards every time we enter this screen
                 Task {
                     await loadMissions()
                 }
@@ -35,6 +34,10 @@ class CloudyViewModel: ObservableObject {
     @Published var isAIThinking: Bool = false
     @Published var isLoading: Bool = false
     
+    // ✅ 1. Rewards Data
+    @Published var rewardsBalance: Int = 0
+    @Published var availableRewards: [RewardItem] = [] // The "Shop" items
+    
     // ⚙️ PHYSICS ENGINE STATE
     private var physicsTimer: Timer?
     
@@ -42,11 +45,11 @@ class CloudyViewModel: ObservableObject {
     
     // MARK: - 🔄 Data Loading
     func loadMissions() async {
-        // ❌ REMOVED: guard missions.isEmpty else { return }
-        // We removed the guard so it ALWAYS refreshes when called.
-        
         isLoading = true
         defer { isLoading = false }
+        
+        // ✅ 2. Load Rewards alongside Missions
+        await loadRewards()
         
         do {
             // Using ChildHomeService to get the child's perspective
@@ -68,18 +71,14 @@ class CloudyViewModel: ObservableObject {
                 let randomX = CGFloat.random(in: -100...100)
                 let randomY = CGFloat.random(in: -150...150)
                 
-                // ✅ Check if Approval is required
+                // Check if Approval is required
                 let isApprovalNeeded = task.approval_required ?? false
                 
                 return Mission(
                     id: task.id,
                     title: task.title,
-                    time: task.frequency,
-                    
-                    // 🔥 FIX: Link requiresPhoto to approval_required
-                    // If approval is needed, they MUST take a photo.
-                    requiresPhoto: isApprovalNeeded,
-                    
+                    time: task.frequency ?? "Today",
+                    requiresPhoto: isApprovalNeeded, // If approval is needed, they MUST take a photo.
                     approvalRequired: isApprovalNeeded,
                     color: randomColor,
                     size: randomSize,
@@ -90,6 +89,22 @@ class CloudyViewModel: ObservableObject {
             
         } catch {
             print("❌ Failed to load missions: \(error)")
+        }
+    }
+    
+    // ✅ 3. Load Rewards (Balance + Shop Items)
+    func loadRewards() async {
+        do {
+            // 1. Get Balance
+            let stats = try await ChildHomeService.shared.fetchChildRewardStats()
+            self.rewardsBalance = stats.total_stars
+            
+            // 2. Get Shop Items
+            self.availableRewards = try await ChildHomeService.shared.fetchAvailableRewards()
+            
+            print("💰 Loaded: \(self.rewardsBalance) coins and \(self.availableRewards.count) shop items.")
+        } catch {
+            print("⚠️ Failed to load rewards: \(error)")
         }
     }
     
@@ -186,10 +201,12 @@ class CloudyViewModel: ObservableObject {
         isAIThinking = true
         
         Task {
+            // ✅ 4. Pass Missions, Shop Items, and Balance to AI
             let response = await GeminiAIService.shared.sendMessage(
                 userQuery: userText,
                 missions: missions,
-                rewardsBalance: 100
+                rewardsList: self.availableRewards, // <--- Passing the shop items
+                rewardsBalance: self.rewardsBalance // <--- Passing the balance
             )
             
             await MainActor.run {
