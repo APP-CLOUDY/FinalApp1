@@ -135,8 +135,10 @@ final class DreamItViewController: UIViewController {
             do {
                 let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
                 let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Dream it")
+                print("🎯 Active:", lists.active.count, "History:", lists.history.count)
                 
-                
+                print("👶 Selected Kid:", kid.id.uuidString, kid.name)
+
                 await MainActor.run {
                     self.currentBalance = stats.total_stars
                     
@@ -173,6 +175,8 @@ final class DreamItViewController: UIViewController {
                 print("Error loading rewards: \(error)")
             }
         }
+      
+
     }
 
     // MARK: - UI Population
