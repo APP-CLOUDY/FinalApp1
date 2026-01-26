@@ -195,6 +195,7 @@ final class NewRewardViewController: UIViewController {
                 quickInput.notesText = item.description ?? ""
             }
             
+            
             existingImageUrl = item.image_url
             
             // ✅ Populate Extra Fields (Claim Limit & Type)
@@ -270,7 +271,6 @@ final class NewRewardViewController: UIViewController {
     }
     
     private func handleAssignedToVisibility() {
-
         let count = childrenList.count
 
         if count == 0 {
@@ -282,15 +282,15 @@ final class NewRewardViewController: UIViewController {
             let onlyChild = childrenList.first!
             assignedSelections = [onlyChild.id]
             assignedToRow.isHidden = true
-            return
+            return   // 🔥 CRITICAL FIX
         }
 
         // ✅ MULTIPLE CHILDREN
         assignedToRow.isHidden = false
-
-        updateAssignedMenu()     // ✅ MUST
-        updateAssignedLabel()    // ✅ MUST
+        updateAssignedMenu()
+        updateAssignedLabel()
     }
+
 
     // MARK: - Gradient & Header
     private func setupGradient() {
@@ -708,7 +708,16 @@ final class NewRewardViewController: UIViewController {
     
     @objc private func doneTapped() {
         view.endEditing(true)
+        // 🔥 SAFETY FIX FOR SINGLE CHILD
+        // 🔥 SAFETY FIX — Only auto-assign when exactly ONE child AND nothing selected yet
+        if childrenList.count == 1,
+           assignedSelections.isEmpty,
+           let onlyChild = childrenList.first {
+            assignedSelections = [onlyChild.id]
+        }
+
         
+
         // -----------------------------------------
         // 1️⃣ Determine which Title/Description to use
         // -----------------------------------------
@@ -768,6 +777,27 @@ final class NewRewardViewController: UIViewController {
             return
         }
         
+        // -------- Mandatory field enforcement --------
+
+        if categoryName == "Spring On",
+           selectedImage == nil,
+           existingImageUrl == nil {
+            showAlert("Please select an image for Spring On reward")
+            return
+        }
+
+        if categoryName == "Dream It",
+           selectedDreamObjectId == nil {
+            showAlert("Please select a 3D object for Dream It reward")
+            return
+        }
+
+        if categoryName == "Quick Rewards",
+           rewardTypeRow.detailValue == nil {
+            showAlert("Please select a reward type")
+            return
+        }
+        
         
         // -----------------------------------------
         // 3️⃣ Extra Fields
@@ -795,9 +825,15 @@ final class NewRewardViewController: UIViewController {
         doneBtn?.isEnabled = false
         doneBtn?.setTitle("Saving...", for: .normal)
         
-        // ✅ SAFETY: auto-assign all children if none selected
         if childrenList.count > 1 && assignedSelections.isEmpty {
-            assignedSelections = Set(childrenList.map { $0.id })
+            let alert = UIAlertController(
+                title: "Select Child",
+                message: "Please select at least one child to assign this reward.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
         }
 
         
@@ -857,6 +893,17 @@ final class NewRewardViewController: UIViewController {
             }
         }
     }
+    
+    private func showAlert(_ message: String) {
+        let alert = UIAlertController(
+            title: "Missing Information",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
 }
 extension NewRewardViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { picker.dismiss(animated: true) }

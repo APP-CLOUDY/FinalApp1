@@ -148,10 +148,24 @@ final class RewardService: Sendable {
     }
     
     func fetchRewards(for childId: UUID, category: String) async throws -> RewardLists {
-        let params = ["child_id_input": childId.uuidString, "category_input": category]
-        return try await client.database.rpc("get_child_rewards", params: params).execute().value
+
+        let params = [
+            "child_id_input": childId.uuidString,
+            "category_input": category
+        ]
+
+        print("📤 RPC CALL → child:", childId.uuidString, "category:", category)
+
+        let response: RewardLists = try await client.database
+            .rpc("get_child_rewards", params: params)
+            .execute()
+            .value
+
+        print("📥 RPC RESPONSE → Active:", response.active.count, "History:", response.history.count)
+
+        return response
     }
-    
+
     func fetchAssignments(for rewardId: UUID) async throws -> [UUID] {
         let params = FetchRewardAssignParams(reward_id_input: rewardId)
         return try await client.rpc("get_reward_assignments", params: params).execute().value

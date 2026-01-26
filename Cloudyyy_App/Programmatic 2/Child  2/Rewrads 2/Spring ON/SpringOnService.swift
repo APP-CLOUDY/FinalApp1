@@ -13,17 +13,21 @@ nonisolated final class SpringOnService {
     // ✅ ADD THIS
     func fetchSpringOnRewardIds(childId: UUID) async throws -> [UUID] {
 
-        let response = try await client
+        let response: [UUID] = try await client
             .rpc(
                 "get_spring_on_reward_id",
                 params: [
                     "child_id_input": childId.uuidString
                 ]
             )
+            .single()
             .execute()
+            .value
 
-        return try JSONDecoder().decode([UUID].self, from: response.data)
+        return response
+        
     }
+
 
     struct SpringOnRewardMedia: Decodable {
         let image_url: String

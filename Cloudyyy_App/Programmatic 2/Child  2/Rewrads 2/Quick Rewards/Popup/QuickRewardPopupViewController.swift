@@ -283,23 +283,66 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                     )
 
                 await MainActor.run {
-                    NotificationCenter.default.post(
-                        name: .rewardRedeemed,
-                        object: nil
-                    )
+                    NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
+
+                    // 🔥 Force immediate refresh of coin UI everywhere
+                    NotificationCenter.default.post(name: .taskDidComplete, object: nil)
+
                     self.dismiss(animated: true)
                 }
+
 
             } catch {
                 await MainActor.run {
                     self.isSubmitting = false
 
-                    // ✅ BACKEND DECIDES
-                    self.showNotEnoughStarsPopup()
+                    let message = (error as NSError).localizedDescription.lowercased()
+
+                    if message.contains("not enough") {
+                        self.showNotEnoughStarsPopup()
+                    } else if message.contains("already") {
+                        self.showAlreadyClaimedPopup()
+                    } else if message.contains("assigned") {
+                        self.showLockedPopup()
+                    } else {
+                        self.showGenericErrorPopup(message: error.localizedDescription)
+                    }
                 }
             }
+
         }
     }
+    
+    private func showAlreadyClaimedPopup() {
+        let vc = LockedRewardPopupViewController()
+        vc.overrideMessage(
+            title: "Already Claimed",
+            message: "You’ve already claimed this reward 😊"
+        )
+        vc.modalPresentationStyle = .overFullScreen
+        present(vc, animated: true)
+    }
+
+    private func showLockedPopup() {
+        let vc = LockedRewardPopupViewController()
+        vc.overrideMessage(
+            title: "Locked",
+            message: "This reward is not assigned to you yet."
+        )
+        vc.modalPresentationStyle = .overFullScreen
+        present(vc, animated: true)
+    }
+
+    private func showGenericErrorPopup(message: String) {
+        let alert = UIAlertController(
+            title: "Something went wrong",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
 
 
     private func showNotEnoughStarsPopup() {
