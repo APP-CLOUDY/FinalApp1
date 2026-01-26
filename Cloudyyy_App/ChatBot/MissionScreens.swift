@@ -9,13 +9,15 @@ struct WelcomeView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 25) {
+            // ⚡️ Reduced spacing from 25 to 15 to pull things up
+            VStack(spacing: 15) {
+                
                 Image("cloudyy_logo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 150)
                     .shadow(color: .white.opacity(0.15), radius: 15)
-                    .padding(.top, 40)
+                    // ❌ REMOVED: .padding(.top, 10) -> Removed completely to move it up.
                
                 ChatBubbleContainer {
                     HStack(spacing: 12) {
@@ -70,7 +72,7 @@ struct WelcomeView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.top, 5) // ⚡️ Reduced from 20 to 5. Now it sits tight to the header.
         }
     }
 }
@@ -184,76 +186,42 @@ struct MissionDetailView: View {
                     }
                     .padding(.horizontal, 20)
                    
+                    Text("Mission")
+                        .font(.title3.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, -15)
                    
-                    // ... (Chat Bubble code above remains the same)
-
-                                        Text("Mission")
-                                            .font(.title3.bold())
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 24)
-                                            .padding(.bottom, -15)
-                                        
-                                        // MARK: - 🔥 UPDATED GLASSY MISSION CARD
-                                        HStack(alignment: .top, spacing: 16) {
-                                            
-                                            // 1. Left Accent Bar (Pill Shape)
-                                            Capsule()
-                                                .fill(mission.color) // Uses the mission's dynamic color
-                                                .frame(width: 5)
-                                                .padding(.vertical, 4) // Slight inset from top/bottom
-                                            
-                                            // 2. Center Content (Title & Details)
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                // Title
-                                                Text(mission.title.replacingOccurrences(of: "\n", with: " "))
-                                                    .font(.system(size: 18, weight: .bold))
-                                                    .foregroundColor(.white)
-                                                    .lineLimit(2)
-                                                
-                                                // Points & Time Row
-                                                HStack(spacing: 6) {
-                                                    // Note: If your Mission class has a 'points' property, use: "\(mission.points)"
-                                                    Text("40 Points")
-                                                        .fontWeight(.medium)
-                                                    
-                                                    Text("•")
-                                                    
-                                                    Text("Due \(mission.time)")
-                                                }
-                                                .font(.system(size: 14))
-                                                .foregroundColor(.white.opacity(0.6)) // Light grey for metadata
-                                                
-                                                // Folder / Category Row
-                                                HStack(spacing: 6) {
-                                                    Image(systemName: "folder")
-                                                    Text("General") // You can swap this with mission.category if available
-                                                }
-                                                .font(.system(size: 13))
-                                                .foregroundColor(.white.opacity(0.5))
-                                            }
-                                            
-                                            Spacer()
-                                            
-                                            // 3. Right Icon (Hourglass)
-                                            Image(systemName: "hourglass")
-                                                .font(.system(size: 22))
-                                                .foregroundColor(mission.color) // Matches the accent bar
-                                                .padding(.top, 4)
-                                        }
-                                        .padding(16) // Padding inside the card
-                                        .background(
-                                            // ✨ The Glassy Dark Background
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .fill(Color.black.opacity(0.3)) // Dark semi-transparent background
-                                        )
-                                        .overlay(
-                                            // ✨ Subtle White Border for "Glass" edge
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                        )
-                                        .padding(.horizontal, 20) // Padding from screen edges
-
-                                        // ... (Photo Preview code below remains the same)
+                    // Mission Info Card
+                    HStack(alignment: .top) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(mission.color)
+                            .frame(width: 6)
+                            .padding(.vertical, 8)
+                       
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(mission.title.replacingOccurrences(of: "\n", with: " "))
+                                .font(.title2.bold())
+                                .foregroundColor(.white)
+                           
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                Text(mission.time)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.leading, 12)
+                        .padding(.vertical, 12)
+                       
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .background(Color.missionCardBg)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 20)
                    
                     // Photo Preview (Shows image if taken)
                     if let img = capturedImage {

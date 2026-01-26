@@ -27,6 +27,8 @@ struct ChatMessage: Identifiable, Equatable {
 }
 
 // MARK: - Data Models (Supabase)
+
+// 1. Task Item
 struct TaskItem: Identifiable, Codable {
     let id: UUID
     let title: String
@@ -48,6 +50,26 @@ struct TaskItem: Identifiable, Codable {
         case approvalRequired = "approval_required"
         case dueTime = "due_time"
         case submissionStatus = "submission_status"
+    }
+}
+
+// 2. ✅ NEW: Reward Item (Based on SQL 'rewards' table)
+// This is required for the Chatbot to know what items are in the shop.
+struct RewardItem: Identifiable, Codable, Sendable {
+    let id: UUID
+    let title: String
+    let description: String?
+    let points: Int
+    let category: String // Maps to 'reward_category'
+    let imageUrl: String? // Maps to 'image_url'
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case points
+        case category = "reward_category"
+        case imageUrl = "image_url"
     }
 }
 

@@ -5,36 +5,50 @@ actor GeminiAIService {
     static let shared = GeminiAIService()
 
     // ⚠️ Move this to backend / env for production
-    private let apiKey = "AIzaSyC5I55ka54x0y-uMgFnX1liRxN3cY8Dpgc"
+    private let apiKey = "AIzaSyBHYhHoMvnQkXQNo9JaOQxveO0I6_vddM8"
 
-    // CONFIRMED working model for your key
+    // CONFIRMED working model for your key (As per your request)
     private let model = "models/gemini-2.5-flash"
 
     private let endpoint =
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
+    // ✅ UPDATED: Now accepts 'rewardsList' to handle the Shop context
     func sendMessage(
         userQuery: String,
         missions: [Mission],
+        rewardsList: [RewardItem], // 👈 Added this parameter
         rewardsBalance: Int
     ) async -> String {
 
+        // 1. Format Tasks
         let missionText = missions.map {
             "- \($0.title) (Time: \($0.time))"
         }.joined(separator: "\n")
+        
+        // 2. Format Rewards (The Shop) 👈 NEW
+        let shopText = rewardsList.map {
+            "- \($0.title): \($0.points) ⭐️"
+        }.joined(separator: "\n")
 
+        // 3. Updated Prompt with Shop Context
         let prompt = """
         You are Cloudyy ☁️, a friendly assistant for kids.
 
-        Rules:
-        - Only talk about tasks and rewards
-        - Keep replies short (max 2 sentences)
-        - Use emojis ☁️✨
-
-        Tasks:
+        Context:
+        - Wallet Balance: \(rewardsBalance) ⭐️ (Stars/Coins)
+        
+        - Today's Tasks:
         \(missionText.isEmpty ? "No tasks today." : missionText)
+        
+        - Rewards Shop (Things they can buy):
+        \(shopText.isEmpty ? "Shop is empty." : shopText)
 
-        Wallet: \(rewardsBalance) coins
+        Rules:
+        - Only talk about tasks, rewards, and the shop.
+        - If they ask "What can I buy?", list items from the Rewards Shop they can afford.
+        - Keep replies short (max 2 sentences).
+        - Use emojis ☁️✨.
 
         User says:
         \(userQuery)

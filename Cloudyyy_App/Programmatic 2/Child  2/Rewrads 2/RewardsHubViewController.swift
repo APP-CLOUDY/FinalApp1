@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 //rewradhubvc
 
 final class RewardsViewController: UIViewController {
@@ -324,6 +325,33 @@ final class RewardsViewController: UIViewController {
         return cv
     }()
     
+    // MARK: - New UI Element: Image Playground FAB
+        private lazy var playgroundFab: UIButton = {
+            let btn = UIButton(type: .system)
+            btn.translatesAutoresizingMaskIntoConstraints = false
+            
+            // Use the new Apple Intelligence symbol if available, else a fallback
+            let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .medium)
+            let image = UIImage(systemName: "apple.intelligence", withConfiguration: config)
+                        ?? UIImage(systemName: "sparkles.rectangle.stack", withConfiguration: config)
+            
+            btn.setImage(image, for: .normal)
+            btn.tintColor = .white
+            btn.backgroundColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1.0) // iOS Blue
+            btn.layer.cornerRadius = 28 // Half of width (56)
+            
+            // Shadow for depth
+            btn.layer.shadowColor = UIColor.black.cgColor
+            btn.layer.shadowOpacity = 0.3
+            btn.layer.shadowOffset = CGSize(width: 0, height: 4)
+            btn.layer.shadowRadius = 6
+            
+            // Interaction
+            btn.addTarget(self, action: #selector(openImagePlayground), for: .touchUpInside)
+            
+            return btn
+        }()
+    
     // --- Segment Control Elements ---
     private let segmentContainer: UIView = {
         let v = UIView()
@@ -599,6 +627,8 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(bottomPaddingView)
         
         quickCollectionView.delegate = self
+        
+        view.addSubview(playgroundFab)
     }
     
     private func setupConstraints() {
@@ -694,6 +724,14 @@ final class RewardsViewController: UIViewController {
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bottomPaddingView.heightAnchor.constraint(equalToConstant: 100), // Extra space for FAB
             
+           
+                        playgroundFab.widthAnchor.constraint(equalToConstant: 56),
+                        playgroundFab.heightAnchor.constraint(equalToConstant: 56),
+                        playgroundFab.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+                        // Place it slightly above the bottom safe area (or your bottom padding)
+                        playgroundFab.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20)
+                    
+            
         ])
         
         indicatorLeadingConstraint = segmentIndicator.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 4)
@@ -709,6 +747,48 @@ final class RewardsViewController: UIViewController {
     }
     
     // MARK: - Actions
+    
+    @objc private func openImagePlayground() {
+            // 1. Check if device supports iOS 18.2+
+            if #available(iOS 18.2, *) {
+                
+                // 2. Create the wrapper with callbacks
+                let swiftUIView = ImagePlaygroundLauncher(
+                    onImageGenerated: { [weak self] url in
+                        // Show the result
+                        DispatchQueue.main.async {
+                            let resultVC = GeneratedImagePreviewController(imageUrl: url)
+                            self?.present(resultVC, animated: true)
+                        }
+                    },
+                    onDismiss: { [weak self] in
+                        // 3. THIS FIXES THE WHITE SCREEN
+                        // Dismiss the hosting controller when the playground sheet closes
+                        DispatchQueue.main.async {
+                            self?.dismiss(animated: false)
+                        }
+                    }
+                )
+                
+                let hostingController = UIHostingController(rootView: swiftUIView)
+                
+                // 4. Critical: Make background transparent
+                hostingController.modalPresentationStyle = .overFullScreen
+                hostingController.view.backgroundColor = .clear
+                hostingController.view.isOpaque = false
+                
+                present(hostingController, animated: false) // Animated false avoids a "flash"
+                
+            } else {
+                let alert = UIAlertController(
+                    title: "Not Available",
+                    message: "Image Playground requires iOS 18.2 or later.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                present(alert, animated: true)
+            }
+        }
     @objc private func selectLeft() {
         isSpringOnActive = false
         animateSegmentChange()

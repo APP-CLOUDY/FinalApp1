@@ -35,19 +35,16 @@ struct ChildProgressStats: Decodable, Sendable {
     let progress_percent: Double
 }
 
-// 🔥 RENAMED struct to 'TaskSubmissionPayload' to fix the "Extra arguments" conflict
 struct TaskSubmissionPayload: Encodable, Sendable {
     let task_id: UUID
     let child_id: UUID
     let status: String
     let submitted_at: Date
     let photo_url: String?
-
-    // 🔥 Needed for auto-approval chart update
     let approved_at: Date?
 }
 
-// MARK: - 2. Request Parameters (⚠️ DO NOT REMOVE nonisolated)
+// MARK: - 2. Request Parameters
 
 struct ChildStatsParams: Encodable, Sendable {
     let child_id_input: UUID
@@ -71,11 +68,10 @@ final class ChildHomeService: Sendable {
         SupabaseManager.shared.client
     }
 
-    // MARK: - Fetch Progress Stats (Charts)
+    // MARK: - Fetch Progress Stats
     func fetchProgressStats() async throws -> ChildProgressStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
-            throw NSError(domain: "ChildApp", code: 401,
-                          userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
+            throw NSError(domain: "ChildApp", code: 401, userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
         }
 
         let params = ChildStatsParams(child_id_input: childId)
@@ -86,67 +82,88 @@ final class ChildHomeService: Sendable {
             .value
     }
 
-    // MARK: - Fetch Schedule (✅ FIXED CRASH ON NULL)
     // MARK: - Fetch Schedule
-        func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
-
-            guard let childId = ChildSessionManager.shared.currentChildId else {
-                print("❌ DEBUG: No Child ID found")
-                return []
-            }
-
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            let dateString = formatter.string(from: date)
-
-            let params: [String: String] = [
-                "child_id_input": childId.uuidString,
-                "target_date": dateString
-            ]
-
-            print("🚀 Sending to Child DB: ID: \(childId), Date: \(dateString)")
-
-            do {
-                let response = try await client
-                    .rpc("get_child_schedule", params: params)
-                    .execute()
-
-                let data = response.data
-                
-                if let json = String(data: data, encoding: .utf8), json == "null" {
-                    return []
-                }
-
-                let decoder = JSONDecoder()
-                let tasks = try decoder.decode([ScheduleTaskModelChild].self, from: data)
-                
-                // 🔥 FIX: Deduplicate tasks by ID
-                // This filters out "Ghost" duplicates caused by SQL Joins
-                var seenIDs = Set<UUID>()
-                let uniqueTasks = tasks.filter { task in
-                    if seenIDs.contains(task.id) {
-                        return false // Skip duplicate
-                    } else {
-                        seenIDs.insert(task.id)
-                        return true // Keep new
-                    }
-                }
-                
-                return uniqueTasks
-
-            } catch {
-                print("❌ Schedule fetch failed:", error)
-                return []
-            }
+    func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            print("❌ DEBUG: No Child ID found")
+            return []
         }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let dateString = formatter.string(from: date)
+
+        let params: [String: String] = [
+            "child_id_input": childId.uuidString,
+            "target_date": dateString
+        ]
+
+        print("🚀 Sending to Child DB: ID: \(childId), Date: \(dateString)")
+
+        do {
+            let response = try await client
+                .rpc("get_child_schedule", params: params)
+                .execute()
+
+            let data = response.data
+            
+            if let json = String(data: data, encoding: .utf8), json == "null" {
+                return []
+            }
+
+            let decoder = JSONDecoder()
+            let tasks = try decoder.decode([ScheduleTaskModelChild].self, from: data)
+            
+            // 🔥 Deduplicate tasks by ID
+            var seenIDs = Set<UUID>()
+            let uniqueTasks = tasks.filter { task in
+                if seenIDs.contains(task.id) {
+                    return false
+                } else {
+                    seenIDs.insert(task.id)
+                    return true
+                }
+            }
+            
+            return uniqueTasks
+
+        } catch {
+            print("❌ Schedule fetch failed:", error)
+            return []
+        }
+    }
+
+    // MARK: - ✅ NEW: Fetch Available Rewards (Shop)
+    // This allows the Chatbot to know what items are available to buy
+    func fetchAvailableRewards() async throws -> [RewardItem] {
+        guard let childId = ChildSessionManager.shared.currentChildId else { return [] }
+        
+        // We assume you have a 'get_child_rewards' RPC or can select directly
+        // If you don't have the RPC yet, direct select works if RLS policies allow:
+        // .from("rewards").select("*").eq("family_id", value: childFamilyId)
+        
+        // For now, let's assume direct selection based on Family ID which we assume is linked via Child ID in RLS
+        // Or if you have a specific RPC 'get_child_rewards', use that.
+        // Assuming direct select on 'rewards' table:
+        
+        let response = try await client
+            .from("rewards")
+            .select() // Select all fields
+            .execute()
+            
+        let data = response.data
+        if let json = String(data: data, encoding: .utf8), json == "null" { return [] }
+        
+        let decoder = JSONDecoder()
+        return try decoder.decode([RewardItem].self, from: data)
+    }
 
     // MARK: - Upload Proof Image
     func uploadProof(image: UIImage, childId: UUID) async throws -> String {
 
         guard let imageData = image.jpegData(compressionQuality: 0.6) else {
-            throw NSError(domain: "ImageError", code: 0,
-                          userInfo: [NSLocalizedDescriptionKey: "Invalid image"])
+            throw NSError(domain: "ImageError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid image"])
         }
 
         let fileName = "\(childId.uuidString)/\(UUID().uuidString).jpg"
@@ -157,16 +174,13 @@ final class ChildHomeService: Sendable {
             .upload(
                 path: fileName,
                 file: imageData,
-                options: FileOptions(
-                    contentType: "image/jpeg",
-                    upsert: false
-                )
+                options: FileOptions(contentType: "image/jpeg", upsert: false)
             )
 
         return "https://\(projectRef).supabase.co/storage/v1/object/public/\(bucketName)/\(fileName)"
     }
 
-    // MARK: - Submit Task (Centralized Update)
+    // MARK: - Submit Task
     func submitTask(taskId: UUID, photoUrl: String? = nil, approvalRequired: Bool) async throws {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
@@ -184,18 +198,16 @@ final class ChildHomeService: Sendable {
             approved_at: approvedAt
         )
 
-        // 1. Save to Database
         try await client.from("task_submissions").insert(submission).execute()
 
         print("✅ Task \(taskId) submitted as \(status)")
         
-        // 2. 🔥 BROADCAST SIGNAL FROM HERE
-        // Now, whether you submit from ChatBot, Schedule, or Camera, the app will ALWAYS refresh.
         await MainActor.run {
             NotificationCenter.default.post(name: .taskDidComplete, object: nil)
         }
     }
-    // MARK: - Rewards Home
+    
+    // MARK: - Rewards Home Stats
     func fetchChildHomeStats() async throws -> ChildHomeStats {
         guard let childId = ChildSessionManager.shared.currentChildId else {
             throw NSError(domain: "ChildApp", code: 401)
@@ -213,20 +225,20 @@ final class ChildHomeService: Sendable {
         return stats
     }
 
-    // MARK: - Reward Coins
+    // MARK: - Reward Coins Stats
     func fetchChildRewardStats() async throws -> ChildRewardStats {
-            guard let childId = ChildSessionManager.shared.currentChildId else {
-                throw NSError(domain: "ChildApp", code: 401)
-            }
-
-            let stats: ChildRewardStats = try await client
-                .rpc(
-                    "get_child_reward_stats",
-                    params: ["child_id_input": childId]
-                )
-                .execute()
-                .value   // ✅ DIRECT OBJECT (NOT ARRAY)
-
-            return stats
+        guard let childId = ChildSessionManager.shared.currentChildId else {
+            throw NSError(domain: "ChildApp", code: 401)
         }
+
+        let stats: ChildRewardStats = try await client
+            .rpc(
+                "get_child_reward_stats",
+                params: ["child_id_input": childId]
+            )
+            .execute()
+            .value
+
+        return stats
+    }
 }
