@@ -205,7 +205,7 @@ final class ChildHomeViewController: UIViewController {
         // 2. 🔥 DYNAMIC HEIGHT CALCULATION
         // Base height 450. We add ~80px per bubble to ensure they have vertical room to float.
         let baseHeight: CGFloat = 450
-        let requiredHeight = max(baseHeight, CGFloat(displayTasks.count) * 80)
+        let requiredHeight = max(baseHeight, CGFloat(displayTasks.count) * 50)
         
         // 3. APPLY HEIGHT UPDATE
         self.bubbleContainerHeightConstraint?.constant = requiredHeight
@@ -419,7 +419,7 @@ final class ChildHomeViewController: UIViewController {
             bellButton.heightAnchor.constraint(equalToConstant: 30),
 
             mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65),
-            mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 10),
+            mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
             mascotImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.55),
             mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
 
@@ -531,15 +531,7 @@ final class ChildHomeViewController: UIViewController {
     }
 
     @objc private func profileButtonTapped() {
-        let profileVC = ProfileViewController()
-        
-        // 🔥 This is the key line to HIDE the Tab Bar
-        profileVC.hidesBottomBarWhenPushed = true
-        
-        // We still show the Navigation Bar so the user has a "Back" button
-        navigationController?.setNavigationBarHidden(false, animated: true)
-        
-        self.navigationController?.pushViewController(profileVC, animated: true)
+        print("Navigating to Profile")
     }
     
     @objc private func bellButtonTapped() {
