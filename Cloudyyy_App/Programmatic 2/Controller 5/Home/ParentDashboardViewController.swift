@@ -153,89 +153,93 @@ extension Color {
         }
         
         private func fetchCharts(for kid: ChildModel) {
-            Task {
-                do {
-                    let wData = try await HomeService.shared.fetchChartData(
-                        for: kid.id,
-                        range: "weekly"
-                    )
+                    Task {
+                        do {
+                            // Fetch Data
+                            let wData = try await HomeService.shared.fetchChartData(for: kid.id, range: "weekly")
+                            let mData = try await HomeService.shared.fetchChartData(for: kid.id, range: "monthly")
 
-                    let mData = try await HomeService.shared.fetchChartData(
-                        for: kid.id,
-                        range: "monthly"
-                    )
+                            await MainActor.run {
+                                
+                                // 1. WEEKLY CHART (Standard Logic)
+                                // Ensures Mon-Sun order and fills empty days
+                                let allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                                let dataDict = Dictionary(uniqueKeysWithValues: wData.map { ($0.day, $0) })
+                                
+                                self.weeklyChartPoints = allDays.map { dayStr in
+                                    if let foundData = dataDict[dayStr] {
+                                        return DashboardChartPoint(
+                                            label: dayStr,
+                                            completed: foundData.completed_count,
+                                            assigned: foundData.pending_count
+                                        )
+                                    } else {
+                                        return DashboardChartPoint(label: dayStr, completed: 0, assigned: 0)
+                                    }
+                                }
+                                
+                                // 2. MONTHLY CHART (✅ FIXED: Use Backend Labels Directly)
+                                // The backend sends "Week 1", "Week 2", etc. Use them directly.
+                                
+                                // A. Create a dictionary for quick lookup
+                                let monthlyDict = Dictionary(uniqueKeysWithValues: mData.map { ($0.day, $0) })
+                                
+                                // B. Force "Week 1" to "Week 4" (or 5) order
+                                // This ensures the chart always shows 4 weeks, even if Week 2 is missing.
+                                var finalMonthlyPoints: [DashboardChartPoint] = []
+                                
+                                // Dynamic way (shows 4 or 5 depending on data)
+                                let maxWeeks = monthlyDict.keys.compactMap { Int($0.replacingOccurrences(of: "Week ", with: "")) }.max() ?? 4
+                                for i in 1...maxWeeks {
+                                    let label = "Week \(i)"
+                                    
+                                    if let foundData = monthlyDict[label] {
+                                        finalMonthlyPoints.append(DashboardChartPoint(
+                                            label: label,
+                                            completed: foundData.completed_count,
+                                            assigned: foundData.pending_count
+                                        ))
+                                    } else {
+                                        // Create empty bar if backend didn't send this week
+                                        finalMonthlyPoints.append(DashboardChartPoint(
+                                            label: label,
+                                            completed: 0,
+                                            assigned: 0
+                                        ))
+                                    }
+                                }
+                                
+                                self.monthlyChartPoints = finalMonthlyPoints
 
-                    await MainActor.run {
-                        
-                        // --- 🌟 FIX FOR MISSING DAYS STARTS HERE 🌟 ---
-                        
-                        // 1. Define the exact order of days you want on the X-Axis
-                        let allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                        
-                        // 2. Create a dictionary for easier lookup of the API data
-                        //    (Key: "Mon", Value: The data object)
-                        let dataDict = Dictionary(uniqueKeysWithValues: wData.map { ($0.day, $0) })
-                        
-                        // 3. Map through 'allDays' to ensure we have exactly 7 points.
-                        //    If data exists for a day, use it. If not, create a 0-value point.
-                        self.weeklyChartPoints = allDays.map { dayStr in
-                            if let foundData = dataDict[dayStr] {
-                                // API has data for this day
-                                return DashboardChartPoint(
-                                    label: dayStr,
-                                    completed: foundData.completed_count,
-                                    assigned: foundData.pending_count
-                                )
-                            } else {
-                                // API has NO data for this day -> Return 0/0 (Empty Bar)
-                                return DashboardChartPoint(
-                                    label: dayStr,
-                                    completed: 0,
-                                    assigned: 0
-                                )
+                                // 3. Update Chart UI
+                                self.updateChart()
+                                
+                                // 4. Update Overview Card (using Weekly data for today)
+                                let dayFormatter = DateFormatter()
+                                dayFormatter.dateFormat = "E"
+                                let todayString = dayFormatter.string(from: Date())
+                                
+                                if let todayData = self.weeklyChartPoints.first(where: { $0.label == todayString }) {
+                                    let correctDone = todayData.completed
+                                    let correctPending = todayData.assigned
+                                    let correctTotal = correctDone + correctPending
+                                    let progress = correctTotal > 0 ? CGFloat(correctDone) / CGFloat(correctTotal) : 0.0
+                                    
+                                    self.overviewCard.configure(
+                                        missionsDone: correctDone,
+                                        missionsTotal: correctTotal,
+                                        redeemedText: "",
+                                        progress: progress,
+                                        animated: true
+                                    )
+                                }
                             }
-                        }
-                        
-                        // --- 🌟 FIX ENDS HERE 🌟 ---
 
-                        // 2. Process Monthly Data (Keep as is)
-                        self.monthlyChartPoints = mData.enumerated().map { index, item in
-                            DashboardChartPoint(
-                                label: "Week \(index + 1)",
-                                completed: item.completed_count,
-                                assigned: item.pending_count
-                            )
-                        }
-
-                        self.updateChart()
-                        
-                        // 3. Sync Overview Card (The fix we added previously)
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "E"
-                        let todayString = formatter.string(from: Date())
-                        
-                        if let todayData = self.weeklyChartPoints.first(where: { $0.label == todayString }) {
-                            let correctDone = todayData.completed
-                            let correctPending = todayData.assigned
-                            let correctTotal = correctDone + correctPending
-                            let progress = correctTotal > 0 ? CGFloat(correctDone) / CGFloat(correctTotal) : 0.0
-                            
-                            self.overviewCard.configure(
-                                missionsDone: correctDone,
-                                missionsTotal: correctTotal,
-                                redeemedText: "",
-                                progress: progress,
-                                animated: true
-                            )
+                        } catch {
+                            print("Error chart: \(error)")
                         }
                     }
-
-                } catch {
-                    print("Error chart: \(error)")
                 }
-            }
-        }
-
         
         private func updateUI(with stats: HomeStats) {
             let progress = stats.missions_total > 0

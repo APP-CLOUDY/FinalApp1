@@ -1,5 +1,6 @@
 import UIKit
 import SwiftUI
+import CoreMotion
 
 // MARK: - Physics Helper Class
 // This tracks the velocity and view for each bubble in UIKit
@@ -17,8 +18,19 @@ final class PhysicsBubble {
 
 final class ChildHomeViewController: UIViewController {
 
+    // MARK: - Core Motion Manager
+    // 🔥 Handles the accelerometer data for tilt/shake
+    private let motionManager = CMMotionManager()
+    
+    // MARK: - State Flags
+    private var isMovementLocked: Bool = false { // Default: Bubbles move
+        didSet { updateControlButtons() }
+    }
+    private var isGravityEnabled: Bool = true { // Default: Phone tilt affects bubbles
+        didSet { updateControlButtons() }
+    }
+
     // MARK: - UI Elements
-    // 🔥 Added reference to the height constraint for dynamic resizing
     private var bubbleContainerHeightConstraint: NSLayoutConstraint?
     
     private let scrollView = UIScrollView()
@@ -30,6 +42,11 @@ final class ChildHomeViewController: UIViewController {
     private let subGreetingLabel = UILabel()
     private let bellButton = UIButton(type: .system)
     private let profileButton = UIButton(type: .system)
+
+    // 🔥 NEW CONTROLS for Physics
+    private let lockMoveButton = UIButton(type: .system)
+    private let gravityButton = UIButton(type: .system)
+    private let controlsStack = UIStackView()
 
     // Mascot & Quote
     private let quoteBubble = UIView()
@@ -46,7 +63,7 @@ final class ChildHomeViewController: UIViewController {
     private var physicsBubbles: [PhysicsBubble] = []
     private var displayLink: CADisplayLink?
     
-    // 🎨 Neon Palette (Matching CloudyTheme.swift)
+    // 🎨 Neon Palette
     private let bubbleColors: [UIColor] = [
         UIColor(red: 1.0, green: 0.6, blue: 0.7, alpha: 1.0), // Neon Pink
         UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 1.0), // Neon Blue
@@ -61,6 +78,10 @@ final class ChildHomeViewController: UIViewController {
         setupUI()
         setupLayout()
         setupActions()
+        
+        // 🔥 Start Accelerometer for Shake/Tilt detection
+        startMotionUpdates()
+        updateControlButtons() // Set initial button state
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -82,6 +103,13 @@ final class ChildHomeViewController: UIViewController {
         scrollView.contentSize = contentView.bounds.size
     }
     
+    // MARK: - Core Motion (Shake/Tilt Logic)
+    private func startMotionUpdates() {
+        // Update 60 times a second
+        motionManager.accelerometerUpdateInterval = 1.0 / 60.0
+        motionManager.startAccelerometerUpdates()
+    }
+
     // MARK: - Physics Engine (The "Roaming" Logic)
     private func startPhysicsEngine() {
         stopPhysicsEngine()
@@ -95,33 +123,67 @@ final class ChildHomeViewController: UIViewController {
     }
     
     @objc private func updatePhysics() {
+        // 🔥 If movement is locked, do nothing (freeze bubbles)
+        guard !isMovementLocked else { return }
+
         let containerW = bubbleContainerView.bounds.width
         let containerH = bubbleContainerView.bounds.height
+        
+        // 🔥 Get Gravity Data from Phone
+        var gx: CGFloat = 0
+        var gy: CGFloat = 0
+        
+        if isGravityEnabled, let data = motionManager.accelerometerData {
+            // Apply a multiplier to make the movement feel responsive
+            // .x is Left/Right tilt, .y is Up/Down tilt
+            let sensitivity: CGFloat = 1.5
+            gx = CGFloat(data.acceleration.x) * sensitivity
+            gy = CGFloat(-data.acceleration.y) * sensitivity // Invert Y for UIKit coords
+        }
         
         // 1. Move Bubbles & Check Walls
         for i in 0..<physicsBubbles.count {
             let b1 = physicsBubbles[i]
             var center = b1.view.center
             
-            // Apply Velocity
+            // 🔥 Apply Gravity/Shake Force
+            b1.velocity.x += gx
+            b1.velocity.y += gy
+            
+            // 🔥 Apply Friction (Damping)
+            // If gravity is ON, use high friction so they don't fly off too fast.
+            // If gravity is OFF (Roaming), use low friction so they float.
+            let friction: CGFloat = isGravityEnabled ? 0.95 : 1.0
+            b1.velocity.x *= friction
+            b1.velocity.y *= friction
+            
+            // Limit Max Speed (Terminal Velocity)
+            let maxSpeed: CGFloat = 15.0
+            b1.velocity.x = max(min(b1.velocity.x, maxSpeed), -maxSpeed)
+            b1.velocity.y = max(min(b1.velocity.y, maxSpeed), -maxSpeed)
+
+            // Apply Velocity to Position
             center.x += b1.velocity.x
             center.y += b1.velocity.y
             
             // Wall Bouncing (Keep inside container)
+            // We add "energy loss" (bounceFactor) so they settle if gravity is pulling them down
+            let bounceFactor: CGFloat = isGravityEnabled ? 0.6 : 1.0
+
             if center.x < b1.radius {
                 center.x = b1.radius
-                b1.velocity.x *= -1
+                b1.velocity.x *= -1 * bounceFactor
             } else if center.x > containerW - b1.radius {
                 center.x = containerW - b1.radius
-                b1.velocity.x *= -1
+                b1.velocity.x *= -1 * bounceFactor
             }
             
             if center.y < b1.radius {
                 center.y = b1.radius
-                b1.velocity.y *= -1
+                b1.velocity.y *= -1 * bounceFactor
             } else if center.y > containerH - b1.radius {
                 center.y = containerH - b1.radius
-                b1.velocity.y *= -1
+                b1.velocity.y *= -1 * bounceFactor
             }
             
             b1.view.center = center
@@ -138,7 +200,7 @@ final class ChildHomeViewController: UIViewController {
                 
                 if distance < minDistance {
                     let angle = atan2(dy, dx)
-                    let force: CGFloat = 0.5 // Bounce factor
+                    let force: CGFloat = 0.5 // Bounce force
                     
                     let fx = cos(angle) * force
                     let fy = sin(angle) * force
@@ -193,37 +255,31 @@ final class ChildHomeViewController: UIViewController {
         self.currentTasks = activeTasks
 
         if activeTasks.isEmpty {
-            // Reset to default height if empty
             self.bubbleContainerHeightConstraint?.constant = 400
             showEmptyState()
             return
         }
         
-        // 1. UNLIMITED TASKS (Removed the .prefix(10) limit)
         let displayTasks = activeTasks
         
-        // 2. 🔥 DYNAMIC HEIGHT CALCULATION
-        // Base height 450. We add ~80px per bubble to ensure they have vertical room to float.
+        // Dynamic Height Calculation
         let baseHeight: CGFloat = 450
         let requiredHeight = max(baseHeight, CGFloat(displayTasks.count) * 80)
         
-        // 3. APPLY HEIGHT UPDATE
         self.bubbleContainerHeightConstraint?.constant = requiredHeight
-        self.view.layoutIfNeeded() // Force layout update so physics bounds are correct
+        self.view.layoutIfNeeded() // Force layout update
         
         let containerW = view.bounds.width
-        let containerH = requiredHeight // Use new dynamic height
+        let containerH = requiredHeight
         
         for (index, task) in displayTasks.enumerated() {
             
-            // 🔥 4. DYNAMIC SIZE LOGIC BASED ON POINTS
-            // 20 points = 90 size, 30 points = 100 size.
-            // Clamped between 80 (min) and 150 (max) to prevent tiny or huge bubbles.
+            // Dynamic Size based on Points
             let pointsValue = CGFloat(task.points)
             let bubbleSize = min(150, max(80, 70 + pointsValue))
             let radius = bubbleSize / 2
             
-            // Random Position (safe from edges using the specific radius of this bubble)
+            // Random Position
             let minX = radius
             let maxX = max(radius, containerW - radius)
             let minY = radius
@@ -247,32 +303,22 @@ final class ChildHomeViewController: UIViewController {
             physicsBubbles.append(node)
         }
         
-        // 🔥 5. Update ScrollView Content Size
-        // This ensures the user can scroll down to see the new extended area
         scrollView.contentSize = contentView.bounds.size
     }
 
     private func createBubbleView(for task: ScheduleTaskModelChild, frame: CGRect, index: Int) -> UIView {
         let bubble = UIView(frame: frame)
-        
-        // 🔥 RANDOM COLOR SELECTION
         let themeColor = bubbleColors.randomElement() ?? bubbleColors[0]
         
-        // 1. Simple Glassy Background
         bubble.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        
-        // 2. Thin Neon Border
         bubble.layer.borderColor = themeColor.withAlphaComponent(0.6).cgColor
         bubble.layer.borderWidth = 1.0
         bubble.layer.cornerRadius = frame.width / 2
-        
-        // 3. Soft Glow
         bubble.layer.shadowColor = themeColor.cgColor
         bubble.layer.shadowOpacity = 0.2
         bubble.layer.shadowOffset = .zero
         bubble.layer.shadowRadius = 8
         
-        // TEXT
         let titleLabel = UILabel()
         titleLabel.text = task.title ?? "Task"
         titleLabel.textColor = themeColor
@@ -281,7 +327,6 @@ final class ChildHomeViewController: UIViewController {
         titleLabel.numberOfLines = 2
         
         let subLabel = UILabel()
-        // Show Points
         subLabel.text = "\(task.points) ⭐️"
         subLabel.textColor = UIColor.white.withAlphaComponent(0.6)
         subLabel.font = .systemFont(ofSize: 11, weight: .regular)
@@ -301,7 +346,6 @@ final class ChildHomeViewController: UIViewController {
             textStack.widthAnchor.constraint(equalTo: bubble.widthAnchor, constant: -10)
         ])
         
-        // Tap Gesture
         let tap = UITapGestureRecognizer(target: self, action: #selector(bubbleTapped(_:)))
         bubble.addGestureRecognizer(tap)
         bubble.isUserInteractionEnabled = true
@@ -346,6 +390,22 @@ final class ChildHomeViewController: UIViewController {
         
         profileButton.setImage(UIImage(systemName: "person.circle"), for: .normal)
         profileButton.tintColor = .white
+        
+        // 🔥 Setup New Controls
+        // 1. Move Lock Button
+        lockMoveButton.setImage(UIImage(systemName: "lock.open.fill"), for: .normal)
+        lockMoveButton.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+        lockMoveButton.layer.cornerRadius = 15
+        
+        // 2. Gravity Button
+        gravityButton.setImage(UIImage(systemName: "gyroscope"), for: .normal)
+        gravityButton.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+        gravityButton.layer.cornerRadius = 15
+        
+        controlsStack.axis = .horizontal
+        controlsStack.spacing = 10
+        controlsStack.addArrangedSubview(lockMoveButton)
+        controlsStack.addArrangedSubview(gravityButton)
 
         quoteBubble.backgroundColor = UIColor(red: 240/255, green: 228/255, blue: 241/255, alpha: 1)
         quoteBubble.layer.cornerRadius = 20
@@ -362,7 +422,7 @@ final class ChildHomeViewController: UIViewController {
         mascotImageView.contentMode = .scaleAspectFit
         mascotImageView.isUserInteractionEnabled = true
         
-        bubbleInstructionLabel.text = ""
+        bubbleInstructionLabel.text = "Tap to Complete!"
         bubbleInstructionLabel.font = UIFont.boldSystemFont(ofSize: 18)
         bubbleInstructionLabel.textColor = .white
         
@@ -372,6 +432,7 @@ final class ChildHomeViewController: UIViewController {
         scrollView.addSubview(contentView)
         
         [greetingLabel, subGreetingLabel, bellButton, profileButton,
+         controlsStack, // Added Stack
          quoteBubble, mascotImageView,
          bubbleInstructionLabel, bubbleContainerView,
          bottomPaddingView
@@ -386,7 +447,6 @@ final class ChildHomeViewController: UIViewController {
     }
 
     private func setupLayout() {
-        // 🔥 Create the height constraint separately so we can store it
         let heightConstraint = bubbleContainerView.heightAnchor.constraint(equalToConstant: 450)
         self.bubbleContainerHeightConstraint = heightConstraint
         
@@ -418,25 +478,23 @@ final class ChildHomeViewController: UIViewController {
             bellButton.widthAnchor.constraint(equalToConstant: 30),
             bellButton.heightAnchor.constraint(equalToConstant: 30),
 
+            // 🔥 Controls Layout (Left of the Bell)
+            controlsStack.trailingAnchor.constraint(equalTo: bellButton.leadingAnchor, constant: -16),
+            controlsStack.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
+            controlsStack.heightAnchor.constraint(equalToConstant: 30),
+            lockMoveButton.widthAnchor.constraint(equalToConstant: 30),
+            gravityButton.widthAnchor.constraint(equalToConstant: 30),
+
             mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65),
             mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 10),
             mascotImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.55),
             mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
 
-            // ... inside setupLayout ...
-
-                        quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70), // Vertical overlap
-                        
-                        // 1. Move RIGHT: Increase this number to overlap more into the cloud
-                        // (e.g., 60 means the bubble goes 60pts past the start of the mascot)
-                        quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 60),
-                        
-                        // 2. FIXED SIZE: Keep these so it doesn't stretch
-                        quoteBubble.widthAnchor.constraint(equalToConstant: 180),
-                        quoteBubble.heightAnchor.constraint(equalToConstant: 75),
-                        
-                        // ❌ DELETE OR COMMENT OUT THIS LINE 👇
-                        // quoteBubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),m
+            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70),
+            quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 60),
+            quoteBubble.widthAnchor.constraint(equalToConstant: 180),
+            quoteBubble.heightAnchor.constraint(equalToConstant: 75),
+            
             quoteLabel.centerYAnchor.constraint(equalTo: quoteBubble.centerYAnchor),
             quoteLabel.leadingAnchor.constraint(equalTo: quoteBubble.leadingAnchor, constant: 16),
             quoteLabel.trailingAnchor.constraint(equalTo: quoteBubble.trailingAnchor, constant: -16),
@@ -448,7 +506,6 @@ final class ChildHomeViewController: UIViewController {
             bubbleContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bubbleContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             
-            // 🔥 Active the stored constraint
             heightConstraint,
 
             bottomPaddingView.topAnchor.constraint(equalTo: bubbleContainerView.bottomAnchor, constant: 20),
@@ -477,13 +534,39 @@ final class ChildHomeViewController: UIViewController {
         
         profileButton.addTarget(self, action: #selector(profileButtonTapped), for: .touchUpInside)
         bellButton.addTarget(self, action: #selector(bellButtonTapped), for: .touchUpInside)
+        
+        // 🔥 Connect Buttons
+        lockMoveButton.addTarget(self, action: #selector(toggleMovementLock), for: .touchUpInside)
+        gravityButton.addTarget(self, action: #selector(toggleGravity), for: .touchUpInside)
+    }
+
+    // 🔥 Toggle: Lock/Unlock Movement
+    @objc private func toggleMovementLock() {
+        isMovementLocked.toggle()
+    }
+    
+    // 🔥 Toggle: Enable/Disable Shake(Gravity)
+    @objc private func toggleGravity() {
+        isGravityEnabled.toggle()
+    }
+    
+    // 🔥 Update UI State
+    private func updateControlButtons() {
+        // Lock Button UI
+        let lockImage = isMovementLocked ? "lock.fill" : "lock.open.fill"
+        let lockColor = isMovementLocked ? UIColor.red : UIColor.white
+        lockMoveButton.setImage(UIImage(systemName: lockImage), for: .normal)
+        lockMoveButton.tintColor = lockColor
+        
+        // Gravity Button UI
+        let gravityColor = isGravityEnabled ? UIColor.green : UIColor.white.withAlphaComponent(0.5)
+        gravityButton.tintColor = gravityColor
     }
 
     @objc private func mascotTapped() {
         self.tabBarController?.selectedIndex = 3
     }
 
-    // 🔥 4. BUBBLE TAP + ANIMATION
     @objc private func bubbleTapped(_ sender: UITapGestureRecognizer) {
         guard let bubble = sender.view else { return }
         
@@ -504,11 +587,9 @@ final class ChildHomeViewController: UIViewController {
         }
     }
     
-    // 🔥 5. NAVIGATION FUNCTION
     private func navigateToMissionDetail(for task: ScheduleTaskModelChild) {
         let approvalNeeded = task.approval_required ?? false
         
-        // We set up the Mission object but color is not crucial here as it will re-randomize in Detail View
         let mission = Mission(
             id: task.id,
             title: task.title ?? "Unknown",
@@ -532,13 +613,8 @@ final class ChildHomeViewController: UIViewController {
 
     @objc private func profileButtonTapped() {
         let profileVC = ProfileViewController()
-        
-        // 🔥 This is the key line to HIDE the Tab Bar
         profileVC.hidesBottomBarWhenPushed = true
-        
-        // We still show the Navigation Bar so the user has a "Back" button
         navigationController?.setNavigationBarHidden(false, animated: true)
-        
         self.navigationController?.pushViewController(profileVC, animated: true)
     }
     
@@ -547,7 +623,7 @@ final class ChildHomeViewController: UIViewController {
     }
 }
 
-// 🔥 6. SWIFTUI BRIDGE VIEW
+// MARK: - SwiftUI Bridge View
 struct MissionDetailContainer: View {
     let mission: Mission
     var onDismiss: () -> Void
