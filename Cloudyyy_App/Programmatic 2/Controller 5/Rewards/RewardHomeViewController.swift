@@ -1,4 +1,5 @@
 import UIKit
+import ImagePlayground // 👈 Required for the new feature
 
 // Local model for the category list rows
 struct RewardCategoryData {
@@ -7,7 +8,8 @@ struct RewardCategoryData {
     let icon: String
 }
 
-final class RewardHomeViewController: UIViewController {
+// ✅ Added ImagePlaygroundViewController.Delegate conformance
+final class RewardHomeViewController: UIViewController, ImagePlaygroundViewController.Delegate {
 
     // MARK: - Properties
     private var kids: [ChildModel] = []
@@ -40,6 +42,34 @@ final class RewardHomeViewController: UIViewController {
     // Category List Container
     private let categoryStack = UIStackView()
 
+    // 👇 NEW: Image Playground Button
+    private lazy var playgroundButton: UIButton = {
+        let btn = UIButton(type: .system)
+        
+        // Native Button Configuration
+        var config = UIButton.Configuration.filled()
+        config.baseBackgroundColor = UIColor(red: 40/255, green: 45/255, blue: 65/255, alpha: 1) // Dark blue theme
+        config.baseForegroundColor = .white
+        config.cornerStyle = .capsule
+        
+        // Icon
+        config.image = UIImage(systemName: "sparkles.rectangle.stack.fill")
+        config.imagePadding = 0 // Icon only for a clean circle/capsule look
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
+        
+        btn.configuration = config
+        
+        // Shadow/Glow
+        btn.layer.shadowColor = UIColor.systemIndigo.cgColor
+        btn.layer.shadowOffset = CGSize(width: 0, height: 4)
+        btn.layer.shadowRadius = 10
+        btn.layer.shadowOpacity = 0.5
+        
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.addAction(UIAction { [weak self] _ in self?.openImagePlayground() }, for: .touchUpInside)
+        return btn
+    }()
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -52,6 +82,9 @@ final class RewardHomeViewController: UIViewController {
         
         // Setup fixed categories immediately
         setupCategoryRows()
+        
+        // 👇 Setup the new button
+        setupPlaygroundButton()
 
         header.showPlusButton(true)
         header.onPlusTapped = { [weak self] in self?.openNewRewardPage() }
@@ -193,6 +226,62 @@ final class RewardHomeViewController: UIViewController {
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: 98)
         ])
+    }
+    
+    // MARK: - Playground Setup
+    private func setupPlaygroundButton() {
+        view.addSubview(playgroundButton)
+        
+        NSLayoutConstraint.activate([
+            // Bottom Left Corner
+            playgroundButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            playgroundButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            playgroundButton.widthAnchor.constraint(equalToConstant: 60),
+            playgroundButton.heightAnchor.constraint(equalToConstant: 60)
+        ])
+    }
+
+    // MARK: - Actions (Playground)
+    private func openImagePlayground() {
+        if #available(iOS 18.2, *) {
+            let playgroundVC = ImagePlaygroundViewController()
+            playgroundVC.delegate = self
+            playgroundVC.modalPresentationStyle = .fullScreen
+            present(playgroundVC, animated: true)
+        } else {
+            // Fallback for older iOS
+            let alert = UIAlertController(title: "Not Available", message: "Image Playground requires iOS 18.2 or later.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
+    }
+    
+    // MARK: - ImagePlaygroundViewControllerDelegate
+    func imagePlaygroundViewController(_ viewController: ImagePlaygroundViewController, didCreateImageAt url: URL) {
+        // 1. Dismiss Playground
+        viewController.dismiss(animated: true) { [weak self] in
+            guard let self = self else { return }
+            
+            // 2. Load the image from the URL
+            do {
+                let data = try Data(contentsOf: url)
+                if let generatedImage = UIImage(data: data) {
+                    
+                    // 3. Open New Reward Screen with the image
+                    // Note: Ensure NewRewardViewController has 'var initialImage: UIImage?' added to it.
+                    let vc = NewRewardViewController()
+                    vc.mode = .create
+                    vc.initialImage = generatedImage
+                    self.navigationController?.pushViewController(vc, animated: true)
+                }
+            } catch {
+                print("Failed to load generated image: \(error)")
+            }
+        }
+    }
+    
+    func imagePlaygroundViewControllerDidCancel(_ viewController: ImagePlaygroundViewController) {
+        viewController.dismiss(animated: true)
     }
 
     // MARK: - Stats Cards

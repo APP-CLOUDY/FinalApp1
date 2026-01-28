@@ -8,7 +8,13 @@ enum RewardFormMode {
 
 final class NewRewardViewController: UIViewController {
     
+    
+    
+    
     // MARK: - Properties
+    
+    
+    var initialImage: UIImage?
     var mode: RewardFormMode = .create
     
     private var childrenList: [ChildModel] = []
@@ -142,6 +148,10 @@ final class NewRewardViewController: UIViewController {
         // Mode Handling
         configureForMode()
         
+        if let startImage = initialImage {
+                    self.selectedImage = startImage
+                }
+        
         segment.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         
         // Fetch Children (and assignments if editing)
@@ -160,6 +170,8 @@ final class NewRewardViewController: UIViewController {
         super.viewDidLayoutSubviews()
         gradient.frame = view.bounds
     }
+    
+    
     
     // MARK: - Mode Logic
     private func configureForMode() {
