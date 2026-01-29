@@ -20,3 +20,4 @@ struct ChildProfile: Decodable, Sendable {
     let nickname: String?   // ✅ This stores "Chore Champion"
     let avatar_url: String? // ✅ Stores "tiger.png"
 }
+
