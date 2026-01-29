@@ -118,6 +118,9 @@ class NewTaskViewController: UIViewController {
         setupStaticMenus()
         setupInitialListMenu()
         
+        // 🔥 ADDED: Tap background to dismiss keyboard
+        setupKeyboardDismissal()
+        
         // FETCH DATA
         fetchChildren()
     }
@@ -129,7 +132,7 @@ class NewTaskViewController: UIViewController {
     
     // MARK: - Data Logic
     private func fetchChildren() {
-        _Concurrency.Task {
+        Task {
             do {
                 let data = try await FamilyService.shared.fetchDashboard()
 
@@ -191,7 +194,10 @@ class NewTaskViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.backgroundColor = .clear
-
+        
+        // 🔥 ADDED: Dismiss keyboard when dragging scroll view
+        scrollView.keyboardDismissMode = .onDrag
+        
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
@@ -210,6 +216,17 @@ class NewTaskViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
+    }
+    
+    // 🔥 ADDED: Keyboard Dismissal Helper
+    private func setupKeyboardDismissal() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tap.cancelsTouchesInView = false // Important: Allows buttons to still work
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 
     private func setupStack() {
@@ -240,14 +257,14 @@ class NewTaskViewController: UIViewController {
                 titleNotesView,
                 pointsRow,
                 assignedRow,
-                
+               
                 // 1. Date Row & Picker moved UP
                 dateRow,
                 dateSectionStack,
-                
+               
                 // 2. Frequency moved DOWN
                 frequencyRow,
-                
+               
                 priorityRow,
                 listRow,
                 approvalRow
@@ -585,7 +602,7 @@ class NewTaskViewController: UIViewController {
 
         print("Creating task...")
         
-        _Concurrency.Task {
+        Task {
             do {
                 let taskId = try await TaskService.shared.createTask(
                     title: title,
