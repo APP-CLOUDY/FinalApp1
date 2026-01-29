@@ -1,6 +1,5 @@
 import UIKit
 import SwiftUI
-//rewradhubvc
 
 final class RewardsViewController: UIViewController {
     
@@ -30,10 +29,9 @@ final class RewardsViewController: UIViewController {
         v.backgroundColor = UIColor(red: 255/255, green: 204/255, blue: 92/255, alpha: 1.0)
         v.layer.cornerRadius = 14
         
-        // 👇 ADD THIS LINE
         v.isUserInteractionEnabled = true
         
-        // ✨ Optional glow (recommended)
+        // ✨ Optional glow
         v.layer.shadowColor = UIColor(red: 255/255, green: 200/255, blue: 70/255, alpha: 1).cgColor
         v.layer.shadowOpacity = 0.55
         v.layer.shadowRadius = 10
@@ -55,9 +53,6 @@ final class RewardsViewController: UIViewController {
 
         return normalized
     }
-
-
-    
     private struct QuickRewardType {
         let key: String        // backend value
         let title: String      // UI label
@@ -109,17 +104,6 @@ final class RewardsViewController: UIViewController {
             allQuickRewardTypes.forEach {
                 print("KEY:", $0.key)
             }
-            print("🧪 FULL RESPONSE:", response)
-            print("🧪 ACTIVE COUNT:", response.active.count)
-            print("🧪 HISTORY COUNT:", response.history.count)
-            print("👶 CURRENT CHILD ID:", ChildSessionManager.shared.currentChildId ?? "nil")
-
-            print("🧪 ENABLE CHECK:")
-            for type in allQuickRewardTypes {
-                let count = backendGrouped[type.key]?.count ?? 0
-                print("→", type.key, "=", count)
-            }
-
             
             var items: [QuickRewardItem] = []
             var rewardsMap: [String: [AssignedQuickReward]] = [:]
@@ -254,7 +238,8 @@ final class RewardsViewController: UIViewController {
             }
         }
     }
-    //hederr
+    
+    // Header
     private let headerContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -265,7 +250,7 @@ final class RewardsViewController: UIViewController {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Rewards Hub"
-        l.font = .systemFont(ofSize: 30, weight: .bold)   // 🔥 MATCHES HomeHeaderView
+        l.font = .systemFont(ofSize: 30, weight: .bold)
         l.textColor = .white
         return l
     }()
@@ -277,7 +262,6 @@ final class RewardsViewController: UIViewController {
         let sv = UIScrollView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.showsVerticalScrollIndicator = false
-        // Important: Dismiss keyboard when dragging scrollview
         sv.keyboardDismissMode = .onDrag
         return sv
     }()
@@ -289,7 +273,6 @@ final class RewardsViewController: UIViewController {
     }()
     
     // --- Content Elements ---
-    // Note: Assuming StreakCardView is defined in your project
     private let streakCard: StreakCardView = {
         let v = StreakCardView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -318,40 +301,12 @@ final class RewardsViewController: UIViewController {
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.backgroundColor = .clear
         cv.showsHorizontalScrollIndicator = false
-        // Note: Ensure RewardCell is defined in your project
         cv.register(RewardCell.self, forCellWithReuseIdentifier: RewardCell.reuseID)
         cv.dataSource = self
         cv.delegate = self
         return cv
     }()
-    
-    // MARK: - New UI Element: Image Playground FAB
-        private lazy var playgroundFab: UIButton = {
-            let btn = UIButton(type: .system)
-            btn.translatesAutoresizingMaskIntoConstraints = false
-            
-            // Use the new Apple Intelligence symbol if available, else a fallback
-            let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .medium)
-            let image = UIImage(systemName: "apple.intelligence", withConfiguration: config)
-                        ?? UIImage(systemName: "sparkles.rectangle.stack", withConfiguration: config)
-            
-            btn.setImage(image, for: .normal)
-            btn.tintColor = .white
-            btn.backgroundColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1.0) // iOS Blue
-            btn.layer.cornerRadius = 28 // Half of width (56)
-            
-            // Shadow for depth
-            btn.layer.shadowColor = UIColor.black.cgColor
-            btn.layer.shadowOpacity = 0.3
-            btn.layer.shadowOffset = CGSize(width: 0, height: 4)
-            btn.layer.shadowRadius = 6
-            
-            // Interaction
-            btn.addTarget(self, action: #selector(openImagePlayground), for: .touchUpInside)
-            
-            return btn
-        }()
-    
+        
     // --- Segment Control Elements ---
     private let segmentContainer: UIView = {
         let v = UIView()
@@ -453,7 +408,7 @@ final class RewardsViewController: UIViewController {
             self.navigationController?.pushViewController(vc, animated: true)
         }
         
-        // 2. Setup Constraints (now safe)
+        // 2. Setup Constraints
         setupConstraints()
         
         setupActions()
@@ -545,13 +500,13 @@ final class RewardsViewController: UIViewController {
             let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats()
             let progress = try await ProgressService.shared.fetchStats(
                 childId: childId,
-                scope: .monthly   // or .weekly
+                scope: .monthly
             )
 
             await MainActor.run {
                 self.homeStats = homeStats
-                self.rewardStats = rewardStats          // 🔒 KEEP
-                self.progressReport = progress          // ⭐ NEW
+                self.rewardStats = rewardStats
+                self.progressReport = progress
                 self.updateRewardsUI()
             }
             
@@ -627,8 +582,7 @@ final class RewardsViewController: UIViewController {
         contentView.addSubview(bottomPaddingView)
         
         quickCollectionView.delegate = self
-        
-        view.addSubview(playgroundFab)
+    
     }
     
     private func setupConstraints() {
@@ -724,14 +678,6 @@ final class RewardsViewController: UIViewController {
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bottomPaddingView.heightAnchor.constraint(equalToConstant: 100), // Extra space for FAB
             
-           
-                        playgroundFab.widthAnchor.constraint(equalToConstant: 56),
-                        playgroundFab.heightAnchor.constraint(equalToConstant: 56),
-                        playgroundFab.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-                        // Place it slightly above the bottom safe area (or your bottom padding)
-                        playgroundFab.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20)
-                    
-            
         ])
         
         indicatorLeadingConstraint = segmentIndicator.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 4)
@@ -742,53 +688,11 @@ final class RewardsViewController: UIViewController {
     private func setupActions() {
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
-        
-        
     }
     
     // MARK: - Actions
     
-    @objc private func openImagePlayground() {
-            // 1. Check if device supports iOS 18.2+
-            if #available(iOS 18.2, *) {
-                
-                // 2. Create the wrapper with callbacks
-                let swiftUIView = ImagePlaygroundLauncher(
-                    onImageGenerated: { [weak self] url in
-                        // Show the result
-                        DispatchQueue.main.async {
-                            let resultVC = GeneratedImagePreviewController(imageUrl: url)
-                            self?.present(resultVC, animated: true)
-                        }
-                    },
-                    onDismiss: { [weak self] in
-                        // 3. THIS FIXES THE WHITE SCREEN
-                        // Dismiss the hosting controller when the playground sheet closes
-                        DispatchQueue.main.async {
-                            self?.dismiss(animated: false)
-                        }
-                    }
-                )
-                
-                let hostingController = UIHostingController(rootView: swiftUIView)
-                
-                // 4. Critical: Make background transparent
-                hostingController.modalPresentationStyle = .overFullScreen
-                hostingController.view.backgroundColor = .clear
-                hostingController.view.isOpaque = false
-                
-                present(hostingController, animated: false) // Animated false avoids a "flash"
-                
-            } else {
-                let alert = UIAlertController(
-                    title: "Not Available",
-                    message: "Image Playground requires iOS 18.2 or later.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
-                present(alert, animated: true)
-            }
-        }
+
     @objc private func selectLeft() {
         isSpringOnActive = false
         animateSegmentChange()
@@ -923,12 +827,11 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
             return
         }
 
+        // 🔥 FIX: Normalize the key for consistency
         let key = RewardsViewController.normalizeQuickRewardSubtype(item.title)
-        let rewards = rewardsByCategory[
-            RewardsViewController.normalizeQuickRewardSubtype(item.title)
-        ] ?? []
+        let rewards = rewardsByCategory[key] ?? []
 
-        print("🔑 Lookup key:", RewardsViewController.normalizeQuickRewardSubtype(item.title))
+        print("🔑 Lookup key:", key)
         print("📦 rewardsByCategory keys:", rewardsByCategory.keys)
 
 
@@ -937,16 +840,14 @@ extension RewardsViewController: UICollectionViewDataSource, UICollectionViewDel
         } else {
             let vc = AssignedQuickRewardViewController()
             vc.rewardTypeTitle = item.title
-            vc.rewardIconName = item.imageName
+            
+            // 🔥 THE FIX: Use categoryKey instead of rewardIconName
+            vc.categoryKey = key
+            
             vc.assignedRewards = rewards
             navigationController?.pushViewController(vc, animated: true)
         }
         print("Tapped:", item.title)
         print("Rewards:", rewards)
     }
-    
-   
-
 }
-   
-
