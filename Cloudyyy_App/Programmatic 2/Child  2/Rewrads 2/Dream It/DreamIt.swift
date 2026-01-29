@@ -442,74 +442,84 @@ final class ChildDreamItViewController: UIViewController {
     }
     
     private func confirmUnlock(seconds: Int, part: DreamObjectPart) {
-        guard !isPurchasing else { return }
-        isPurchasing = true
+            guard !isPurchasing else { return }
+            isPurchasing = true
 
-        Task {
-            defer { isPurchasing = false }   // 🔑 CRITICAL
+            Task {
+                defer { isPurchasing = false }   // 🔑 CRITICAL
 
-            do {
-                let response = try await DreamItService.shared.unlockNextPart(
-                    childId: childId,
-                    rewardId: rewardId
-                )
+                do {
+                    let response = try await DreamItService.shared.unlockNextPart(
+                        childId: childId,
+                        rewardId: rewardId
+                    )
 
+                    let refreshed = try await DreamItService.shared.fetchProgress(
+                        childId: childId,
+                        rewardId: rewardId
+                    )
 
-                let refreshed = try await DreamItService.shared.fetchProgress(
-                    childId: childId,
-                    rewardId: rewardId
-                )
+                    await MainActor.run {
+                        guard let newStars = response.remaining_stars else {
+                            Task { await self.loadStars() }
+                            return
+                        }
 
-                await MainActor.run {
-                    guard let newStars = response.remaining_stars else {
-                        Task { await self.loadStars() }
-                        return
+                        let oldStars = self.currentStars
+                        self.currentStars = newStars
+                        self.updateCoinBadge(old: oldStars, new: newStars)
+
+                        self.progress = refreshed
+                        self.applyProgressToUI(refreshed)
+                        self.rebuildStoreUI()
+                        
+                        // 1. Start the "Building" Animation (Video)
+                        self.player?.play()
+                        
+                        // 🔥 FIX: Calculate the duration of this specific part's video segment
+                        // Formula: Total Video Time / Total Number of Parts
+                        let partCount = max(1, self.parts.count)
+                        let segmentDuration = Double(self.totalSeconds) / Double(partCount)
+                        
+                        // 2. Schedule the Popup to appear AFTER the video finishes
+                        // We add a small 0.5s buffer so the video settles before the popup covers it
+                        DispatchQueue.main.asyncAfter(deadline: .now() + segmentDuration + 0.5) { [weak self] in
+                            self?.showCongratulationsPopup(for: part)
+                        }
                     }
 
-                    let oldStars = self.currentStars
-                    self.currentStars = newStars
-                    self.updateCoinBadge(old: oldStars, new: newStars)
+                }  catch {
+                    let raw = error.localizedDescription
+                    print("❌ Unlock failed:", raw)
 
-                    self.progress = refreshed
-                    self.applyProgressToUI(refreshed)
-                    self.rebuildStoreUI()
-                    self.player?.play()
-                    self.showCongratulationsPopup(for: part)
-                }
-
-            }  catch {
-                let raw = error.localizedDescription
-                print("❌ Unlock failed:", raw)
-
-                await MainActor.run {
-                    if raw.contains("E_NOT_ENOUGH_STARS") {
-                        self.presentNotEnoughStarsPopup()
-                    } else if raw.contains("E_PROGRESS_NOT_FOUND") {
-                        self.showDebugError(
-                            title: "Progress Error",
-                            message: "Progress row missing in DB"
-                        )
-                    } else if raw.contains("E_NO_PARTS") {
-                        self.showDebugError(
-                            title: "Config Error",
-                            message: "No parts mapped to this reward"
-                        )
-                    } else if raw.contains("E_REWARD_NOT_FOUND") {
-                        self.showDebugError(
-                            title: "Reward Error",
-                            message: "Reward missing in DB"
-                        )
-                    } else {
-                        self.showDebugError(
-                            title: "Unknown Error",
-                            message: raw
-                        )
+                    await MainActor.run {
+                        if raw.contains("E_NOT_ENOUGH_STARS") {
+                            self.presentNotEnoughStarsPopup()
+                        } else if raw.contains("E_PROGRESS_NOT_FOUND") {
+                            self.showDebugError(
+                                title: "Progress Error",
+                                message: "Progress row missing in DB"
+                            )
+                        } else if raw.contains("E_NO_PARTS") {
+                            self.showDebugError(
+                                title: "Config Error",
+                                message: "No parts mapped to this reward"
+                            )
+                        } else if raw.contains("E_REWARD_NOT_FOUND") {
+                            self.showDebugError(
+                                title: "Reward Error",
+                                message: "Reward missing in DB"
+                            )
+                        } else {
+                            self.showDebugError(
+                                title: "Unknown Error",
+                                message: raw
+                            )
+                        }
                     }
                 }
             }
-
         }
-    }
 
     private func showDebugError(title: String, message: String) {
         let alert = UIAlertController(
