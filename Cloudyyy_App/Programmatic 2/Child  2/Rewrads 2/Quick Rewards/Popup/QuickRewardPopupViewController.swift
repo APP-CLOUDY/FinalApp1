@@ -6,10 +6,23 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     var reward: AssignedQuickReward!
     var onClaim: (() -> Void)?
     private var isSubmitting = false
+    
     // MARK: - Gradient
     private let gradientLayer = CAGradientLayer()
 
     // MARK: - UI
+    
+    // 🔙 Back / Close Button
+    private let closeButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        // Option A: "xmark.circle.fill" (Best for Modals)
+        // Option B: "chevron.left.circle.fill" (Best for Navigation feel)
+        let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .medium)
+        b.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: config), for: .normal)
+        b.tintColor = .white.withAlphaComponent(0.6)
+        return b
+    }()
 
     // ☁️ Mascot
     private let mascotImageView: UIImageView = {
@@ -73,21 +86,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         return lb
     }()
 
-    private func showError(_ message: String) {
-        let alert = UIAlertController(
-            title: "Oops 😅",
-            message: message,
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-
-        DispatchQueue.main.async {
-            self.present(alert, animated: true)
-        }
-    }
-
-
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -118,6 +116,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
     }
 
     private func setupViews() {
+        view.addSubview(closeButton) // Added
         view.addSubview(mascotImageView)
         view.addSubview(titleLabel)
         view.addSubview(rewardImageView)
@@ -126,6 +125,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         view.addSubview(tapHintLabel)
 
         claimButton.addTarget(self, action: #selector(claimTapped), for: .touchUpInside)
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside) // Added
     }
 
     private func setupData() {
@@ -144,6 +144,12 @@ final class QuickRewardClaimPopupViewController: UIViewController {
 
     private func setupLayout() {
         NSLayoutConstraint.activate([
+            // Close Button Constraints
+            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44),
+            
             mascotImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             mascotImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             mascotImageView.heightAnchor.constraint(equalToConstant: 120),
@@ -167,6 +173,17 @@ final class QuickRewardClaimPopupViewController: UIViewController {
             tapHintLabel.topAnchor.constraint(equalTo: claimButton.bottomAnchor, constant: 14),
             tapHintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
+    }
+    
+    // MARK: - Actions
+    
+    @objc private func closeTapped() {
+        dismiss(animated: true)
+    }
+    
+    @objc private func claimTapped() {
+        guard !isSubmitting else { return }
+        redeemInstantReward()
     }
 
     // MARK: - Helpers
@@ -219,53 +236,9 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         mascotImageView.layer.add(float, forKey: "float")
     }
 
-    private func showConfetti() {
-        let emitter = CAEmitterLayer()
-        emitter.emitterPosition = CGPoint(x: view.bounds.midX, y: -10)
-        emitter.emitterShape = .line
-        emitter.emitterSize = CGSize(width: view.bounds.width, height: 1)
-
-        let colors: [UIColor] = [
-            .systemYellow,
-            .systemPink,
-            .systemBlue,
-            .systemGreen,
-            .systemOrange
-        ]
-
-        emitter.emitterCells = colors.map { color in
-            let cell = CAEmitterCell()
-            cell.birthRate = 6
-            cell.lifetime = 4.0
-            cell.velocity = 180
-            cell.velocityRange = 80
-            cell.emissionLongitude = .pi
-            cell.emissionRange = .pi / 4
-            cell.spin = 3
-            cell.spinRange = 4
-            cell.scale = 0.6
-            cell.scaleRange = 0.3
-            cell.color = color.cgColor
-            cell.contents = UIImage(systemName: "star.fill")?.cgImage
-            return cell
-        }
-
-        view.layer.addSublayer(emitter)
-
-        // 🧹 Remove after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            emitter.birthRate = 0
-            emitter.removeFromSuperlayer()
-        }
-    }
-    
-    @objc private func claimTapped() {
-        guard !isSubmitting else { return }
-        redeemInstantReward()
-    }
+    // MARK: - Logic
     
     private func redeemInstantReward() {
-
         guard !isSubmitting else { return }
         isSubmitting = true
 
@@ -276,7 +249,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
 
         Task {
             do {
-                let response = try await ChildRewardsService.shared
+                _ = try await ChildRewardsService.shared
                     .claimQuickReward(
                         childId: childId,
                         rewardId: reward.id
@@ -284,18 +257,13 @@ final class QuickRewardClaimPopupViewController: UIViewController {
 
                 await MainActor.run {
                     NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
-
-                    // 🔥 Force immediate refresh of coin UI everywhere
                     NotificationCenter.default.post(name: .taskDidComplete, object: nil)
-
                     self.dismiss(animated: true)
                 }
-
 
             } catch {
                 await MainActor.run {
                     self.isSubmitting = false
-
                     let message = (error as NSError).localizedDescription.lowercased()
 
                     if message.contains("not enough") {
@@ -309,9 +277,10 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                     }
                 }
             }
-
         }
     }
+    
+    // MARK: - Error Popups
     
     private func showAlreadyClaimedPopup() {
         let vc = LockedRewardPopupViewController()
@@ -343,39 +312,32 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         present(alert, animated: true)
     }
 
-
-
     private func showNotEnoughStarsPopup() {
         let popup = UIViewController()
         popup.modalPresentationStyle = .overFullScreen
         popup.view.backgroundColor = .clear
 
-        // Dim background
         let dimView = UIView()
         dimView.translatesAutoresizingMaskIntoConstraints = false
         dimView.backgroundColor = UIColor.black.withAlphaComponent(0.45)
         popup.view.addSubview(dimView)
 
-        // Blur card
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
         blur.translatesAutoresizingMaskIntoConstraints = false
         blur.layer.cornerRadius = 24
         blur.clipsToBounds = true
         popup.view.addSubview(blur)
 
-        // Cloudyy mascot
-        let mascot = UIImageView(image: UIImage(named: "cloudyy_upset")) // ✅ your asset
+        let mascot = UIImageView(image: UIImage(named: "cloudyy_upset"))
         mascot.translatesAutoresizingMaskIntoConstraints = false
         mascot.contentMode = .scaleAspectFit
 
-        // Title
         let title = UILabel()
         title.text = "Oops!"
         title.font = .systemFont(ofSize: 22, weight: .bold)
         title.textColor = .white
         title.textAlignment = .center
 
-        // Message
         let message = UILabel()
         message.text = """
     You don’t have enough stars ⭐
@@ -388,7 +350,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         message.textAlignment = .center
         message.numberOfLines = 0
 
-        // OK button
         let okButton = UIButton(type: .system)
         okButton.setTitle("Okay 😊", for: .normal)
         okButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
@@ -397,7 +358,6 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         okButton.layer.cornerRadius = 16
         okButton.translatesAutoresizingMaskIntoConstraints = false
 
-        // Stack
         let stack = UIStackView(arrangedSubviews: [mascot, title, message, okButton])
         stack.axis = .vertical
         stack.alignment = .center
@@ -427,10 +387,9 @@ final class QuickRewardClaimPopupViewController: UIViewController {
             okButton.heightAnchor.constraint(equalToConstant: 44)
         ])
 
-        // Dismiss + go back to Rewards Home
         okButton.addAction(UIAction { _ in
             popup.dismiss(animated: true)
-            self.dismiss(animated: true) // closes reward popup → back to rewards home
+            self.dismiss(animated: true)
         }, for: .touchUpInside)
 
         let tap = UITapGestureRecognizer(target: popup, action: #selector(UIViewController.dismiss))
@@ -438,5 +397,4 @@ final class QuickRewardClaimPopupViewController: UIViewController {
 
         present(popup, animated: true)
     }
-
 }

@@ -16,8 +16,6 @@ final class StreakCardView: UIView {
         onTap?()
     }
 
-    
-
     private let container: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -34,11 +32,10 @@ final class StreakCardView: UIView {
         let iv = UIImageView(image: image)
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
-        // If it's a template image, tint it. If it's the full color logo from screenshot, keep original.
-        // Assuming custom asset is full color based on screenshot (white cloud, sunglasses, flame).
-        // If using system image fallback, tint it white/grey.
+        
+        // Fallback tint if custom asset is missing
         if UIImage(named: "cloudyy_logo") == nil {
-             iv.tintColor = .systemGray4
+            iv.tintColor = .systemGray4
         }
         return iv
     }()
@@ -46,8 +43,7 @@ final class StreakCardView: UIView {
     private let streakNumber: UILabel = {
         let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
-        lb.text = ""
-        // Reduced font size slightly to fit 143 height
+        lb.text = "0" // Default to 0 instead of empty string
         lb.font = .systemFont(ofSize: 40, weight: .bold)
         lb.textColor = .white
         return lb
@@ -131,6 +127,9 @@ final class StreakCardView: UIView {
         ])
 
         setupDays()
+        
+        // ✅ Set the requested Streak Value of 2 immediately
+        setStreak(2)
     }
     
     private func setupDays() {
@@ -145,8 +144,11 @@ final class StreakCardView: UIView {
     
     // MARK: - Backend Binding
     func setStreak(_ value: Int) {
+        // Checks if the value is 0, allowing you to handle logic if needed.
+        // Currently sets the text exactly to the integer provided.
         streakNumber.text = "\(value)"
     }
+    
     func setWeekStatus(_ states: [Bool]) {
         daysStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 

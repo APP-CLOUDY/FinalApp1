@@ -16,20 +16,22 @@ final class Dream3DObjectSelectorViewController: UIViewController {
     var onSelect: ((Dream3DObject) -> Void)?
 
     // MARK: - Data
-    private let objects: [Dream3DObject] = [
-        Dream3DObject(
-            objectKey: "cycle",
-            uuid: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
-            displayName: "Cycle",
-            previewImage: UIImage(named: "cycle") ?? UIImage(systemName: "photo")!
-        ),
-        Dream3DObject(
-            objectKey: "chess_board",
-            uuid: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
-            displayName: "Chess Board",
-            previewImage: UIImage(named: "chess") ?? UIImage(systemName: "photo")!
-        )
-    ]
+    // MARK: - Data
+        private let objects: [Dream3DObject] = [
+            Dream3DObject(
+                objectKey: "cycle",
+                uuid: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                displayName: "Cycle",
+                // ✅ CHANGED: Capitalized "Cycle" to match your asset name
+                previewImage: UIImage(named: "Cycle") ?? UIImage(systemName: "photo")!
+            ),
+            Dream3DObject(
+                objectKey: "chess_board",
+                uuid: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+                displayName: "Chess Board",
+                previewImage: UIImage(named: "Chess") ?? UIImage(systemName: "photo")!
+            )
+        ]
 
     
     static func loadImageSafely(named name: String) -> UIImage? {
