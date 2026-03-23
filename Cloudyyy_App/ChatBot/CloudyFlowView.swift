@@ -15,20 +15,23 @@ struct CloudyFlowView: View {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 0) {
-                    ZStack {
-                        Text("Cloudy").font(.headline).foregroundColor(.white)
-                        HStack {
-                            Button(action: vm.goBack) {
-                                Image(systemName: "chevron.left")
-                                    .font(.title3.bold())
-                                    .foregroundColor((vm.currentState == .chatWelcome && vm.chatHistory.isEmpty) ? .clear : .white)
-                            }
-                            .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
-                            Spacer()
+                    HStack(spacing: 12) {
+                        Button(action: vm.goBack) {
+                            Image(systemName: "chevron.left")
+                                .font(.title2.bold())
+                                .foregroundColor((vm.currentState == .chatWelcome && vm.chatHistory.isEmpty) ? .clear : .white)
                         }
+                        .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
+                        
+                        Text("Cloudy")
+                            .font(.system(size: 30, weight: .bold)) // Unified size
+                            .foregroundColor(.white)
+                        
+                        Spacer()
                     }
-                    .frame(height: 44)
-                    .padding(.horizontal)
+                    .padding(.horizontal, 20) // Unified leading padding
+                    .padding(.top, 16)        // Unified top padding
+                    .padding(.bottom, 8)
                     
                     Rectangle().fill(Color.white.opacity(0.15)).frame(height: 0.5)
                 }
