@@ -43,6 +43,24 @@ final class ProfileService: Sendable {
         
         return child
     }
+
+    func fetchChildFamilyName(familyId: UUID?) async throws -> String? {
+        guard let familyId else { return nil }
+
+        struct FamilyNameRow: Decodable {
+            let family_name: String
+        }
+
+        let response = try await client.database
+            .from("families")
+            .select("family_name")
+            .eq("id", value: familyId)
+            .limit(1)
+            .execute()
+
+        let families = try JSONDecoder().decode([FamilyNameRow].self, from: response.data)
+        return families.first?.family_name
+    }
     
     // Fetch PARENT Profile (Restored to use Session)
         func fetchUserProfile() async throws -> UserProfile {
@@ -95,6 +113,31 @@ final class ProfileService: Sendable {
             .from("children")
             .update(updates)
             .eq("id", value: childId)
+            .execute()
+    }
+
+    func updateUserProfile(name: String, role: String) async throws {
+        var parentId: UUID?
+
+        if let sessionUser = try? client.auth.session.user {
+            parentId = sessionUser.id
+        }
+
+        if parentId == nil, let storedId = UserDefaults.standard.string(forKey: "current_parent_id") {
+            parentId = UUID(uuidString: storedId)
+        }
+
+        guard let validParentId = parentId else {
+            throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "No Parent ID found. Please log in."])
+        }
+
+        try await client.database
+            .from("users")
+            .update([
+                "first_name": name,
+                "role": role.lowercased()
+            ])
+            .eq("id", value: validParentId)
             .execute()
     }
     

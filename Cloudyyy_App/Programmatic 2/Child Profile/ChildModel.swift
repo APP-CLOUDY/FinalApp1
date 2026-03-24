@@ -10,5 +10,8 @@ struct ChildProfile: Decodable, Sendable {
     let id: UUID
     let name: String
     let nickname: String?   // ✅ This stores "Chore Champion"
+    let birth_date: String?
+    let gender: String?
+    let family_id: UUID?
     let avatar_url: String? // ✅ Stores "tiger.png"
 }
