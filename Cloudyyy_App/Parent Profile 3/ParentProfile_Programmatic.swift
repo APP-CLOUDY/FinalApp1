@@ -143,7 +143,7 @@ class ParentProfileViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
             super.viewWillAppear(animated)
             navigationController?.setNavigationBarHidden(true, animated: animated)
-            self.tabBarController?.tabBar.isHidden = false
+            self.tabBarController?.tabBar.isHidden = true
             
             // ✅ FIX 1: Fetch data every time the view appears so it updates immediately
             fetchProfileData()

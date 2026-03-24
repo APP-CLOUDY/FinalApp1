@@ -79,6 +79,11 @@ final class ScheduleViewController: UIViewController {
         
         // Header Actions
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onProfileTapped = { [weak self] in
+            let vc = ParentProfileViewController()
+            vc.hidesBottomBarWhenPushed = true
+            self?.navigationController?.pushViewController(vc, animated: true)
+        }
         header.showProfileButton(true)
         
         // Generate Calendar

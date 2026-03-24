@@ -394,11 +394,24 @@ class ParentProfileMembers: UIViewController {
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { _ in
-            guard let newName = alert.textFields?.first?.text, !newName.isEmpty, let id = self.currentFamilyId else { return }
+            guard
+                let rawName = alert.textFields?.first?.text,
+                let id = self.currentFamilyId
+            else { return }
+
+            let newName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !newName.isEmpty else { return }
+
             _Concurrency.Task {
                 do {
                     try await FamilyService.shared.updateFamilyName(id: id, newName: newName)
-                    await MainActor.run { self.familyNameLabel.text = newName }
+                    await MainActor.run {
+                        self.familyNameLabel.text = newName
+                    }
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: NSNotification.Name("DataChanged"), object: nil)
+                    }
+                    self.loadFamilyData()
                 } catch { print("Update failed: \(error)") }
             }
         }))
