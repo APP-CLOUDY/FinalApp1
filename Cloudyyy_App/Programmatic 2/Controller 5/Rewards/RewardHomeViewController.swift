@@ -175,13 +175,12 @@ final class RewardHomeViewController: UIViewController, ImagePlaygroundViewContr
     private func fetchStats(for kid: ChildModel) {
         _Concurrency.Task {
             do {
-                // Call RewardService to get real numbers
-                let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
+                let summary = try await RewardService.shared.fetchParentRewardSummary(for: kid.id)
                 
                 await MainActor.run {
-                    self.activeLabel.text = "\(stats.active_rewards)"
-                    self.weekLabel.text = "\(stats.stars_this_week)"
-                    self.totalLabel.text = "\(stats.total_stars)"
+                    self.activeLabel.text = "\(summary.activeRewards)"
+                    self.weekLabel.text = "\(summary.pointsThisWeek)"
+                    self.totalLabel.text = "\(summary.currentPoints)"
                 }
             } catch {
                 print("Error fetching reward stats: \(error)")
@@ -308,25 +307,25 @@ final class RewardHomeViewController: UIViewController, ImagePlaygroundViewContr
         activeTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         activeTitle.translatesAutoresizingMaskIntoConstraints = false
 
-        // STARS THIS WEEK
+        // POINTS THIS WEEK
         weekLabel.font = .systemFont(ofSize: 28, weight: .bold)
         weekLabel.textColor = .white
         weekLabel.text = "-"
         weekLabel.translatesAutoresizingMaskIntoConstraints = false
 
         weekTitle.font = .systemFont(ofSize: 13)
-        weekTitle.text = "Stars this week"
+        weekTitle.text = "Points this week"
         weekTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         weekTitle.translatesAutoresizingMaskIntoConstraints = false
 
-        // TOTAL stars
+        // CURRENT POINTS
         totalLabel.font = .systemFont(ofSize: 32, weight: .bold)
         totalLabel.textColor = .white
         totalLabel.text = "-"
         totalLabel.translatesAutoresizingMaskIntoConstraints = false
 
         totalTitle.font = .systemFont(ofSize: 13)
-        totalTitle.text = "Total Stars"
+        totalTitle.text = "Total Points"
         totalTitle.textColor = UIColor.white.withAlphaComponent(0.85)
         totalTitle.translatesAutoresizingMaskIntoConstraints = false
 

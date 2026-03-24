@@ -3,10 +3,11 @@ import UIKit
 final class StreakCalendarView: UIView {
 
     // MARK: - Public API
-    func update(month: Int, year: Int, completed: Set<Int>) {
+    func update(month: Int, year: Int, completed: Set<Int>, currentStreakCount: Int) {
         self.displayMonth = month
         self.displayYear = year
         self.completedDays = completed
+        self.currentStreakCount = currentStreakCount
         reload()
     }
 
@@ -14,6 +15,7 @@ final class StreakCalendarView: UIView {
     private var displayMonth: Int = Calendar.current.component(.month, from: Date())
     private var displayYear: Int = Calendar.current.component(.year, from: Date())
     private var completedDays: Set<Int> = []
+    private var currentStreakCount: Int = 0
 
     private var todayComponents = Calendar.current.dateComponents([.day, .month, .year], from: Date())
 
@@ -146,7 +148,6 @@ final class StreakCalendarView: UIView {
             displayMonth == todayComponents.month &&
             displayYear == todayComponents.year
 
-        let isCompleted = completedDays.contains(day)
         let isInStreak = streakSet.contains(day)
 
         let content: UIView
@@ -157,11 +158,6 @@ final class StreakCalendarView: UIView {
                 ? UIColor.systemOrange.withAlphaComponent(0.32)
                 : UIColor.systemOrange.withAlphaComponent(0.20)
             cell.layer.cornerRadius = 16
-        }
-        else if isCompleted {
-            content = dotView()
-            cell.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.18)
-            cell.layer.cornerRadius = 14
         }
         else {
             content = numberView(day)
@@ -188,15 +184,6 @@ final class StreakCalendarView: UIView {
         return lb
     }
 
-    private func dotView() -> UIView {
-        let dot = UIView()
-        dot.backgroundColor = .systemBlue
-        dot.layer.cornerRadius = 6
-        dot.widthAnchor.constraint(equalToConstant: 12).isActive = true
-        dot.heightAnchor.constraint(equalToConstant: 12).isActive = true
-        return dot
-    }
-
     private func fireView() -> UIView {
         let iv = UIImageView(image: UIImage(systemName: "flame.fill"))
         iv.tintColor = .systemOrange
@@ -208,11 +195,18 @@ final class StreakCalendarView: UIView {
     private func calculateStreakDays() -> Set<Int> {
         guard displayMonth == todayComponents.month,
               displayYear == todayComponents.year else { return [] }
+        guard currentStreakCount > 0 else { return [] }
+
+        let today = todayComponents.day ?? 0
+        let latestCompletedDay = completedDays
+            .filter { $0 <= today }
+            .max()
+
+        guard var day = latestCompletedDay else { return [] }
 
         var result = Set<Int>()
-        var day = todayComponents.day!
 
-        while completedDays.contains(day) || day == todayComponents.day {
+        while completedDays.contains(day) && result.count < currentStreakCount {
             result.insert(day)
             day -= 1
             if day <= 0 { break }
@@ -220,4 +214,3 @@ final class StreakCalendarView: UIView {
         return result
     }
 }
-

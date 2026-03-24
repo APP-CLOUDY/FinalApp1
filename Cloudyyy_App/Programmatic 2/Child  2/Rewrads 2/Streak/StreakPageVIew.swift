@@ -12,6 +12,7 @@ final class StreakPageView: UIViewController {
     private let gradientLayer = CAGradientLayer()
 
     private var completedDays: Set<Int> = []
+    private var currentStreakCount: Int = 0
 
 
     // MARK: - Subtitle
@@ -113,18 +114,27 @@ final class StreakPageView: UIViewController {
             }
             
             do {
-                let days = try await StreakService.shared.getMonthStreak(
+                async let daysTask = StreakService.shared.getMonthStreak(
                     childId: childId,
                     month: currentMonth,
                     year: currentYear
                 )
-                
+                async let streakTask = StreakService.shared.getCurrentStreak(childId: childId)
+
+                let days = try await daysTask
+                let streakCount = try await streakTask
+
                 completedDays = days
-                
+                currentStreakCount = streakCount
+
+                print("🔥 Streak detail debug -> completed days for month:", days.sorted())
+                print("🔥 Streak detail debug -> current streak count:", streakCount)
+
                 calendarView.update(
                     month: currentMonth,
                     year: currentYear,
-                    completed: days
+                    completed: days,
+                    currentStreakCount: streakCount
                 )
             } catch {
                 print("❌ Failed to load streak month:", error)
@@ -152,18 +162,27 @@ final class StreakPageView: UIViewController {
             }
 
             do {
-                let days = try await StreakService.shared.getMonthStreak(
+                async let daysTask = StreakService.shared.getMonthStreak(
                     childId: childId,
                     month: currentMonth,
                     year: currentYear
                 )
+                async let streakTask = StreakService.shared.getCurrentStreak(childId: childId)
+
+                let days = try await daysTask
+                let streakCount = try await streakTask
 
                 completedDays = days
+                currentStreakCount = streakCount
+
+                print("🔥 Streak detail debug -> completed days for month:", days.sorted())
+                print("🔥 Streak detail debug -> current streak count:", streakCount)
 
                 calendarView.update(
                     month: currentMonth,
                     year: currentYear,
-                    completed: days
+                    completed: days,
+                    currentStreakCount: streakCount
                 )
             } catch {
                 print("❌ Failed to load streak month:", error)
@@ -187,4 +206,3 @@ final class StreakPageView: UIViewController {
     }
 
 }
-

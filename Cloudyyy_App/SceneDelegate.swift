@@ -91,5 +91,21 @@ extension SceneDelegate {
             }
         )
     }
-}
 
+    func switchToAuthFlow() {
+        let authVC = SelectUserViewController()
+        let nav = UINavigationController(rootViewController: authVC)
+        nav.isNavigationBarHidden = true
+
+        guard let window = window else { return }
+
+        UIView.transition(
+            with: window,
+            duration: 0.35,
+            options: .transitionCrossDissolve,
+            animations: {
+                window.rootViewController = nav
+            }
+        )
+    }
+}

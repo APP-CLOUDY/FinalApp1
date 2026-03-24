@@ -109,6 +109,12 @@ struct RewardStats: Decodable, Sendable {
     let active_rewards: Int
 }
 
+struct ParentRewardSummary: Sendable {
+    let activeRewards: Int
+    let currentPoints: Int
+    let pointsThisWeek: Int
+}
+
 struct RewardResponse: Decodable, Sendable {
     let reward_id: UUID
     let status: String
@@ -145,6 +151,20 @@ final class RewardService: Sendable {
     func fetchRewardStats(for childId: UUID) async throws -> RewardStats {
         let params = ["child_id_input": childId.uuidString]
         return try await client.database.rpc("get_child_reward_stats", params: params).execute().value
+    }
+
+    func fetchParentRewardSummary(for childId: UUID) async throws -> ParentRewardSummary {
+        async let rewardStatsTask = fetchRewardStats(for: childId)
+        async let weeklyProgressTask = ProgressService.shared.fetchStats(childId: childId, scope: .weekly)
+
+        let rewardStats = try await rewardStatsTask
+        let weeklyProgress = try await weeklyProgressTask
+
+        return ParentRewardSummary(
+            activeRewards: rewardStats.active_rewards,
+            currentPoints: weeklyProgress.current_balance,
+            pointsThisWeek: weeklyProgress.points_earned
+        )
     }
     
     func fetchRewards(for childId: UUID, category: String) async throws -> RewardLists {

@@ -406,17 +406,22 @@ class ParentProfileViewController: UIViewController {
     //@objc private func editAvatarTapped() { print("Edit Avatar") }
     
     @objc private func handleLogout() {
-        // ✅ Real Logout with explicit Concurrency Task
         _Concurrency.Task {
             do {
                 try await ProfileService.shared.signOut()
                 
                 await MainActor.run {
-                    if let window = view.window {
+                    if let sceneDelegate = view.window?.windowScene?.delegate as? SceneDelegate {
+                        sceneDelegate.switchToAuthFlow()
+                    } else if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                              let sceneDelegate = scene.delegate as? SceneDelegate {
+                        sceneDelegate.switchToAuthFlow()
+                    } else {
                         let authVC = SelectUserViewController()
                         let nav = UINavigationController(rootViewController: authVC)
-                        window.rootViewController = nav
-                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                        nav.isNavigationBarHidden = true
+                        nav.modalPresentationStyle = .fullScreen
+                        self.present(nav, animated: true)
                     }
                 }
             } catch {

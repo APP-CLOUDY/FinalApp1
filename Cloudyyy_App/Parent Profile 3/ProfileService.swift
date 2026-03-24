@@ -211,11 +211,9 @@ final class ProfileService: Sendable {
     // MARK: - 4. Sign Out
     
     func signOut() async throws {
-        // Clear all local IDs
+        try await client.auth.signOut()
+
         UserDefaults.standard.removeObject(forKey: "current_child_id")
         UserDefaults.standard.removeObject(forKey: "current_parent_id")
-        
-        // Try Supabase signout (just in case)
-        try? await client.auth.signOut()
     }
 }
