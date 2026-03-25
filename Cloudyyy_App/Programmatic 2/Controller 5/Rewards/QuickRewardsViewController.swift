@@ -10,6 +10,7 @@ struct RewardDetailItem {
     let isActive: Bool
     let claimLimit: String?
     let subType: String?
+    let progressFraction: Float?
 }
 
 final class QuickRewardsViewController: UIViewController {
@@ -145,8 +146,8 @@ final class QuickRewardsViewController: UIViewController {
                 
                 await MainActor.run {
                     self.currentBalance = stats.total_stars
-                    self.activeItems = lists.active.map { RewardDetailItem(id: $0.id.uuidString, title: $0.title, subtitle: $0.description ?? "Quick Treat", points: $0.points, imageName: $0.image_url, isActive: true, claimLimit: $0.claim_limit, subType: $0.reward_sub_type) }
-                    self.historyItems = lists.history.map { RewardDetailItem(id: $0.id.uuidString, title: $0.title, subtitle: $0.description ?? "Redeemed", points: $0.points, imageName: $0.image_url, isActive: false, claimLimit: $0.claim_limit, subType: $0.reward_sub_type) }
+                    self.activeItems = lists.active.map { RewardDetailItem(id: $0.id.uuidString, title: $0.title, subtitle: $0.description ?? "Quick Treat", points: $0.points, imageName: $0.image_url, isActive: true, claimLimit: $0.claim_limit, subType: $0.reward_sub_type, progressFraction: nil) }
+                    self.historyItems = lists.history.map { RewardDetailItem(id: $0.id.uuidString, title: $0.title, subtitle: $0.description ?? "Redeemed", points: $0.points, imageName: $0.image_url, isActive: false, claimLimit: $0.claim_limit, subType: $0.reward_sub_type, progressFraction: nil) }
                     self.populateActive(self.activeItems)
                     self.populateHistory(self.historyItems)
                 }

@@ -129,37 +129,65 @@ final class SpringOnViewController: UIViewController {
         
         _Concurrency.Task {
             do {
-                let stats = try await RewardService.shared.fetchRewardStats(for: kid.id)
+                let summary = try await RewardService.shared.fetchParentRewardSummary(for: kid.id)
                 let lists = try await RewardService.shared.fetchRewards(for: kid.id, category: "Spring On")
+
+                var upcomingItems: [RewardDetailItem] = []
+                var memoryItems: [RewardDetailItem] = lists.history.map { item in
+                    RewardDetailItem(
+                        id: item.id.uuidString,
+                        title: item.title,
+                        subtitle: item.description ?? "Completed adventure",
+                        points: item.points,
+                        imageName: item.image_url,
+                        isActive: false,
+                        claimLimit: item.claim_limit,
+                        subType: item.reward_sub_type,
+                        progressFraction: 1.0
+                    )
+                }
+                var memoryIDs = Set(memoryItems.map(\.id))
+
+                for item in lists.active {
+                    let progress = try? await SpringOnService.shared.fetchProgress(
+                        childId: kid.id,
+                        rewardId: item.id
+                    )
+
+                    let isCompleted = {
+                        guard let progress else { return false }
+                        return progress.total_pieces > 0 && progress.unlocked_pieces >= progress.total_pieces
+                    }()
+                    let progressFraction: Float? = {
+                        guard let progress, progress.total_pieces > 0 else { return nil }
+                        return min(Float(progress.unlocked_pieces) / Float(progress.total_pieces), 1.0)
+                    }()
+
+                    let mappedItem = RewardDetailItem(
+                        id: item.id.uuidString,
+                        title: item.title,
+                        subtitle: item.description ?? (isCompleted ? "Completed adventure" : "Ongoing adventure"),
+                        points: item.points,
+                        imageName: item.image_url,
+                        isActive: !isCompleted,
+                        claimLimit: item.claim_limit,
+                        subType: item.reward_sub_type,
+                        progressFraction: progressFraction
+                    )
+
+                    if isCompleted {
+                        if memoryIDs.insert(mappedItem.id).inserted {
+                            memoryItems.append(mappedItem)
+                        }
+                    } else {
+                        upcomingItems.append(mappedItem)
+                    }
+                }
                 
                 await MainActor.run {
-                    self.currentBalance = stats.total_stars
-                    
-                    self.activeItems = lists.active.map { item in
-                        RewardDetailItem(
-                            id: item.id.uuidString,
-                            title: item.title,
-                            subtitle: item.description ?? "Experience",
-                            points: item.points,
-                            imageName: item.image_url,
-                            isActive: true,
-                            claimLimit: item.claim_limit,
-                            subType: item.reward_sub_type
-                        )
-                    }
-                    
-                    self.completedItems = lists.history.map { item in
-                        RewardDetailItem(
-                            id: item.id.uuidString,
-                            title: item.title,
-                            subtitle: item.description ?? "Redeemed",
-                            points: item.points,
-                            imageName: item.image_url,
-                            isActive: false,
-                            claimLimit: item.claim_limit,
-                            subType: item.reward_sub_type
-                        )
-                    }
+                    self.currentBalance = summary.currentPoints
+                    self.activeItems = upcomingItems
+                    self.completedItems = memoryItems
                     
                     self.populateActive(self.activeItems)
                     self.populateCompleted(self.completedItems)
@@ -197,6 +225,14 @@ final class SpringOnViewController: UIViewController {
 
     private func populateCompleted(_ arr: [RewardDetailItem]) {
         completedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        if arr.isEmpty {
+            let lbl = UILabel()
+            lbl.text = "No memories yet"
+            lbl.textColor = .white
+            completedStack.addArrangedSubview(lbl)
+            return
+        }
+
         for item in arr {
             let row = RewardSmallCards(item: item)
             row.heightAnchor.constraint(equalToConstant: 70).isActive = true
@@ -430,8 +466,8 @@ final class ExperienceCard: UIView {
         addSubview(costLabel)
         
         // Progress Bar
-        let totalCost = Float(item.points > 0 ? item.points : 1)
-        let progress = Float(currentBalance) / totalCost
+        let walletProgress = Float(currentBalance) / Float(item.points > 0 ? item.points : 1)
+        let progress = item.progressFraction ?? walletProgress
         
         progressView.progress = min(progress, 1.0)
         progressView.trackTintColor = UIColor.white.withAlphaComponent(0.2)
@@ -442,7 +478,13 @@ final class ExperienceCard: UIView {
         addSubview(progressView)
         
         // Progress Text
-        if currentBalance >= item.points {
+        if let progressFraction = item.progressFraction {
+            let percent = Int(progressFraction * 100)
+            progressLabel.text = percent >= 100 ? "Completed" : "\(percent)% completed"
+            progressLabel.textColor = percent >= 100
+                ? .systemGreen
+                : UIColor.white.withAlphaComponent(0.9)
+        } else if currentBalance >= item.points {
             progressLabel.text = "Let's Go! 🚀"
             progressLabel.textColor = .systemGreen
         } else {

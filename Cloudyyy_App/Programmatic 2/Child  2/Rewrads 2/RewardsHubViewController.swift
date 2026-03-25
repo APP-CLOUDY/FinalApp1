@@ -214,32 +214,8 @@ final class RewardsViewController: UIViewController {
     }()
     
     
-    private func animateCoins(from oldValue: Int, to newValue: Int) {
-        guard newValue > oldValue else {
-            coinLabel.text = "\(newValue)"
-            return
-        }
-        
-        let steps = newValue - oldValue
-        var current = oldValue
-        
-        Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { timer in
-            current += 1
-            self.coinLabel.text = "\(current)"
-            
-            UIView.animate(withDuration: 0.12,
-                           animations: {
-                self.coinBadgeView.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
-            }, completion: { _ in
-                UIView.animate(withDuration: 0.12) {
-                    self.coinBadgeView.transform = .identity
-                }
-            })
-            
-            if current >= newValue {
-                timer.invalidate()
-            }
-        }
+    private func updateCoins(_ newValue: Int) {
+        coinLabel.text = "\(newValue)"
     }
     
     // Header
@@ -556,9 +532,8 @@ final class RewardsViewController: UIViewController {
         streakCard.setWeekStatus(resolvedWeekStatus)
         
         // ⭐ Coins
-        let oldCoins = Int(coinLabel.text ?? "0") ?? 0
         let newCoins = progressReport?.current_balance ?? 0
-        animateCoins(from: oldCoins, to: newCoins)
+        updateCoins(newCoins)
 
         
         Task {

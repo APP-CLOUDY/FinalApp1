@@ -151,7 +151,8 @@ final class DreamItViewController: UIViewController {
                             imageName: item.image_url,
                             isActive: true,
                             claimLimit: item.claim_limit,
-                            subType: item.reward_sub_type
+                            subType: item.reward_sub_type,
+                            progressFraction: nil
                         )
                     }
                     
@@ -164,7 +165,8 @@ final class DreamItViewController: UIViewController {
                             imageName: item.image_url,
                             isActive: false,
                             claimLimit: item.claim_limit,
-                            subType: item.reward_sub_type
+                            subType: item.reward_sub_type,
+                            progressFraction: nil
                         )
                     }
                     
