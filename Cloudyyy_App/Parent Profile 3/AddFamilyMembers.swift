@@ -12,12 +12,7 @@ final class AddFamilyMembersViewController: UIViewController {
 
     // NEW: Back Button
     private let backButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        btn.tintColor = .white
-        return btn
+        ParentBackButtonFactory.make(target: nil, action: #selector(handleBack))
     }()
 
     private let appTitleLabel: UILabel = {
@@ -180,9 +175,7 @@ final class AddFamilyMembersViewController: UIViewController {
             
             // Back Button Constraints
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            backButton.widthAnchor.constraint(equalToConstant: 44),
-            backButton.heightAnchor.constraint(equalToConstant: 44),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             
             // Bottom Card: 50% height + overlap
             bottomCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),

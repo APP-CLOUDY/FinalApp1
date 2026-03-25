@@ -36,12 +36,7 @@ final class AccountViewController: UIViewController {
     }()
 
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        return b
+        ParentBackButtonFactory.make(target: self, action: #selector(backTapped))
     }()
 
     private lazy var editButton: UIButton = {
@@ -228,8 +223,6 @@ final class AccountViewController: UIViewController {
             constraints.append(contentsOf: [
                 backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
                 backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12),
-                backButton.widthAnchor.constraint(equalToConstant: 36),
-                backButton.heightAnchor.constraint(equalToConstant: 36)
             ])
         }
 

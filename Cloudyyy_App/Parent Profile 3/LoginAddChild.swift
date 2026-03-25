@@ -34,13 +34,7 @@ final class LoginAddChild: UIViewController {
     }()
 
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
-        return b
+        ParentBackButtonFactory.make(target: self, action: #selector(handleBack))
     }()
 
     private let cardView: UIView = {
@@ -238,8 +232,6 @@ final class LoginAddChild: UIViewController {
             NSLayoutConstraint.activate([
                 backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
                 backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12),
-                backButton.widthAnchor.constraint(equalToConstant: 36),
-                backButton.heightAnchor.constraint(equalToConstant: 36)
             ])
         }
     }

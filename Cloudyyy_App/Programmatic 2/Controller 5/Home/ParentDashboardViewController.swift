@@ -145,8 +145,11 @@ extension Color {
         private func fetchStats(for kid: ChildModel) {
             _Concurrency.Task {
                 do {
-                    let stats = try await HomeService.shared.fetchHomeStats(for: kid.id)
-                    await MainActor.run { self.updateUI(with: stats) }
+                    async let statsTask = HomeService.shared.fetchHomeStats(for: kid.id)
+                    async let todayScheduleTask = TaskService.shared.fetchSchedule(for: kid.id, date: Date())
+                    let stats = try await statsTask
+                    let todaySchedule = try await todayScheduleTask
+                    await MainActor.run { self.updateUI(with: stats, todaySchedule: todaySchedule) }
                 } catch {
                     print("Error stats: \(error)")
                 }
@@ -156,84 +159,45 @@ extension Color {
         private func fetchCharts(for kid: ChildModel) {
                     Task {
                         do {
-                            // Fetch Data
-                            let wData = try await HomeService.shared.fetchChartData(for: kid.id, range: "weekly")
-                            let mData = try await HomeService.shared.fetchChartData(for: kid.id, range: "monthly")
+                            let weeklyDates = self.currentWeekDates()
+                            let monthWeekBuckets = self.currentMonthWeekBuckets()
+                            let flatMonthDates = Array(Set(monthWeekBuckets.flatMap(\.dates))).sorted()
+
+                            async let weeklyMetricsTask = self.fetchScheduleMetrics(for: kid, dates: weeklyDates)
+                            async let monthlyMetricsTask = self.fetchScheduleMetrics(for: kid, dates: flatMonthDates)
+                            let weeklyMetrics = try await weeklyMetricsTask
+                            let monthlyMetrics = try await monthlyMetricsTask
 
                             await MainActor.run {
-                                
-                                // 1. WEEKLY CHART (Standard Logic)
-                                // Ensures Mon-Sun order and fills empty days
-                                let allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                                let dataDict = Dictionary(uniqueKeysWithValues: wData.map { ($0.day, $0) })
-                                
-                                self.weeklyChartPoints = allDays.map { dayStr in
-                                    if let foundData = dataDict[dayStr] {
-                                        return DashboardChartPoint(
-                                            label: dayStr,
-                                            completed: foundData.completed_count,
-                                            assigned: foundData.pending_count
-                                        )
-                                    } else {
-                                        return DashboardChartPoint(label: dayStr, completed: 0, assigned: 0)
-                                    }
+                                let formatter = DateFormatter()
+                                formatter.locale = Locale(identifier: "en_US_POSIX")
+                                formatter.dateFormat = "E"
+
+                                self.weeklyChartPoints = weeklyDates.map { date in
+                                    let metrics = weeklyMetrics[self.normalizedDay(date)] ?? (pending: 0, completed: 0)
+                                    return DashboardChartPoint(
+                                        label: formatter.string(from: date),
+                                        completed: metrics.completed,
+                                        assigned: metrics.pending
+                                    )
                                 }
-                                
-                                // 2. MONTHLY CHART (✅ FIXED: Use Backend Labels Directly)
-                                // The backend sends "Week 1", "Week 2", etc. Use them directly.
-                                
-                                // A. Create a dictionary for quick lookup
-                                let monthlyDict = Dictionary(uniqueKeysWithValues: mData.map { ($0.day, $0) })
-                                
-                                // B. Force "Week 1" to "Week 4" (or 5) order
-                                // This ensures the chart always shows 4 weeks, even if Week 2 is missing.
-                                var finalMonthlyPoints: [DashboardChartPoint] = []
-                                
-                                // Dynamic way (shows 4 or 5 depending on data)
-                                let maxWeeks = monthlyDict.keys.compactMap { Int($0.replacingOccurrences(of: "Week ", with: "")) }.max() ?? 4
-                                for i in 1...maxWeeks {
-                                    let label = "Week \(i)"
-                                    
-                                    if let foundData = monthlyDict[label] {
-                                        finalMonthlyPoints.append(DashboardChartPoint(
-                                            label: label,
-                                            completed: foundData.completed_count,
-                                            assigned: foundData.pending_count
-                                        ))
-                                    } else {
-                                        // Create empty bar if backend didn't send this week
-                                        finalMonthlyPoints.append(DashboardChartPoint(
-                                            label: label,
-                                            completed: 0,
-                                            assigned: 0
-                                        ))
+
+                                self.monthlyChartPoints = monthWeekBuckets.enumerated().map { index, bucket in
+                                    let aggregate = bucket.dates.reduce(into: (pending: 0, completed: 0)) { partial, date in
+                                        let metrics = monthlyMetrics[self.normalizedDay(date)] ?? (pending: 0, completed: 0)
+                                        partial.pending += metrics.pending
+                                        partial.completed += metrics.completed
                                     }
+
+                                    return DashboardChartPoint(
+                                        label: "Week \(index + 1)",
+                                        completed: aggregate.completed,
+                                        assigned: aggregate.pending
+                                    )
                                 }
-                                
-                                self.monthlyChartPoints = finalMonthlyPoints
 
                                 // 3. Update Chart UI
                                 self.updateChart()
-                                
-                                // 4. Update Overview Card (using Weekly data for today)
-                                let dayFormatter = DateFormatter()
-                                dayFormatter.dateFormat = "E"
-                                let todayString = dayFormatter.string(from: Date())
-                                
-                                if let todayData = self.weeklyChartPoints.first(where: { $0.label == todayString }) {
-                                    let correctDone = todayData.completed
-                                    let correctPending = todayData.assigned
-                                    let correctTotal = correctDone + correctPending
-                                    let progress = correctTotal > 0 ? CGFloat(correctDone) / CGFloat(correctTotal) : 0.0
-                                    
-                                    self.overviewCard.configure(
-                                        missionsDone: correctDone,
-                                        missionsTotal: correctTotal,
-                                        redeemedText: "",
-                                        progress: progress,
-                                        animated: true
-                                    )
-                                }
                             }
 
                         } catch {
@@ -242,20 +206,82 @@ extension Color {
                     }
                 }
         
-        private func updateUI(with stats: HomeStats) {
-            let progress = stats.missions_total > 0
-            ? CGFloat(stats.missions_done) / CGFloat(stats.missions_total)
+        private func updateUI(with stats: HomeStats, todaySchedule: [ScheduleTaskModel]) {
+            let completedToday = todaySchedule.filter { $0.submission_status?.lowercased() == "approved" }.count
+            let totalToday = todaySchedule.count
+            let progress = totalToday > 0
+            ? CGFloat(completedToday) / CGFloat(totalToday)
             : 0.0
             
             overviewCard.configure(
-                missionsDone: stats.missions_done,
-                missionsTotal: stats.missions_total,
+                missionsDone: completedToday,
+                missionsTotal: totalToday,
                 redeemedText: stats.redeemed_count > 0 ? "\(stats.redeemed_count) Rewards" : "",
                 progress: progress,
                 animated: true
             )
             pendingLabel.text = "\(stats.pending_count)"
             allocatedLabel.text = "\(stats.allocated_count)"
+        }
+
+        private func fetchScheduleMetrics(
+            for kid: ChildModel,
+            dates: [Date]
+        ) async throws -> [Date: (pending: Int, completed: Int)] {
+            try await withThrowingTaskGroup(of: (Date, [ScheduleTaskModel]).self) { group in
+                for date in dates {
+                    group.addTask {
+                        let tasks = try await TaskService.shared.fetchSchedule(for: kid.id, date: date)
+                        return (date, tasks)
+                    }
+                }
+
+                var result: [Date: (pending: Int, completed: Int)] = [:]
+                for try await (date, tasks) in group {
+                    let completed = tasks.filter { $0.submission_status?.lowercased() == "approved" }.count
+                    let pending = max(tasks.count - completed, 0)
+                    result[self.normalizedDay(date)] = (pending: pending, completed: completed)
+                }
+                return result
+            }
+        }
+
+        private func currentWeekDates() -> [Date] {
+            let calendar = mondayFirstCalendar()
+            guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else { return [] }
+            return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekInterval.start) }
+        }
+
+        private func currentMonthWeekBuckets() -> [(start: Date, dates: [Date])] {
+            let calendar = mondayFirstCalendar()
+            guard let monthInterval = calendar.dateInterval(of: .month, for: Date()),
+                  let firstWeekStart = calendar.dateInterval(of: .weekOfYear, for: monthInterval.start)?.start,
+                  let lastWeekStart = calendar.dateInterval(of: .weekOfYear, for: monthInterval.end.addingTimeInterval(-1))?.start else {
+                return []
+            }
+
+            var buckets: [(start: Date, dates: [Date])] = []
+            var weekStart = firstWeekStart
+
+            while weekStart <= lastWeekStart {
+                let weekDates = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
+                    .filter { monthInterval.contains($0) }
+                buckets.append((start: weekStart, dates: weekDates))
+                guard let nextWeek = calendar.date(byAdding: .day, value: 7, to: weekStart) else { break }
+                weekStart = nextWeek
+            }
+
+            return buckets
+        }
+
+        private func normalizedDay(_ date: Date) -> Date {
+            mondayFirstCalendar().startOfDay(for: date)
+        }
+
+        private func mondayFirstCalendar() -> Calendar {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.firstWeekday = 2
+            return calendar
         }
         
         // MARK: - Kids Menu Logic
