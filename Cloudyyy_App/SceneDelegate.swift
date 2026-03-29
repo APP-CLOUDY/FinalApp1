@@ -69,19 +69,22 @@ extension SceneDelegate {
     /// Switches root safely to the main app tab bar
     func switchToMainApp(role: UserRole) {
 
-        // Save role
-        UserSession.shared.role = role
+        // 1. Initialize Controller based on role
+        let rootVC: UIViewController
+        switch role {
+        case .parent:
+            rootVC = AppTabBarController()
+        case .child:
+            rootVC = ChildTabBarController()
+        }
 
-        // Create ONE tab bar
-        let tabBar = AppTabBarController()
-
-        // Embed in navigation controller (hidden)
-        let nav = UINavigationController(rootViewController: tabBar)
+        // 2. Embed in navigation controller (hidden)
+        let nav = UINavigationController(rootViewController: rootVC)
         nav.isNavigationBarHidden = true
 
         guard let window = window else { return }
 
-        // Smooth root transition
+        // 3. Smooth root transition
         UIView.transition(
             with: window,
             duration: 0.35,

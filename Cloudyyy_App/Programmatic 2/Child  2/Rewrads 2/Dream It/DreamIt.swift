@@ -140,7 +140,7 @@ final class ChildDreamItViewController: UIViewController {
         updateStoreItemStates()
         player?.pause()
         
-        childId = ChildSessionManager.shared.currentChildId
+        childId = SessionManager.shared.childId
 
         Task {
             await loadStars()

@@ -334,8 +334,8 @@ final class KidAgendaViewController: UIViewController {
     // MARK: - Navigation Actions
     @objc private func didTapApprovalsButton() {
         // 1. Get the ID from your generic Session Manager (matches ChildHomeService logic)
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            print("❌ Error: No Child ID found in ChildSessionManager")
+        guard let childId = SessionManager.shared.childId else {
+            print("❌ Error: No Child ID found in SessionManager")
             return
         }
         

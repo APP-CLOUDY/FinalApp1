@@ -15,6 +15,17 @@ import Supabase
 final class VerifyOTPViewController: UIViewController {
 
     private let email: String
+    private let name: String
+    private let role: String
+
+    // MARK: - Profile Model
+    private struct ProfileInsert: Encodable {
+        let id: String
+        let first_name: String
+        let email: String
+        let role: String
+        let date_of_birth: String?
+    }
 
     // MARK: - UI Components
     // Reusing your GradientHeaderView
@@ -78,11 +89,22 @@ final class VerifyOTPViewController: UIViewController {
         return b
     }()
 
+    private let resendButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setTitle("Resend Code", for: .normal)
+        b.setTitleColor(.systemBlue, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        return b
+    }()
+
     private let activity = UIActivityIndicatorView(style: .large)
 
     // MARK: - Init
-    init(email: String) {
+    init(email: String, name: String, role: String) {
         self.email = email
+        self.name = name
+        self.role = role
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -119,6 +141,7 @@ final class VerifyOTPViewController: UIViewController {
         card.addSubview(instructionLabel)
         card.addSubview(codeField)
         card.addSubview(verifyButton)
+        card.addSubview(resendButton)
         
         view.addSubview(backButton)
         view.addSubview(activity)
@@ -178,7 +201,11 @@ final class VerifyOTPViewController: UIViewController {
             verifyButton.topAnchor.constraint(equalTo: codeField.bottomAnchor, constant: 24),
             verifyButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
             verifyButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-            verifyButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
+            verifyButton.heightAnchor.constraint(equalToConstant: 52),
+            
+            resendButton.topAnchor.constraint(equalTo: verifyButton.bottomAnchor, constant: 16),
+            resendButton.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            resendButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
         ])
     }
 
@@ -186,6 +213,7 @@ final class VerifyOTPViewController: UIViewController {
     private func configureBehaviors() {
         backButton.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
         verifyButton.addTarget(self, action: #selector(didTapVerify), for: .touchUpInside)
+        resendButton.addTarget(self, action: #selector(didTapResend), for: .touchUpInside)
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         view.addGestureRecognizer(tap)
@@ -211,17 +239,35 @@ final class VerifyOTPViewController: UIViewController {
             // FIX 1: Use _Concurrency.Task to avoid conflict with your 'Task' model
             _Concurrency.Task {
                 do {
-                    // FIX 2: Put 'email' first, as requested by the compiler error
-                    let _ = try await SupabaseManager.shared.client.auth.verifyOTP(
+                    // 1. Verify OTP
+                    let result = try await SupabaseManager.shared.client.auth.verifyOTP(
                         email: email,
                         token: code,
                         type: .signup
                     )
                     
+                    let user = result.user
+                    let userId = user.id.uuidString
+                    
+                    // 2. Finalize Signup: Create User Profile in `users` table
+                    let profile = ProfileInsert(
+                        id: userId,
+                        first_name: name,
+                        email: email,
+                        role: role,
+                        date_of_birth: nil // Added as null for now
+                    )
+                    
+                    try await SupabaseManager.shared.client
+                        .from("users")
+                        .insert(profile)
+                        .execute()
+                    
                     await MainActor.run {
                         self.setLoading(false)
                         let vc = FamilyName()
                         self.navigationController?.pushViewController(vc, animated: true)
+                        print("Email verified and profile created for \(name)")
                     }
                 } catch {
                     await MainActor.run {
@@ -231,6 +277,24 @@ final class VerifyOTPViewController: UIViewController {
                 }
             }
         }
+
+    @objc private func didTapResend() {
+        setLoading(true)
+        _Concurrency.Task {
+            do {
+                try await SupabaseManager.shared.client.auth.resend(email: email, type: .signup)
+                await MainActor.run {
+                    self.setLoading(false)
+                    self.showAlert(title: "Code Sent", message: "A new verification code has been sent to your email.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.setLoading(false)
+                    self.showAlert(title: "Resend Failed", message: error.localizedDescription)
+                }
+            }
+        }
+    }
 
     // MARK: - Helpers
     private func setLoading(_ loading: Bool) {

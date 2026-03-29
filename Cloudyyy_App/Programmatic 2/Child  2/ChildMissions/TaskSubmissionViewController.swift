@@ -97,7 +97,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         Task {
             do {
                 // Ensure we have a child ID (Fallback to Rob Stark's ID if nil for testing)
-                let childId = ChildSessionManager.shared.currentChildId ?? UUID(uuidString: "3ac094dd-2c44-428f-8bbe-59b4989bfad8")!
+                let childId = SessionManager.shared.childId ?? UUID(uuidString: "3ac094dd-2c44-428f-8bbe-59b4989bfad8")!
                 
                 // 1. Upload the image
                 let imageUrl = try await ChildHomeService.shared.uploadProof(image: image, childId: childId)

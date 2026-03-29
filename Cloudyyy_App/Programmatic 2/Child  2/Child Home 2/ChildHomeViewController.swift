@@ -292,7 +292,7 @@ final class ChildHomeViewController: UIViewController {
     
     // MARK: - Data Loading
     private func fetchAndDisplayData() {
-        if let name = ChildSessionManager.shared.currentChildName {
+        if let name = SessionManager.shared.childName {
             greetingLabel.text = "Hello \(name)."
         }
         

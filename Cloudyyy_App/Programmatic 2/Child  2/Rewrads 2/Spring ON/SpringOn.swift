@@ -118,7 +118,7 @@ final class SpringOnChildViewController: UIViewController {
 
     
     private func loadSpringRewards() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
 
         do {
             let rewardIds = try await SpringOnService.shared
@@ -210,7 +210,7 @@ final class SpringOnChildViewController: UIViewController {
 
     private func loadProgressForCurrentReward() async {
         guard
-            let childId = ChildSessionManager.shared.currentChildId,
+            let childId = SessionManager.shared.childId,
             currentRewardIndex < springRewardIds.count
         else { return }
 
@@ -290,7 +290,7 @@ final class SpringOnChildViewController: UIViewController {
     }
     
     private func loadStars() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
 
         let oldStars = progressReport?.current_balance ?? 0
 
@@ -760,7 +760,7 @@ final class SpringOnChildViewController: UIViewController {
 
     
     private func performPurchase(pieces: Int, cost: Int) {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
         guard currentRewardIndex < springRewardIds.count else { return }
 
         let rewardId = springRewardIds[currentRewardIndex]

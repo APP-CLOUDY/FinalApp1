@@ -108,7 +108,7 @@ final class StreakPageView: UIViewController {
         monthHeader.set(month: currentMonth, year: currentYear)
         
         Task {
-            guard let childId = ChildSessionManager.shared.currentChildId else {
+            guard let childId = SessionManager.shared.childId else {
                 print("❌ No child logged in")
                 return
             }
@@ -156,7 +156,7 @@ final class StreakPageView: UIViewController {
         monthHeader.set(month: currentMonth, year: currentYear)
 
         Task {
-            guard let childId = ChildSessionManager.shared.currentChildId else {
+            guard let childId = SessionManager.shared.childId else {
                 print("❌ No child logged in")
                 return
             }

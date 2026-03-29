@@ -131,29 +131,45 @@ final class LaunchAnimationViewController: UIViewController {
         )
     }
 
-    // 🚀 Zero White Flash Transition (Unchanged)
+    // 🚀 Session Check & Navigation
     private func goToSplash() {
-        let splash = SplashViewController()
-        let newRoot = UINavigationController(rootViewController: splash)
-        newRoot.isNavigationBarHidden = true
+        
+        _Concurrency.Task {
+            // 1. Initialize session
+            await SessionManager.shared.initialize()
+            
+            await MainActor.run {
+                if SessionManager.shared.isAuthenticated, let role = SessionManager.shared.currentRole {
+                    // Navigate directly to App
+                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate {
+                        sceneDelegate.switchToMainApp(role: role)
+                    }
+                } else {
+                    // Navigate to Onboarding/Splash
+                    let splash = SplashViewController()
+                    let newRoot = UINavigationController(rootViewController: splash)
+                    newRoot.isNavigationBarHidden = true
 
-        let keyWindow = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
+                    let keyWindow = UIApplication.shared.connectedScenes
+                        .compactMap { $0 as? UIWindowScene }
+                        .flatMap { $0.windows }
+                        .first { $0.isKeyWindow }
 
-        guard let window = keyWindow else {
-            navigationController?.setViewControllers([splash], animated: false)
-            return
+                    guard let window = keyWindow else {
+                        navigationController?.setViewControllers([splash], animated: false)
+                        return
+                    }
+
+                    window.backgroundColor = UIColor(red: 46/255, green: 142/255, blue: 255/255, alpha: 1)
+
+                    UIView.transition(with: window,
+                                      duration: 0.35,
+                                      options: .transitionCrossDissolve,
+                                      animations: {
+                        window.rootViewController = newRoot
+                    })
+                }
+            }
         }
-
-        window.backgroundColor = UIColor(red: 46/255, green: 142/255, blue: 255/255, alpha: 1)
-
-        UIView.transition(with: window,
-                          duration: 0.35,
-                          options: .transitionCrossDissolve,
-                          animations: {
-            window.rootViewController = newRoot
-        })
     }
 }

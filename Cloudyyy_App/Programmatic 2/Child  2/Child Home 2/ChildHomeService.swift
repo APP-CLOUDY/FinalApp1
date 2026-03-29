@@ -70,7 +70,7 @@ final class ChildHomeService: Sendable {
 
     // MARK: - Fetch Progress Stats
     func fetchProgressStats() async throws -> ChildProgressStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             throw NSError(domain: "ChildApp", code: 401, userInfo: [NSLocalizedDescriptionKey: "No child logged in"])
         }
 
@@ -84,7 +84,7 @@ final class ChildHomeService: Sendable {
 
     // MARK: - Fetch Schedule
     func fetchSchedule(date: Date) async throws -> [ScheduleTaskModelChild] {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             print("❌ DEBUG: No Child ID found")
             return []
         }
@@ -137,7 +137,7 @@ final class ChildHomeService: Sendable {
     // MARK: - ✅ NEW: Fetch Available Rewards (Shop)
     // This allows the Chatbot to know what items are available to buy
     func fetchAvailableRewards() async throws -> [RewardItem] {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return [] }
+        guard let childId = SessionManager.shared.childId else { return [] }
         
         // We assume you have a 'get_child_rewards' RPC or can select directly
         // If you don't have the RPC yet, direct select works if RLS policies allow:
@@ -182,7 +182,7 @@ final class ChildHomeService: Sendable {
 
     // MARK: - Submit Task
     func submitTask(taskId: UUID, photoUrl: String? = nil, approvalRequired: Bool) async throws {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
 
@@ -209,7 +209,7 @@ final class ChildHomeService: Sendable {
     
     // MARK: - Rewards Home Stats
     func fetchChildHomeStats() async throws -> ChildHomeStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
         
@@ -227,7 +227,7 @@ final class ChildHomeService: Sendable {
 
     // MARK: - Reward Coins Stats
     func fetchChildRewardStats() async throws -> ChildRewardStats {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             throw NSError(domain: "ChildApp", code: 401)
         }
 

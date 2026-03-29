@@ -69,7 +69,7 @@ final class AssignedQuickRewardViewController: UIViewController {
 
     // MARK: - Data Fetching
     private func fetchRewards() {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
         
         // If no category key is set, rely on whatever data was passed in (fallback)
         if categoryKey.isEmpty {

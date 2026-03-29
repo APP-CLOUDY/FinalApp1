@@ -8,19 +8,7 @@
 import UIKit
 import SwiftUI
 
-// MARK: - User Role
-
-enum UserRole {
-    case parent
-    case child
-}
-
-// MARK: - Session (simple shared state)
-
-final class UserSession {
-    static let shared = UserSession()
-    var role: UserRole = .parent   // updated after login
-}
+// UserRole and UserSession removed, using SessionManager instead
 
 // MARK: - Main Tab Bar Controller
 
@@ -34,7 +22,7 @@ final class AppTabBarController: UITabBarController, UITabBarControllerDelegate 
         // ❗ DO NOT configure tab bar appearance here
         // Appearance is locked globally in SceneDelegate
 
-        configureTabs(for: UserSession.shared.role)
+        configureTabs(for: SessionManager.shared.currentRole ?? .parent)
 
         print("🔥 AppTabBarController CREATED")
     }

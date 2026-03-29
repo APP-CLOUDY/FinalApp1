@@ -751,7 +751,7 @@
 //            do {
 //                var finalPhotoUrl: String? = nil
 //                
-//                if let img = capturedImage, let childId = ChildSessionManager.shared.currentChildId {
+//                if let img = capturedImage, let childId = SessionManager.shared.childId {
 //                    finalPhotoUrl = try await ChildHomeService.shared.uploadProof(image: img, childId: childId)
 //                }
 //                

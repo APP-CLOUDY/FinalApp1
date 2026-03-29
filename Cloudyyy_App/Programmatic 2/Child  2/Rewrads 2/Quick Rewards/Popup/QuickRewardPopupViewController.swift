@@ -242,7 +242,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         guard !isSubmitting else { return }
         isSubmitting = true
 
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             isSubmitting = false
             return
         }

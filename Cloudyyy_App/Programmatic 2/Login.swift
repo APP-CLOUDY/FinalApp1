@@ -6,13 +6,7 @@
 import UIKit
 import Supabase
 
-private struct LoginUserProfile: Decodable {
-    let id: UUID
-    let first_name: String
-    let email: String
-    let role: String
-    let date_of_birth: String?
-}
+// LoginUserProfile removed, using UserProfile instead
 
 final class Login: UIViewController {
 
@@ -447,19 +441,7 @@ final class Login: UIViewController {
 
         _Concurrency.Task {
             do {
-                let session = try await SupabaseManager.shared.client.auth.signIn(
-                    email: email,
-                    password: password
-                )
-                let userId = session.user.id
-
-                let profile: LoginUserProfile = try await SupabaseManager.shared.client
-                    .from("users")
-                    .select()
-                    .eq("id", value: userId)
-                    .single()
-                    .execute()
-                    .value
+                try await SessionManager.shared.signInParent(email: email, password: password)
 
                 await MainActor.run {
                     let isChecked = self.rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22))
@@ -473,12 +455,11 @@ final class Login: UIViewController {
 
                 await MainActor.run {
                     self.setLoading(false)
-                    let mainTabBarController = AppTabBarController()
-                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate,
-                       let window = sceneDelegate.window {
-                        window.rootViewController = mainTabBarController
-                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                    // Use SceneDelegate to switch root safely
+                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate {
+                        sceneDelegate.switchToMainApp(role: .parent)
                     } else {
+                        let mainTabBarController = AppTabBarController()
                         self.navigationController?.pushViewController(mainTabBarController, animated: true)
                     }
                 }

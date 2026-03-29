@@ -391,27 +391,11 @@ final class Signup: UIViewController {
                 let user = result.user
                 let userId = user.id.uuidString
 
-                // 2) Insert Profile
-                let profile = ProfileInsert(
-                    id: userId,
-                    first_name: name,
-                    email: email,
-                    role: selectedRole, // Use the mapped role
-                    date_of_birth: dobISO
-                )
-
-                try await SupabaseManager.shared.client
-                    .from("users")
-                    .insert(profile)
-                    .execute()
-
-                // 3) Navigate
+                // 2) Navigate to OTP Verification
                 await MainActor.run {
                     self.setLoading(false)
-                     
-                     let vc = FamilyName()
-                     self.navigationController?.pushViewController(vc, animated: true)
-                    print("Sign up successful as \(selectedRole)")
+                    let verifyVC = VerifyOTPViewController(email: email, name: name, role: selectedRole)
+                    self.navigationController?.pushViewController(verifyVC, animated: true)
                 }
 
             } catch {

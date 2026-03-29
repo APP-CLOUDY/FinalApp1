@@ -75,7 +75,7 @@ final class RewardsViewController: UIViewController {
 
     
     private func loadQuickRewards() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
         
         do {
             let response = try await ChildRewardsService.shared.getChildRewards(
@@ -436,7 +436,7 @@ final class RewardsViewController: UIViewController {
     
     private func loadStreakCount() {
         Task {
-            guard let childId = ChildSessionManager.shared.currentChildId else {
+            guard let childId = SessionManager.shared.childId else {
                 print("❌ No child logged in")
                 return
             }
@@ -474,7 +474,7 @@ final class RewardsViewController: UIViewController {
     }
     
     private func loadRewardsHomeData() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             print("❌ No child logged in")
             return
         }
