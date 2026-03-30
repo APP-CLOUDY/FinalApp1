@@ -23,7 +23,7 @@ struct CloudyFlowView: View {
                         }
                         .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
                         
-                        Text("Cloudy")
+                        Text("Cloudyyy")
                             .font(.system(size: 30, weight: .bold)) // Unified size
                             .foregroundColor(.white)
                         
@@ -73,5 +73,6 @@ struct CloudyFlowView: View {
         }
         .task { await vm.loadMissions() }
         .onTapGesture { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

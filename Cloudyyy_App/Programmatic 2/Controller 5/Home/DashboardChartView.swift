@@ -17,11 +17,11 @@ struct DashboardChartView: View {
     let points: [DashboardChartPoint]
     
     // Colors
-    private let assignedColor = Color(red: 64/255, green: 156/255, blue: 255/255)
+    private let pendingColor = Color(red: 64/255, green: 156/255, blue: 255/255)
     private let completedColor = Color(red: 160/255, green: 110/255, blue: 255/255)
 
     // Totals (legend)
-    private var totalAssigned: Int {
+    private var totalPending: Int {
         points.map(\.assigned).reduce(0, +)
     }
 
@@ -50,11 +50,11 @@ struct DashboardChartView: View {
                 Spacer()
 
                 HStack(spacing: 4) {
-                    Text("\(totalAssigned)").fontWeight(.bold)
-                    Text("Assigned")
+                    Text("\(totalPending)").fontWeight(.bold)
+                    Text("Pending")
                 }
                 .font(.system(size: 13))
-                .foregroundColor(assignedColor)
+                .foregroundColor(pendingColor)
 
                 HStack(spacing: 4) {
                     Text("\(totalCompleted)").fontWeight(.bold)
@@ -73,19 +73,19 @@ struct DashboardChartView: View {
             } else {
                 Chart(orderedPoints) { point in
 
-                    // Assigned (bottom)
+                    // Pending (bottom)
                     BarMark(
                         x: .value("Period", point.label),
-                        y: .value("Assigned", point.assigned),
+                        y: .value("Pending", point.assigned),
                         width: .fixed(16) // Slightly wider
                     )
-                    .foregroundStyle(assignedColor)
+                    .foregroundStyle(pendingColor)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     // Completed (stacked top)
                     BarMark(
                         x: .value("Period", point.label),
-                        yStart: .value("Assigned", point.assigned),
+                        yStart: .value("Pending", point.assigned),
                         yEnd: .value("Total", point.assigned + point.completed),
                         width: .fixed(16)
                     )

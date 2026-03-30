@@ -41,12 +41,7 @@ final class ChildAccountViewController: UIViewController {
     }()
 
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        return b
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
     }()
     
     private let cardView: UIView = {
@@ -153,14 +148,7 @@ final class ChildAccountViewController: UIViewController {
         cardView.addSubview(stack)
 
         if let nav = navigationController, !nav.isNavigationBarHidden {
-            navigationItem.leftBarButtonItem = UIBarButtonItem(
-                image: UIImage(systemName: "chevron.left"),
-                style: .plain,
-                target: self,
-                action: #selector(backTapped)
-            )
-            navigationItem.leftBarButtonItem?.tintColor = .white
-            
+            navigationItem.leftBarButtonItem = UIBarButtonItem(customView: backButton)
         } else {
             view.addSubview(backButton)
         }
@@ -196,9 +184,9 @@ final class ChildAccountViewController: UIViewController {
         if backButton.superview != nil {
             activeConstraints.append(contentsOf: [
                 backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
-                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12),
-                backButton.widthAnchor.constraint(equalToConstant: 36),
-                backButton.heightAnchor.constraint(equalToConstant: 36)
+                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 8),
+                backButton.widthAnchor.constraint(equalToConstant: 40),
+                backButton.heightAnchor.constraint(equalToConstant: 40)
             ])
         }
         

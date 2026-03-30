@@ -119,17 +119,6 @@ final class RewardsViewController: UIViewController {
 
                     let isLocked = item.is_locked ?? false
 
-                    let lockReason: QuickRewardLockReason? = {
-                        guard isLocked else { return nil }
-
-                        // 🔒 Backend-driven lock reasons
-                        if item.claim_id != nil {
-                            return .alreadyClaimed
-                        } else {
-                            return .notAssigned
-                        }
-                    }()
-
                     return AssignedQuickReward(
                         id: item.id,
                         claimId: item.claim_id,
@@ -137,7 +126,7 @@ final class RewardsViewController: UIViewController {
                         cost: item.points,
                         imageName: type.image,
                         isLocked: isLocked,
-                        lockReason: lockReason
+                        lockReason: AssignedQuickRewardViewController.lockReason(for: item)
                     )
                 }
 

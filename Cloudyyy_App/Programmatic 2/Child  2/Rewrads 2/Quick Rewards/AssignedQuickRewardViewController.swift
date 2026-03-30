@@ -26,7 +26,9 @@ final class AssignedQuickRewardViewController: UIViewController {
     
     // MARK: - UI
     private let gradient = CAGradientLayer()
-    private let backButton = UIButton(type: .system)
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
+    }()
     private let headerTitle = UILabel()
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
 
@@ -49,6 +51,13 @@ final class AssignedQuickRewardViewController: UIViewController {
         setupHeader()
         setupMascot()
         setupTable()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRewardRedeemed),
+            name: .rewardRedeemed,
+            object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -67,6 +76,14 @@ final class AssignedQuickRewardViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
 
+    @objc private func handleRewardRedeemed() {
+        fetchRewards()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Data Fetching
     private func fetchRewards() {
         guard let childId = SessionManager.shared.childId else { return }
@@ -81,34 +98,25 @@ final class AssignedQuickRewardViewController: UIViewController {
         
         Task {
             do {
-                // 1. Fetch fresh data
+                // Always fetch from the Quick Rewards dataset, then filter by subtype.
                 let response = try await ChildRewardsService.shared.getChildRewards(
                     childId: childId,
-                    category: categoryKey
+                    category: "Quick Rewards"
                 )
-                
-                // 2. Map to UI Models
-                let newRewards: [AssignedQuickReward] = response.active.compactMap { item in
-                    let imageName = self.getImageName(for: item.reward_sub_type)
-                    
-                    // Determine Lock Reason
-                    var reason: QuickRewardLockReason? = nil
-                    if item.is_locked == true {
-                        if (item.claimed_count ?? 0) > 0 {
-                            reason = .alreadyClaimed
-                        } else {
-                            reason = .notAssigned
-                        }
-                    }
 
-                    return AssignedQuickReward(
+                let filteredRewards = response.active.filter { item in
+                    RewardsViewController.normalizeQuickRewardSubtype(item.reward_sub_type ?? "") == categoryKey
+                }
+
+                let newRewards = filteredRewards.map { item in
+                    AssignedQuickReward(
                         id: item.id,
                         claimId: item.claim_id,
                         title: item.title,
                         cost: item.points,
-                        imageName: imageName,
+                        imageName: self.getImageName(for: item.reward_sub_type),
                         isLocked: item.is_locked ?? false,
-                        lockReason: reason
+                        lockReason: Self.lockReason(for: item)
                     )
                 }
 
@@ -141,16 +149,22 @@ final class AssignedQuickRewardViewController: UIViewController {
         default: return "cloudyy_logo"
         }
     }
+
+    static func lockReason(for item: ChildRewardItem) -> QuickRewardLockReason? {
+        guard item.is_locked == true else { return nil }
+
+        if item.claim_id != nil || (item.claimed_count ?? 0) > 0 {
+            return .alreadyClaimed
+        }
+
+        return .notAssigned
+    }
 }
 
 // MARK: - Header & UI Setup
 private extension AssignedQuickRewardViewController {
 
     func setupHeader() {
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-
         headerTitle.text = rewardTypeTitle
         headerTitle.font = .systemFont(ofSize: 20, weight: .semibold)
         headerTitle.textColor = .white
@@ -166,8 +180,8 @@ private extension AssignedQuickRewardViewController {
         NSLayoutConstraint.activate([
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
 
             headerTitle.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
@@ -253,6 +267,9 @@ extension AssignedQuickRewardViewController: UITableViewDataSource, UITableViewD
     private func presentClaimPopup(for reward: AssignedQuickReward) {
         let vc = QuickRewardClaimPopupViewController()
         vc.reward = reward
+        vc.onClaim = { [weak self] in
+            self?.fetchRewards()
+        }
         vc.modalPresentationStyle = .overFullScreen
         present(vc, animated: true)
     }

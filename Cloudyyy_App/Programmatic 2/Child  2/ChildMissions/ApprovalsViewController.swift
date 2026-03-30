@@ -93,7 +93,7 @@ final class KidsApprovalsViewController: UIViewController {
         
         NSLayoutConstraint.activate([
             headerTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            headerTitle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            headerTitle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             
             segmentControl.topAnchor.constraint(equalTo: headerTitle.bottomAnchor, constant: 20),
             segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),

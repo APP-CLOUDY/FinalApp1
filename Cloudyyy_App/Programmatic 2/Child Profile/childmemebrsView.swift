@@ -20,7 +20,9 @@ class ChildMembersView: UIViewController {
     // MARK: - UI Components
     private let backgroundGradientLayer = CAGradientLayer()
     private let headerView = UIView()
-    private let backButton = UIButton(type: .system)
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(handleBack))
+    }()
     private let headerTitleLabel = UILabel()
     private let scrollView = UIScrollView()
     private let mainStackView = UIStackView()
@@ -199,15 +201,6 @@ class ChildMembersView: UIViewController {
         headerTitleLabel.font = .systemFont(ofSize: 20, weight: .bold)
         headerTitleLabel.textColor = .white
         headerTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)), for: .normal)
-        backButton.tintColor = .white
-        backButton.backgroundColor = UIColor(white: 1, alpha: 0.1)
-        backButton.layer.cornerRadius = 20
-        backButton.layer.borderWidth = 1
-        backButton.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
         
         // Scroll & Stack
         view.addSubview(scrollView)

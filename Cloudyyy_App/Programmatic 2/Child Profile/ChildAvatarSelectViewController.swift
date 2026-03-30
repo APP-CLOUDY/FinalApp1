@@ -21,7 +21,9 @@ final class ChildAvatarSelectViewController: UIViewController {
     private var collectionView: UICollectionView!
     private let headerView = UIView()
     private let titleLabel = UILabel()
-    private let backButton = UIButton(type: .system)
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
+    }()
     
     private let activityIndicator: UIActivityIndicatorView = {
         let spinner = UIActivityIndicatorView(style: .large)
@@ -111,11 +113,6 @@ final class ChildAvatarSelectViewController: UIViewController {
         headerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerView)
         
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        backButton.tintColor = .white
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
         headerView.addSubview(backButton)
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false

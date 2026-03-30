@@ -53,7 +53,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         view.addSubview(activityIndicator)
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             
             cameraButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),

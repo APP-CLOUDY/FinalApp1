@@ -233,6 +233,7 @@ final class KidAgendaViewController: UIViewController {
         // Add this method to auto-refresh data whenever the screen appears
         override func viewWillAppear(_ animated: Bool) {
             super.viewWillAppear(animated)
+            navigationController?.setNavigationBarHidden(true, animated: animated)
             
             // Reload data for the currently selected date
             print("🔄 Refreshing schedule data...")
@@ -377,7 +378,7 @@ final class KidAgendaViewController: UIViewController {
         approvalsIconButton.addTarget(self, action: #selector(didTapApprovalsButton), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
-            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
+            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
             profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
@@ -476,6 +477,4 @@ private extension Date {
         return df.string(from: self)
     }
 }
-
-
 

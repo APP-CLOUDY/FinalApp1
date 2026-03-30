@@ -111,7 +111,9 @@ final class ChildDreamItViewController: UIViewController {
     
     // Top Bar
     private let topBarContainer = UIView()
-    private let backButton = UIButton(type: .system)
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backButtonTapped))
+    }()
     private let titleLabel = UILabel()
     private let coinBadge = BadgeLabel(top: 4, left: 10, bottom: 4, right: 10)
     
@@ -719,14 +721,6 @@ final class ChildDreamItViewController: UIViewController {
         topBarContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(topBarContainer)
 
-        backButton.translatesAutoresizingMaskIntoConstraints = false   // ✅ REQUIRED
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-        backButton.backgroundColor = UIColor.white.withAlphaComponent(0.18)
-        backButton.layer.cornerRadius = 18
-        backButton.layer.masksToBounds = true
-        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-
         titleLabel.translatesAutoresizingMaskIntoConstraints = false   // (already correct)
         titleLabel.text = "Dream it"
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
@@ -980,8 +974,8 @@ final class ChildDreamItViewController: UIViewController {
             
             backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: p),
             backButton.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
             
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
             titleLabel.centerYAnchor.constraint(equalTo: topBarContainer.centerYAnchor),

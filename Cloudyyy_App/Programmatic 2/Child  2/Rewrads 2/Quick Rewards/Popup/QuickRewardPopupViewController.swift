@@ -256,6 +256,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                     )
 
                 await MainActor.run {
+                    self.onClaim?()
                     NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
                     NotificationCenter.default.post(name: .taskDidComplete, object: nil)
                     self.dismiss(animated: true)

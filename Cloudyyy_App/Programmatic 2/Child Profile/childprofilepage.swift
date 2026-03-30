@@ -38,17 +38,8 @@ class ProfileViewController: UIViewController {
         return view
     }()
     
-    private let backButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.backgroundColor = UIColor(white: 1, alpha: 0.1)
-        btn.layer.cornerRadius = 20
-        btn.layer.borderWidth = 1
-        btn.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        btn.tintColor = .white
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(handleBack))
     }()
     
     private let headerTitle: UILabel = {
@@ -250,7 +241,7 @@ class ProfileViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             
-            headerContainer.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            headerContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
             headerContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             headerContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             headerContainer.heightAnchor.constraint(equalToConstant: 50),

@@ -15,6 +15,7 @@ final class ProgressViewController: UIViewController {
     private var currentScope: TimeScope = .weekly
     private var chartPoints: [DashboardChartPoint] = []
     private var chartHostingController: UIHostingController<AnyView>?
+    private var latestDataRequestID = UUID()
 
     // MARK: - UI Components
     private let gradient = CAGradientLayer()
@@ -226,25 +227,36 @@ final class ProgressViewController: UIViewController {
         effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         guard let childId = UUID(uuidString: kid.id.uuidString) else { return }
+        let requestID = UUID()
+        latestDataRequestID = requestID
+        let requestedScope = currentScope
         
         Task {
             do {
-                async let statsTask = ProgressService.shared.fetchStats(childId: childId, scope: currentScope)
+                async let statsTask = ProgressService.shared.fetchStats(childId: childId, scope: requestedScope)
                 async let chartDataTask = HomeService.shared.fetchChartData(
                     for: childId,
-                    range: currentScope == .weekly ? "weekly" : "monthly"
+                    range: requestedScope == .weekly ? "weekly" : "monthly"
                 )
                 let stats = try await statsTask
                 let chartData = try await chartDataTask
                 
                 await MainActor.run {
+                    guard self.latestDataRequestID == requestID,
+                          self.selectedKid?.id == kid.id,
+                          self.currentScope == requestedScope else {
+                        return
+                    }
+
                     let orderedChartPoints = self.makeOrderedChartPoints(from: chartData)
                     self.chartPoints = orderedChartPoints
                     self.updateChart()
 
-                    let totalTasks = max(stats.total_tasks, 0)
-                    let completionRate = totalTasks > 0
-                        ? Int((Double(stats.completed_tasks) / Double(totalTasks)) * 100)
+                    let periodCompleted = max(orderedChartPoints.reduce(0) { $0 + $1.completed }, 0)
+                    let periodPending = max(orderedChartPoints.reduce(0) { $0 + $1.assigned }, 0)
+                    let periodTotal = periodCompleted + periodPending
+                    let completionRate = periodTotal > 0
+                        ? Int((Double(periodCompleted) / Double(periodTotal)) * 100)
                         : 0
                     let activeDays = orderedChartPoints.filter { $0.completed > 0 }.count
                     let totalPeriodDays = orderedChartPoints.count
@@ -254,12 +266,14 @@ final class ProgressViewController: UIViewController {
                         .name ?? "No activity"
 
                     self.completedCard.configure(
-                        value: "\(stats.completed_tasks)",
-                        detail: totalTasks > 0 ? "of \(totalTasks) tasks" : "No tasks"
+                        value: "\(periodCompleted)",
+                        detail: periodTotal > 0
+                            ? "of \(periodTotal) tasks"
+                            : "No tasks"
                     )
                     self.consistencyCard.configure(
                         value: "\(activeDays)/\(max(totalPeriodDays, 1))",
-                        detail: "days active"
+                        detail: requestedScope == .weekly ? "days active" : "weeks active"
                     )
                     self.bestCategoryCard.configure(
                         value: bestCategory,
@@ -314,20 +328,29 @@ final class ProgressViewController: UIViewController {
             }
         }
 
-        let lookup = Dictionary(uniqueKeysWithValues: rawPoints.map { ($0.day, $0) })
-        let maxWeeks = rawPoints
-            .compactMap { Int($0.day.replacingOccurrences(of: "Week ", with: "")) }
-            .max() ?? 4
+        let explicitWeekLookup = Dictionary(uniqueKeysWithValues: rawPoints.map { ($0.day, $0) })
+        let explicitMaxWeeks = rawPoints
+            .compactMap { Self.parseWeekIndex(from: $0.day) }
+            .max()
 
-        return (1...maxWeeks).map { index in
-            let label = "Week \(index)"
-            let point = lookup[label]
-            return DashboardChartPoint(
-                label: label,
-                completed: point?.completed_count ?? 0,
-                assigned: point?.pending_count ?? 0
-            )
+        if let explicitMaxWeeks {
+            return (1...explicitMaxWeeks).map { index in
+                let label = "Week \(index)"
+                let point = explicitWeekLookup[label]
+                return DashboardChartPoint(
+                    label: label,
+                    completed: point?.completed_count ?? 0,
+                    assigned: point?.pending_count ?? 0
+                )
+            }
         }
+
+        let groupedMonthlyPoints = Self.groupMonthlyPointsIntoWeeks(rawPoints)
+        if !groupedMonthlyPoints.isEmpty {
+            return groupedMonthlyPoints
+        }
+
+        return []
     }
 
     private func populateConsistencySummary(
@@ -428,7 +451,7 @@ final class ProgressViewController: UIViewController {
             scrollView.topAnchor.constraint(equalTo: header.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
@@ -522,12 +545,13 @@ final class ProgressViewController: UIViewController {
 
     private func setupSummaryRow() {
         summaryRow.axis = .horizontal
-        summaryRow.spacing = 12
+        summaryRow.spacing = 10
         summaryRow.distribution = .fillEqually
+        summaryRow.alignment = .fill
         summaryRow.translatesAutoresizingMaskIntoConstraints = false
 
         [completedCard, consistencyCard, bestCategoryCard].forEach {
-            $0.heightAnchor.constraint(equalToConstant: 106).isActive = true
+            $0.heightAnchor.constraint(equalToConstant: 118).isActive = true
             summaryRow.addArrangedSubview($0)
         }
 
@@ -586,6 +610,95 @@ final class ProgressViewController: UIViewController {
         if #available(iOS 16.0, *) {
             chartHostingController?.rootView = AnyView(DashboardChartView(points: chartPoints))
         }
+    }
+}
+
+private extension ProgressViewController {
+    static func parseWeekIndex(from label: String) -> Int? {
+        let normalized = label
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard normalized.hasPrefix("week ") else { return nil }
+        return Int(normalized.replacingOccurrences(of: "week ", with: ""))
+    }
+
+    static func groupMonthlyPointsIntoWeeks(_ rawPoints: [ChartDataPoint]) -> [DashboardChartPoint] {
+        guard !rawPoints.isEmpty else { return [] }
+
+        let datedPoints = rawPoints.compactMap { point -> (Date, ChartDataPoint)? in
+            guard let date = parseChartDate(point.day) else { return nil }
+            return (date, point)
+        }
+
+        if !datedPoints.isEmpty {
+            let calendar = Calendar(identifier: .gregorian)
+            let sorted = datedPoints.sorted { $0.0 < $1.0 }
+            let startDate = calendar.startOfDay(for: sorted[0].0)
+            var buckets: [Int: (completed: Int, pending: Int)] = [:]
+
+            for (date, point) in sorted {
+                let days = calendar.dateComponents([.day], from: startDate, to: calendar.startOfDay(for: date)).day ?? 0
+                let weekIndex = max(0, days / 7) + 1
+                var bucket = buckets[weekIndex] ?? (0, 0)
+                bucket.completed += point.completed_count
+                bucket.pending += point.pending_count
+                buckets[weekIndex] = bucket
+            }
+
+            let maxWeek = buckets.keys.max() ?? 1
+            return (1...maxWeek).map { index in
+                let bucket = buckets[index] ?? (0, 0)
+                return DashboardChartPoint(
+                    label: "Week \(index)",
+                    completed: bucket.completed,
+                    assigned: bucket.pending
+                )
+            }
+        }
+
+        var grouped: [DashboardChartPoint] = []
+        let chunks = stride(from: 0, to: rawPoints.count, by: 7).map {
+            Array(rawPoints[$0..<min($0 + 7, rawPoints.count)])
+        }
+
+        for (offset, chunk) in chunks.enumerated() {
+            grouped.append(
+                DashboardChartPoint(
+                    label: "Week \(offset + 1)",
+                    completed: chunk.reduce(0) { $0 + $1.completed_count },
+                    assigned: chunk.reduce(0) { $0 + $1.pending_count }
+                )
+            )
+        }
+
+        return grouped
+    }
+
+    static func parseChartDate(_ value: String) -> Date? {
+        let formats = [
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "dd-MM-yyyy",
+            "dd/MM/yyyy",
+            "MMM d",
+            "d MMM",
+            "MMM d, yyyy",
+            "d MMM yyyy"
+        ]
+
+        for format in formats {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = format
+
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        return nil
     }
 }
 
@@ -978,6 +1091,10 @@ final class SummaryStatCardView: UIView {
         titleLabel.text = title.uppercased()
         titleLabel.font = .systemFont(ofSize: 11, weight: .bold)
         titleLabel.textColor = UIColor.white.withAlphaComponent(0.55)
+        titleLabel.numberOfLines = 2
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.72
+        titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         valueLabel.font = .systemFont(ofSize: 22, weight: .bold)
@@ -990,6 +1107,8 @@ final class SummaryStatCardView: UIView {
         detailLabel.font = .systemFont(ofSize: 13, weight: .medium)
         detailLabel.textColor = UIColor.white.withAlphaComponent(0.72)
         detailLabel.numberOfLines = 2
+        detailLabel.adjustsFontSizeToFitWidth = true
+        detailLabel.minimumScaleFactor = 0.85
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
 
         glass.addSubview(titleLabel)
