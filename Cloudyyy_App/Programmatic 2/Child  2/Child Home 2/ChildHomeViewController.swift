@@ -31,11 +31,11 @@ final class ChildHomeViewController: UIViewController {
     // ✨ Profile Button (Normal Icon Style)
     private let profileButton: UIButton = {
         let btn = UIButton(type: .system)
-        // Larger icon size since it has no background container now
-        let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
-        let icon = UIImage(systemName: "person.crop.circle", withConfiguration: config)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        let icon = UIImage(systemName: "person.circle.fill", withConfiguration: config)
         btn.setImage(icon, for: .normal)
         btn.tintColor = .white
+        btn.translatesAutoresizingMaskIntoConstraints = false
         return btn
     }()
     
@@ -504,8 +504,8 @@ final class ChildHomeViewController: UIViewController {
             // Profile Button (Right) - Normal Icon Style
             profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             profileButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 35),
-            profileButton.heightAnchor.constraint(equalToConstant: 35),
+            profileButton.widthAnchor.constraint(equalToConstant: 44),
+            profileButton.heightAnchor.constraint(equalToConstant: 44),
 
             // Gravity Button (Left of Profile) - Glassy Style
             gravityButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),

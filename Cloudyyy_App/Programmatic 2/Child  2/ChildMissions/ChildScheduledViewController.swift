@@ -37,7 +37,8 @@ final class KidAgendaViewController: UIViewController {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
-        button.setImage(UIImage(systemName: "person.circle"), for: .normal)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        button.setImage(UIImage(systemName: "person.circle.fill", withConfiguration: config), for: .normal)
         return button
     }()
 
@@ -383,8 +384,8 @@ final class KidAgendaViewController: UIViewController {
 
             profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
-            profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
+            profileAvatarButton.widthAnchor.constraint(equalToConstant: 44),
+            profileAvatarButton.heightAnchor.constraint(equalToConstant: 44),
 
             notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
@@ -477,4 +478,3 @@ private extension Date {
         return df.string(from: self)
     }
 }
-

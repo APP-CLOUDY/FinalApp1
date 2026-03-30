@@ -11,6 +11,9 @@ final class KidsApprovalsViewController: UIViewController {
 
     // MARK: - UI Elements
     private let backgroundGradientLayer = CAGradientLayer()
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
+    }()
     
     private let headerTitle: UILabel = {
         let lbl = UILabel()
@@ -60,6 +63,10 @@ final class KidsApprovalsViewController: UIViewController {
         backgroundGradientLayer.frame = view.bounds
     }
 
+    @objc private func backTapped() {
+        navigationController?.popViewController(animated: true)
+    }
+
     // MARK: - Setup
     private func setupGradient() {
         backgroundGradientLayer.colors = [
@@ -80,6 +87,7 @@ final class KidsApprovalsViewController: UIViewController {
     }
     
     private func setupLayout() {
+        view.addSubview(backButton)
         view.addSubview(headerTitle)
         view.addSubview(segmentControl)
         
@@ -92,8 +100,11 @@ final class KidsApprovalsViewController: UIViewController {
         scrollView.addSubview(stackView)
         
         NSLayoutConstraint.activate([
-            headerTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            headerTitle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+
+            headerTitle.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
+            headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             
             segmentControl.topAnchor.constraint(equalTo: headerTitle.bottomAnchor, constant: 20),
             segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),

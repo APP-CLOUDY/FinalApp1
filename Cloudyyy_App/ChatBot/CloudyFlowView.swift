@@ -18,19 +18,25 @@ struct CloudyFlowView: View {
                     HStack(spacing: 12) {
                         Button(action: vm.goBack) {
                             Image(systemName: "chevron.left")
-                                .font(.title2.bold())
+                                .font(.system(size: 18, weight: .medium))
                                 .foregroundColor((vm.currentState == .chatWelcome && vm.chatHistory.isEmpty) ? .clear : .white)
                         }
+                        .frame(width: 40, height: 40)
                         .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
                         
+                        Spacer()
+                        
                         Text("Cloudyyy")
-                            .font(.system(size: 30, weight: .bold)) // Unified size
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                         
                         Spacer()
+                        
+                        Color.clear
+                            .frame(width: 40, height: 40)
                     }
-                    .padding(.horizontal, 20) // Unified leading padding
-                    .padding(.top, 16)        // Unified top padding
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
                     .padding(.bottom, 8)
                     
                     Rectangle().fill(Color.white.opacity(0.15)).frame(height: 0.5)
