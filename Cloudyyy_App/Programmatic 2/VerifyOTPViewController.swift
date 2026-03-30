@@ -272,7 +272,9 @@ final class VerifyOTPViewController: UIViewController {
                 } catch {
                     await MainActor.run {
                         self.setLoading(false)
-                        self.showAlert(title: "Verification Failed", message: "Invalid code. Please try again.")
+                        let errorMsg = error.localizedDescription
+                        print("❌ Verification Error: \(errorMsg)")
+                        self.showAlert(title: "Verification Failed", message: errorMsg)
                     }
                 }
             }
@@ -282,15 +284,20 @@ final class VerifyOTPViewController: UIViewController {
         setLoading(true)
         _Concurrency.Task {
             do {
+                // 🔍 DIAGNOSTIC: Try resending with 'signup' type first
+                print("🔄 Diagnostic: Re-attempting OTP resend (type: signup) for \(email)...")
                 try await SupabaseManager.shared.client.auth.resend(email: email, type: .signup)
+                
                 await MainActor.run {
                     self.setLoading(false)
-                    self.showAlert(title: "Code Sent", message: "A new verification code has been sent to your email.")
+                    self.showAlert(title: "Code Sent", message: "A new verification code has been sent to your email. Check your spam folder if it doesn't appear soon.")
                 }
             } catch {
                 await MainActor.run {
                     self.setLoading(false)
-                    self.showAlert(title: "Resend Failed", message: error.localizedDescription)
+                    let errorMsg = error.localizedDescription
+                    print("❌ Resend Failure: \(errorMsg)")
+                    self.showAlert(title: "Resend Failed", message: errorMsg + "\n\n💡 Try turning OFF 'Confirm Email' in Supabase Dashboard to bypass this.")
                 }
             }
         }

@@ -110,6 +110,19 @@ final class Signup: UIViewController {
             return f
         }()
         
+        private let confirmEmailField: CustomTextField = {
+            let f = CustomTextField(placeholder: "Confirm Email")
+            f.keyboardType = .emailAddress
+            f.autocapitalizationType = .none
+            f.accessibilityIdentifier = "confirmEmailField"
+            
+            f.attributedPlaceholder = NSAttributedString(
+                string: "Confirm Email",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            )
+            return f
+        }()
+        
         private let passwordField: PasswordField = {
             let p = PasswordField(placeholder: "Set Password")
             p.disableAutoFill = true
@@ -208,8 +221,8 @@ final class Signup: UIViewController {
         scrollView.addSubview(contentView)
         contentView.addSubview(card)
 
-        // Card Subviews (New Order: Name -> Role -> Email -> Password)
-        [nameField, roleSegmented, emailField, passwordField, signUpButton, footerStack].forEach {
+        // Card Subviews (New Order: Name -> Role -> Email -> Confirm -> Password)
+        [nameField, roleSegmented, emailField, confirmEmailField, passwordField, signUpButton, footerStack].forEach {
             card.addSubview($0)
         }
         
@@ -288,10 +301,16 @@ final class Signup: UIViewController {
             emailField.topAnchor.constraint(equalTo: roleSegmented.bottomAnchor, constant: spacing),
             emailField.heightAnchor.constraint(equalToConstant: 50),
 
+            // 3b. Confirm Email
+            confirmEmailField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
+            confirmEmailField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
+            confirmEmailField.topAnchor.constraint(equalTo: emailField.bottomAnchor, constant: spacing),
+            confirmEmailField.heightAnchor.constraint(equalToConstant: 50),
+
             // 4. Password
             passwordField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             passwordField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            passwordField.topAnchor.constraint(equalTo: emailField.bottomAnchor, constant: spacing),
+            passwordField.topAnchor.constraint(equalTo: confirmEmailField.bottomAnchor, constant: spacing),
             passwordField.heightAnchor.constraint(equalToConstant: 50),
 
             // Sign Up Button
@@ -352,10 +371,17 @@ final class Signup: UIViewController {
 
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let confirmEmail = confirmEmailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let pass = passwordField.text ?? ""
 
-        guard !name.isEmpty, !email.isEmpty, !pass.isEmpty else {
+        guard !name.isEmpty, !email.isEmpty, !confirmEmail.isEmpty, !pass.isEmpty else {
             showAlert(title: "Missing fields", message: "Please complete all fields.")
+            return
+        }
+        
+        // 1) Match Email Check
+        guard email == confirmEmail else {
+            showAlert(title: "Email Mismatch", message: "Your email and confirmation email do not match.")
             return
         }
 
@@ -369,7 +395,19 @@ final class Signup: UIViewController {
         case 2: selectedRole = "guardian"
         default: selectedRole = "mom" // Fallback
         }
+        // 2) Validate Password Length
+        guard pass.count >= 6 else {
+            showAlert(title: "Weak Password", message: "Password must be at least 6 characters long.")
+            return
+        }
+        
         // --- FIX END ---
+        
+        // 1) Validate Email Format & Domain
+        guard isValidEmail(email) else {
+            showAlert(title: "Invalid Email", message: "Please enter a real, valid email address. Disposable or test domains are not allowed.")
+            return
+        }
         
         // DOB removed from UI, so we pass nil
         let dobISO: String? = nil
@@ -388,20 +426,37 @@ final class Signup: UIViewController {
                     ]
                 )
 
-                let user = result.user
-                let userId = user.id.uuidString
-
-                // 2) Navigate to OTP Verification
+                print("✅ Signup/Auth Request Successful! Proceeding to App...")
+                
                 await MainActor.run {
                     self.setLoading(false)
-                    let verifyVC = VerifyOTPViewController(email: email, name: name, role: selectedRole)
-                    self.navigationController?.pushViewController(verifyVC, animated: true)
+                    // Skip verification and go straight to the app.
+                    let vc = FamilyName()
+                    self.navigationController?.pushViewController(vc, animated: true)
                 }
 
             } catch {
                 await MainActor.run {
                     self.setLoading(false)
-                    self.showAlert(title: "Sign up failed", message: error.localizedDescription)
+                    
+                    let errorMsg = error.localizedDescription
+                    print("❌ Signup Error: \(errorMsg)")
+                    
+                    // 💡 SMART LOGIC: If user already exists
+                    if errorMsg.contains("already registered") || errorMsg.contains("Already exists") {
+                        let alert = UIAlertController(
+                            title: "Account Exists",
+                            message: "This email is already registered. Would you like to log in instead?",
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "Log In", style: .default, handler: { _ in
+                            self.didTapLogin()
+                        }))
+                        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                        self.present(alert, animated: true)
+                    } else {
+                        self.showAlert(title: "Sign up failed", message: errorMsg)
+                    }
                 }
             }
         }
@@ -449,6 +504,27 @@ final class Signup: UIViewController {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
+    }
+    
+    private func isValidEmail(_ email: String) -> Bool {
+        // 1. Basic Regex
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        guard emailPred.evaluate(with: email) else { return false }
+        
+        // 2. Blacklist Check (No Disposable/Test Emails)
+        let domain = email.lowercased().components(separatedBy: "@").last ?? ""
+        let blacklist = [
+            "mailinator.com", "temp-mail.org", "10minutemail.com",
+            "guerrillamail.com", "trashmail.com", "test.com", "abc.com", "example.com"
+        ]
+        
+        if blacklist.contains(domain) {
+            print("🚫 Security: Blocked signup attempt with blacklisted domain: \(domain)")
+            return false
+        }
+        
+        return true
     }
 }
 

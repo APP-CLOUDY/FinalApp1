@@ -2,6 +2,7 @@ import Foundation
 import Supabase
 import Combine
 
+
 // MARK: - User Role (Moved from AppTabBarController)
 enum UserRole {
     case parent
