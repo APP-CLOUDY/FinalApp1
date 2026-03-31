@@ -22,7 +22,7 @@ final class ApprovalViewController: UIViewController {
         return btn
     }()
     
-    private let segmentControl = UISegmentedControl(items: ["Pending", "Approved", "Declined"])
+    private let segmentControl = UISegmentedControl(items: ["Pending", "Approved", "Redo"])
     private let tableView = UITableView()
     private let backgroundGradient = CAGradientLayer()
     
@@ -82,6 +82,12 @@ final class ApprovalViewController: UIViewController {
             name: .selectedKidChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleApprovalDataChanged),
+            name: NSNotification.Name("DataChanged"),
+            object: nil
+        )
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -91,9 +97,19 @@ final class ApprovalViewController: UIViewController {
         backgroundGradient.frame = view.bounds
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        fetchApprovalData()
+    }
+
     @objc private func selectedKidChanged() {
         guard let selectedKid = SelectedKidStore.shared.selectedKid else { return }
         header.setSelectedKid(selectedKid)
+        fetchApprovalData()
+    }
+
+    @objc private func handleApprovalDataChanged() {
         fetchApprovalData()
     }
 
@@ -247,7 +263,7 @@ final class ApprovalViewController: UIViewController {
         }
     }
 
-    private func declineItem(at indexPath: IndexPath) {
+    private func redoItem(at indexPath: IndexPath) {
         let item = currentData[indexPath.row]
         
         if let index = pendingData.firstIndex(where: { $0["id"] == item["id"] }) {
@@ -255,7 +271,7 @@ final class ApprovalViewController: UIViewController {
         }
         
         var declinedItem = item
-        declinedItem["date"] = "Declined just now"
+        declinedItem["date"] = "Redo requested just now"
         declinedItem["raw_date"] = ISO8601DateFormatter().string(from: Date())
         declinedData.insert(declinedItem, at: 0)
         
@@ -354,7 +370,7 @@ extension ApprovalViewController: UITableViewDelegate, UITableViewDataSource {
         )
         
         cell.onApproveTapped = { [weak self] in self?.approveItem(at: indexPath) }
-        cell.onDeclineTapped = { [weak self] in self?.declineItem(at: indexPath) }
+        cell.onDeclineTapped = { [weak self] in self?.redoItem(at: indexPath) }
         
         return cell
     }
@@ -500,13 +516,13 @@ final class ApprovalCell: UITableViewCell {
         proofImageView.addGestureRecognizer(tap)
         
         // Buttons
-        declineButton.setTitle("Decline", for: .normal)
-        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.2)
+        declineButton.setTitle("Redo", for: .normal)
+        declineButton.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.2)
         declineButton.layer.borderWidth = 1
-        declineButton.layer.borderColor = UIColor.systemRed.cgColor
+        declineButton.layer.borderColor = UIColor.systemOrange.cgColor
         declineButton.layer.cornerRadius = 12
         declineButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        declineButton.setTitleColor(.systemRed, for: .normal)
+        declineButton.setTitleColor(.systemOrange, for: .normal)
         declineButton.addTarget(self, action: #selector(declineTapped), for: .touchUpInside)
         
         approveButton.setTitle("Approve", for: .normal)

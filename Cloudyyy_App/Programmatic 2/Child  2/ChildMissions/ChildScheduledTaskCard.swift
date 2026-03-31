@@ -1,5 +1,13 @@
 import UIKit
 
+enum KidTaskStatusState {
+    case approved
+    case pending
+    case redo
+    case overdue
+    case todo
+}
+
 final class KidAgendaItemPanel: UIView {
 
     // MARK: - UI Components
@@ -16,6 +24,7 @@ final class KidAgendaItemPanel: UIView {
     private let categoryStack = UIStackView()
     
     private let statusIcon = UIImageView()
+    private let statusBadge = UILabel()
 
     // MARK: - Init
     init(task: ScheduleTaskModelChild) {
@@ -85,11 +94,20 @@ final class KidAgendaItemPanel: UIView {
         statusIcon.contentMode = .scaleAspectFit
         statusIcon.tintColor = .white
 
+        statusBadge.font = .systemFont(ofSize: 11, weight: .bold)
+        statusBadge.textColor = .white
+        statusBadge.textAlignment = .center
+        statusBadge.layer.cornerRadius = 10
+        statusBadge.clipsToBounds = true
+        statusBadge.translatesAutoresizingMaskIntoConstraints = false
+        statusBadge.isHidden = true
+
         // 6. Assembly
         glass.addSubview(titleLabel)
         glass.addSubview(detailsLabel)
         glass.addSubview(categoryStack)
         glass.addSubview(statusIcon)
+        glass.addSubview(statusBadge)
 
         // 7. Constraints
         NSLayoutConstraint.activate([
@@ -123,26 +141,44 @@ final class KidAgendaItemPanel: UIView {
             statusIcon.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
             statusIcon.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
             statusIcon.widthAnchor.constraint(equalToConstant: 24),
-            statusIcon.heightAnchor.constraint(equalToConstant: 24)
+            statusIcon.heightAnchor.constraint(equalToConstant: 24),
+
+            statusBadge.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
+            statusBadge.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
+            statusBadge.heightAnchor.constraint(equalToConstant: 24),
+            statusBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 56)
         ])
     }
 
     // MARK: - Dynamic Color Logic
     // Called by Controller to update color state
-    func setStatusColor(_ color: UIColor) {
-        leadingStripe.backgroundColor = color
-        statusIcon.tintColor = color
-        
-        if color == .systemGreen {
-            // Approved
+    func setStatusState(_ state: KidTaskStatusState) {
+        statusBadge.isHidden = true
+        statusIcon.isHidden = false
+
+        switch state {
+        case .approved:
+            leadingStripe.backgroundColor = .systemGreen
+            statusIcon.tintColor = .systemGreen
             statusIcon.image = UIImage(systemName: "checkmark.circle.fill")
-        } else if color == .systemRed {
-            // Late / Missed
-            statusIcon.image = UIImage(systemName: "exclamationmark.circle.fill")
-        } else if color == .systemYellow {
-            // Pending / To Do
+        case .pending:
+            leadingStripe.backgroundColor = .systemYellow
+            statusIcon.tintColor = .systemYellow
             statusIcon.image = UIImage(systemName: "hourglass")
-        } else {
+        case .redo:
+            let redoColor = UIColor(red: 243/255, green: 156/255, blue: 18/255, alpha: 1)
+            leadingStripe.backgroundColor = redoColor
+            statusIcon.isHidden = true
+            statusBadge.isHidden = false
+            statusBadge.backgroundColor = redoColor.withAlphaComponent(0.22)
+            statusBadge.text = "REDO"
+        case .overdue:
+            leadingStripe.backgroundColor = .systemRed
+            statusIcon.tintColor = .systemRed
+            statusIcon.image = UIImage(systemName: "exclamationmark.circle.fill")
+        case .todo:
+            leadingStripe.backgroundColor = .systemYellow
+            statusIcon.tintColor = .systemYellow
             statusIcon.image = nil
         }
     }

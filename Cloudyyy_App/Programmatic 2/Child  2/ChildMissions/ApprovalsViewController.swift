@@ -25,7 +25,7 @@ final class KidsApprovalsViewController: UIViewController {
     }()
     
     private let segmentControl: UISegmentedControl = {
-        let sc = UISegmentedControl(items: ["Pending", "Approved", "Declined"])
+        let sc = UISegmentedControl(items: ["Pending", "Approved", "Redo"])
         sc.selectedSegmentIndex = 0
         sc.translatesAutoresizingMaskIntoConstraints = false
         sc.backgroundColor = UIColor(white: 1, alpha: 0.1)
@@ -177,16 +177,17 @@ final class KidsApprovalsViewController: UIViewController {
         switch segmentControl.selectedSegmentIndex {
         case 0: filterStatus = "pending"
         case 1: filterStatus = "approved"
-        case 2: filterStatus = "declined" // Handles 'declined' and 'rejected'
+        case 2: filterStatus = "redo"
         default: filterStatus = "pending"
         }
         
         // Filter raw data
         displayItems = allActivityItems.filter { item in
-            if filterStatus == "declined" {
-                return item.status == "declined" || item.status == "rejected"
+            if filterStatus == "redo" {
+                let status = item.status.lowercased()
+                return status == "declined" || status == "rejected" || status == "redo"
             }
-            return item.status == filterStatus
+            return item.status.lowercased() == filterStatus
         }
         
         renderList()
@@ -241,9 +242,9 @@ class ApprovalCard: UIView {
         case "approved":
             statusColor = UIColor(red: 46/255, green: 204/255, blue: 113/255, alpha: 1) // Green
             statusIconName = "checkmark.circle.fill"
-        case "declined", "rejected":
-            statusColor = UIColor(red: 231/255, green: 76/255, blue: 60/255, alpha: 1) // Red
-            statusIconName = "xmark.circle.fill"
+        case "declined", "rejected", "redo":
+            statusColor = UIColor(red: 243/255, green: 156/255, blue: 18/255, alpha: 1) // Orange
+            statusIconName = "arrow.clockwise.circle.fill"
         default: // Pending
             statusColor = UIColor(red: 241/255, green: 196/255, blue: 15/255, alpha: 1) // Yellow
             statusIconName = "hourglass"

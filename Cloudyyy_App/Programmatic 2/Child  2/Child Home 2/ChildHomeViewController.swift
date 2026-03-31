@@ -313,7 +313,8 @@ final class ChildHomeViewController: UIViewController {
         physicsBubbles.removeAll()
         
         let activeTasks = tasks.filter {
-            $0.submission_status != "approved" && $0.submission_status != "pending"
+            let status = $0.submission_status?.lowercased()
+            return status != "approved" && status != "pending"
         }
         
         self.currentTasks = activeTasks
@@ -363,6 +364,11 @@ final class ChildHomeViewController: UIViewController {
     private func createBubbleView(for task: ScheduleTaskModelChild, frame: CGRect, index: Int) -> UIView {
         let bubble = UIView(frame: frame)
         let themeColor = bubbleColors.randomElement() ?? bubbleColors[0]
+        let redoAccentColor = UIColor(red: 1.0, green: 0.62, blue: 0.28, alpha: 1.0)
+        let isRedoTask = {
+            let status = task.submission_status?.lowercased()
+            return status == "declined" || status == "rejected" || status == "redo"
+        }()
         
         bubble.backgroundColor = UIColor.black.withAlphaComponent(0.3)
         bubble.layer.borderColor = themeColor.withAlphaComponent(0.6).cgColor
@@ -381,13 +387,47 @@ final class ChildHomeViewController: UIViewController {
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 2
         
-        let subLabel = UILabel()
-        subLabel.text = "\(task.points) ⭐️"
-        subLabel.textColor = UIColor.white.withAlphaComponent(0.8)
-        subLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        subLabel.textAlignment = .center
-        
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, subLabel])
+        let infoStack = UIStackView()
+        infoStack.axis = .vertical
+        infoStack.spacing = isRedoTask ? 6 : 4
+        infoStack.alignment = .center
+
+        if isRedoTask {
+            let redoBadge = UILabel()
+            redoBadge.text = "REDO"
+            redoBadge.textColor = redoAccentColor
+            redoBadge.font = .systemFont(ofSize: 11, weight: .heavy)
+            redoBadge.textAlignment = .center
+            redoBadge.backgroundColor = redoAccentColor.withAlphaComponent(0.18)
+            redoBadge.layer.cornerRadius = 10
+            redoBadge.layer.borderWidth = 1
+            redoBadge.layer.borderColor = redoAccentColor.withAlphaComponent(0.45).cgColor
+            redoBadge.clipsToBounds = true
+            redoBadge.translatesAutoresizingMaskIntoConstraints = false
+
+            let pointsLabel = UILabel()
+            pointsLabel.text = "\(task.points) ⭐️"
+            pointsLabel.textColor = UIColor.white.withAlphaComponent(0.9)
+            pointsLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+            pointsLabel.textAlignment = .center
+
+            infoStack.addArrangedSubview(redoBadge)
+            infoStack.addArrangedSubview(pointsLabel)
+
+            NSLayoutConstraint.activate([
+                redoBadge.heightAnchor.constraint(equalToConstant: 20),
+                redoBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 48)
+            ])
+        } else {
+            let pointsLabel = UILabel()
+            pointsLabel.text = "\(task.points) ⭐️"
+            pointsLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+            pointsLabel.font = .systemFont(ofSize: 12, weight: .medium)
+            pointsLabel.textAlignment = .center
+            infoStack.addArrangedSubview(pointsLabel)
+        }
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, infoStack])
         textStack.axis = .vertical
         textStack.spacing = 4
         textStack.alignment = .center
@@ -588,7 +628,7 @@ final class ChildHomeViewController: UIViewController {
     }
     
     private func navigateToMissionDetail(for task: ScheduleTaskModelChild) {
-        let approvalNeeded = task.approval_required ?? false
+        let approvalNeeded = task.approval_required ?? true
         
         let mission = Mission(
             id: task.id,

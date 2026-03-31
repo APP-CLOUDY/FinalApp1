@@ -15,6 +15,7 @@ final class ScheduleTaskCard: UIView {
     private let categoryStack = UIStackView()
     
     private let statusIcon = UIImageView()
+    private let statusBadge = UILabel()
 
     // MARK: - Init
     init(task: ScheduleTaskModel) {
@@ -86,11 +87,20 @@ final class ScheduleTaskCard: UIView {
         statusIcon.contentMode = .scaleAspectFit
         statusIcon.tintColor = .white
 
+        statusBadge.font = .systemFont(ofSize: 11, weight: .bold)
+        statusBadge.textColor = .white
+        statusBadge.textAlignment = .center
+        statusBadge.layer.cornerRadius = 10
+        statusBadge.clipsToBounds = true
+        statusBadge.translatesAutoresizingMaskIntoConstraints = false
+        statusBadge.isHidden = true
+
         // 6. Assembly
         glass.addSubview(titleLabel)
         glass.addSubview(detailsLabel)
         glass.addSubview(categoryStack)
         glass.addSubview(statusIcon)
+        glass.addSubview(statusBadge)
 
         // 7. Constraints
         NSLayoutConstraint.activate([
@@ -124,7 +134,12 @@ final class ScheduleTaskCard: UIView {
             statusIcon.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
             statusIcon.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
             statusIcon.widthAnchor.constraint(equalToConstant: 24),
-            statusIcon.heightAnchor.constraint(equalToConstant: 24)
+            statusIcon.heightAnchor.constraint(equalToConstant: 24),
+
+            statusBadge.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -14),
+            statusBadge.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
+            statusBadge.heightAnchor.constraint(equalToConstant: 24),
+            statusBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 56)
         ])
 
         applyStatusColor(task)
@@ -136,8 +151,11 @@ final class ScheduleTaskCard: UIView {
         let colorGreen = UIColor(red: 76/255, green: 209/255, blue: 55/255, alpha: 1)   // Approved
         let colorYellow = UIColor(red: 255/255, green: 217/255, blue: 61/255, alpha: 1) // Pending / Upcoming
         let colorRed = UIColor(red: 255/255, green: 99/255, blue: 71/255, alpha: 1)     // Overdue
+        let redoColor = UIColor(red: 243/255, green: 156/255, blue: 18/255, alpha: 1)
         
         let status = task.submission_status?.lowercased()
+        statusBadge.isHidden = true
+        statusIcon.isHidden = false
         
         if status == "approved" {
             // ✅ Case 1: Approved
@@ -150,6 +168,14 @@ final class ScheduleTaskCard: UIView {
             leadingStripe.backgroundColor = colorYellow
             statusIcon.image = UIImage(systemName: "hourglass")
             statusIcon.tintColor = colorYellow
+            
+        } else if status == "declined" || status == "rejected" || status == "redo" {
+            leadingStripe.backgroundColor = redoColor
+            statusIcon.isHidden = true
+            statusBadge.isHidden = false
+            statusBadge.backgroundColor = redoColor.withAlphaComponent(0.22)
+            statusBadge.textColor = .white
+            statusBadge.text = "REDO"
             
         } else {
             // 📝 Case 3: Not Done Yet

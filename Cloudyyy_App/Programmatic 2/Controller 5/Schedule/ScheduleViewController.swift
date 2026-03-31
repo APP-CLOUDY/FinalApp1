@@ -189,8 +189,12 @@ final class ScheduleViewController: UIViewController {
             }
         case 2: // Not Done
             displayedTasks = allTasksForDate.filter {
-                $0.submission_status == nil ||
-                $0.submission_status?.lowercased() == "pending"
+                let status = $0.submission_status?.lowercased()
+                return status == nil ||
+                    status == "pending" ||
+                    status == "declined" ||
+                    status == "rejected" ||
+                    status == "redo"
             }
         default: // All
             displayedTasks = allTasksForDate

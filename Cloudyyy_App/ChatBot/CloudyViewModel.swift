@@ -72,7 +72,7 @@ class CloudyViewModel: ObservableObject {
                 let randomY = CGFloat.random(in: -150...150)
                 
                 // Check if Approval is required
-                let isApprovalNeeded = task.approval_required ?? false
+                let isApprovalNeeded = task.approval_required ?? true
                 
                 return Mission(
                     id: task.id,

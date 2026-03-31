@@ -96,8 +96,13 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         
         Task {
             do {
-                // Ensure we have a child ID (Fallback to Rob Stark's ID if nil for testing)
-                let childId = SessionManager.shared.childId ?? UUID(uuidString: "3ac094dd-2c44-428f-8bbe-59b4989bfad8")!
+                guard let childId = SessionManager.shared.childId else {
+                    throw NSError(
+                        domain: "TaskSubmission",
+                        code: 401,
+                        userInfo: [NSLocalizedDescriptionKey: "No child session found for task submission."]
+                    )
+                }
                 
                 // 1. Upload the image
                 let imageUrl = try await ChildHomeService.shared.uploadProof(image: image, childId: childId)
@@ -120,7 +125,32 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
                 }
             } catch {
                 print("Error: \(error)")
-                await MainActor.run { self.activityIndicator.stopAnimating(); self.submitButton.isEnabled = true }
+                let expectedStatus = (task.approval_required ?? true) ? "pending" : "approved"
+                let didPersist = await ChildHomeService.shared.verifySubmissionState(
+                    taskId: task.id,
+                    expectedStatus: expectedStatus
+                )
+
+                if didPersist {
+                    await MainActor.run {
+                        self.activityIndicator.stopAnimating()
+                        NotificationCenter.default.post(name: .taskDidComplete, object: nil)
+                        self.dismiss(animated: true)
+                    }
+                    return
+                }
+
+                await MainActor.run {
+                    self.activityIndicator.stopAnimating()
+                    self.submitButton.isEnabled = true
+                    let alert = UIAlertController(
+                        title: "Submission Failed",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
             }
         }
     }

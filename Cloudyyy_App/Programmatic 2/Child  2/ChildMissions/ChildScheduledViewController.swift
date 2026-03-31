@@ -150,7 +150,10 @@ final class KidAgendaViewController: UIViewController {
         
         switch index {
         case 1: // "To Do"
-            visibleTasks = allTasksForDate.filter { $0.submission_status == nil }
+            visibleTasks = allTasksForDate.filter {
+                let status = $0.submission_status?.lowercased()
+                return status == nil || status == "declined" || status == "rejected" || status == "redo"
+            }
             
         case 2: // "Done"
             visibleTasks = allTasksForDate.filter {
@@ -191,19 +194,24 @@ final class KidAgendaViewController: UIViewController {
         let status = task.submission_status?.lowercased()
         
         if status == "approved" {
-            card.setStatusColor(.systemGreen)
+            card.setStatusState(.approved)
             return
         }
         
         if status == "pending" {
-            card.setStatusColor(.systemYellow)
+            card.setStatusState(.pending)
+            return
+        }
+
+        if status == "declined" || status == "rejected" || status == "redo" {
+            card.setStatusState(.redo)
             return
         }
         
         if isPastDue(dateStr: task.due_date, timeStr: task.due_time) {
-            card.setStatusColor(.systemRed)
+            card.setStatusState(.overdue)
         } else {
-            card.setStatusColor(.systemYellow)
+            card.setStatusState(.todo)
         }
     }
     
