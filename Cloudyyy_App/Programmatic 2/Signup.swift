@@ -15,6 +15,10 @@ private struct ProfileInsert: Encodable {
     let date_of_birth: String?
 }
 
+private struct ExistingProfileRow: Decodable {
+    let id: UUID
+}
+
 final class Signup: UIViewController {
 
     // MARK: - UI Components
@@ -98,12 +102,11 @@ final class Signup: UIViewController {
             return f
         }()
         
-        private let confirmEmailField: CustomTextField = {
-            let f = CustomTextField(placeholder: "Confirm Email")
-            f.keyboardType = .emailAddress
-            f.autocapitalizationType = .none
-            f.accessibilityIdentifier = "confirmEmailField"
-            return f
+        private let confirmPasswordField: PasswordField = {
+            let p = PasswordField(placeholder: "Confirm Password")
+            p.disableAutoFill = true
+            p.accessibilityIdentifier = "confirmPasswordField"
+            return p
         }()
         
         private let passwordField: PasswordField = {
@@ -198,8 +201,8 @@ final class Signup: UIViewController {
         scrollView.addSubview(contentView)
         contentView.addSubview(card)
 
-        // Card Subviews (New Order: Name -> Role -> Email -> Confirm -> Password)
-        [nameField, roleSegmented, emailField, confirmEmailField, passwordField, signUpButton, footerStack].forEach {
+        // Card Subviews (Name -> Role -> Email -> Password -> Confirm Password)
+        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, footerStack].forEach {
             card.addSubview($0)
         }
         
@@ -278,22 +281,22 @@ final class Signup: UIViewController {
             emailField.topAnchor.constraint(equalTo: roleSegmented.bottomAnchor, constant: spacing),
             emailField.heightAnchor.constraint(equalToConstant: 50),
 
-            // 3b. Confirm Email
-            confirmEmailField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
-            confirmEmailField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            confirmEmailField.topAnchor.constraint(equalTo: emailField.bottomAnchor, constant: spacing),
-            confirmEmailField.heightAnchor.constraint(equalToConstant: 50),
-
             // 4. Password
             passwordField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             passwordField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            passwordField.topAnchor.constraint(equalTo: confirmEmailField.bottomAnchor, constant: spacing),
+            passwordField.topAnchor.constraint(equalTo: emailField.bottomAnchor, constant: spacing),
             passwordField.heightAnchor.constraint(equalToConstant: 50),
+
+            // 5. Confirm Password
+            confirmPasswordField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
+            confirmPasswordField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
+            confirmPasswordField.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: spacing),
+            confirmPasswordField.heightAnchor.constraint(equalToConstant: 50),
 
             // Sign Up Button
             signUpButton.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             signUpButton.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            signUpButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 32),
+            signUpButton.topAnchor.constraint(equalTo: confirmPasswordField.bottomAnchor, constant: 32),
             signUpButton.heightAnchor.constraint(equalToConstant: 52),
             
             // Footer Stack
@@ -348,17 +351,16 @@ final class Signup: UIViewController {
 
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let confirmEmail = confirmEmailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let pass = passwordField.text ?? ""
+        let confirmPassword = confirmPasswordField.text ?? ""
 
-        guard !name.isEmpty, !email.isEmpty, !confirmEmail.isEmpty, !pass.isEmpty else {
+        guard !name.isEmpty, !email.isEmpty, !confirmPassword.isEmpty, !pass.isEmpty else {
             showAlert(title: "Missing fields", message: "Please complete all fields.")
             return
         }
         
-        // 1) Match Email Check
-        guard email == confirmEmail else {
-            showAlert(title: "Email Mismatch", message: "Your email and confirmation email do not match.")
+        guard pass == confirmPassword else {
+            showAlert(title: "Password Mismatch", message: "Your password and confirmation password do not match.")
             return
         }
 
@@ -403,6 +405,13 @@ final class Signup: UIViewController {
                     ]
                 )
 
+                try await self.ensureParentProfileExists(
+                    userId: result.user.id.uuidString,
+                    name: name,
+                    email: email,
+                    role: selectedRole
+                )
+
                 print("✅ Signup/Auth Request Successful! Proceeding to App...")
                 
                 await MainActor.run {
@@ -437,6 +446,37 @@ final class Signup: UIViewController {
                 }
             }
         }
+    }
+
+    private func ensureParentProfileExists(
+        userId: String,
+        name: String,
+        email: String,
+        role: String
+    ) async throws {
+        let client = SupabaseManager.shared.client
+
+        let response = try await client
+            .from("users")
+            .select("id")
+            .eq("id", value: userId)
+            .execute()
+
+        let existing = (try? JSONDecoder().decode([ExistingProfileRow].self, from: response.data)) ?? []
+        guard existing.isEmpty else { return }
+
+        let profile = ProfileInsert(
+            id: userId,
+            first_name: name,
+            email: email,
+            role: role,
+            date_of_birth: nil
+        )
+
+        try await client
+            .from("users")
+            .insert(profile)
+            .execute()
     }
     
     // MARK: - Helpers
@@ -515,4 +555,3 @@ private extension UIView {
         return nil
     }
 }
-
