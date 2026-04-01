@@ -109,7 +109,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
                 
                 // 2. ✅ CHECK APPROVAL REQUIREMENT
                 // We pull this from the task model (ScheduleTaskModelChild)
-                let isApprovalNeeded = task.approval_required ?? true
+                let isApprovalNeeded = task.approval_required ?? false
                 
                 // 3. ✅ SUBMIT WITH NEW PARAMETER
                 try await ChildHomeService.shared.submitTask(
@@ -125,10 +125,13 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
                 }
             } catch {
                 print("Error: \(error)")
-                let expectedStatus = (task.approval_required ?? true) ? "pending" : "approved"
+                let expectedStatus = (task.approval_required ?? false) ? "pending" : "approved"
                 let didPersist = await ChildHomeService.shared.verifySubmissionState(
                     taskId: task.id,
-                    expectedStatus: expectedStatus
+                    expectedStatus: expectedStatus,
+                    maxAttempts: 8,
+                    delayNanoseconds: 500_000_000,
+                    submittedAfter: nil
                 )
 
                 if didPersist {

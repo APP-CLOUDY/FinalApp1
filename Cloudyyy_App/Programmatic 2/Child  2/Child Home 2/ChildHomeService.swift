@@ -266,10 +266,10 @@ final class ChildHomeService: Sendable {
             let submission = TaskSubmissionPayload(
                 task_id: taskId,
                 child_id: childId,
-                status: "pending",
+                status: finalStatus,
                 submitted_at: submissionTimestampString,
                 photo_url: photoUrl,
-                approved_at: nil
+                approved_at: approvalRequired ? nil : submissionTimestampString
             )
 
             do {
@@ -287,16 +287,6 @@ final class ChildHomeService: Sendable {
                     fallbackError: error
                 )
             }
-        }
-
-        if !approvalRequired {
-            try await autoApproveLatestSubmission(
-                taskId: taskId,
-                childId: childId,
-                submittedAfter: submissionTimestamp.addingTimeInterval(-5),
-                approvedAt: submissionTimestampString,
-                photoUrl: photoUrl
-            )
         }
 
         print("✅ Task \(taskId) submitted as \(finalStatus)")
@@ -330,7 +320,7 @@ final class ChildHomeService: Sendable {
                 .execute()
 
             let rows = (try? JSONDecoder().decode([ExistingTaskSubmissionRow].self, from: verification.data)) ?? []
-            if hasRecentSubmission(rows: rows, expectedStatus: expectedStatus, submittedAfter: submittedAfter) {
+            if matchesSubmission(rows: rows, expectedStatus: expectedStatus, submittedAfter: submittedAfter) {
                 return
             }
         }
@@ -345,7 +335,7 @@ final class ChildHomeService: Sendable {
         expectedStatus: String,
         maxAttempts: Int = 6,
         delayNanoseconds: UInt64 = 500_000_000,
-        submittedAfter: Date = Date().addingTimeInterval(-120)
+        submittedAfter: Date? = nil
     ) async -> Bool {
         guard let childId = SessionManager.shared.childId else {
             return false
@@ -364,7 +354,7 @@ final class ChildHomeService: Sendable {
 
             guard let data = response?.data else { continue }
             let rows = (try? JSONDecoder().decode([ExistingTaskSubmissionRow].self, from: data)) ?? []
-            if hasRecentSubmission(rows: rows, expectedStatus: expectedStatus, submittedAfter: submittedAfter) {
+            if matchesSubmission(rows: rows, expectedStatus: expectedStatus, submittedAfter: submittedAfter) {
                 return true
             }
         }
@@ -372,67 +362,11 @@ final class ChildHomeService: Sendable {
         return false
     }
 
-    private func autoApproveLatestSubmission(
-        taskId: UUID,
-        childId: UUID,
-        submittedAfter: Date,
-        approvedAt: String,
-        photoUrl: String?
-    ) async throws {
-        let latestResponse = try await client
-            .from("task_submissions")
-            .select("id, status, submitted_at, photo_url")
-            .eq("task_id", value: taskId)
-            .eq("child_id", value: childId)
-            .order("submitted_at", ascending: false)
-            .execute()
 
-        let latestRows = (try? JSONDecoder().decode([ExistingTaskSubmissionRow].self, from: latestResponse.data)) ?? []
-        guard let latest = latestRows.first(where: { row in
-            guard let submittedAt = parseSubmissionDate(row.submitted_at) else { return false }
-            return submittedAt >= submittedAfter
-        }) else {
-            throw NSError(
-                domain: "ChildApp",
-                code: 500,
-                userInfo: [NSLocalizedDescriptionKey: "Task submission was not saved."]
-            )
-        }
-
-        guard latest.status?.lowercased() != "approved" else {
-            return
-        }
-
-        let payload = TaskSubmissionUpdatePayload(
-            status: "approved",
-            submitted_at: latest.submitted_at ?? approvedAt,
-            photo_url: photoUrl ?? latest.photo_url,
-            approved_at: approvedAt,
-            declined_at: nil
-        )
-
-        do {
-            try await client
-                .from("task_submissions")
-                .update(payload)
-                .eq("id", value: latest.id)
-                .select("id")
-                .execute()
-        } catch {
-            try await confirmSubmissionWrite(
-                taskId: taskId,
-                childId: childId,
-                expectedStatus: "approved",
-                submittedAfter: submittedAfter,
-                fallbackError: error
-            )
-        }
-    }
-
-    private func hasRecentSubmission(
+    private func matchesSubmission(
         rows: [ExistingTaskSubmissionRow],
         expectedStatus: String,
-        submittedAfter: Date
+        submittedAfter: Date?
     ) -> Bool {
         rows.contains { row in
             guard row.status?.lowercased() == expectedStatus.lowercased(),
@@ -440,6 +374,7 @@ final class ChildHomeService: Sendable {
                 return false
             }
 
+            guard let submittedAfter else { return true }
             return submittedAt >= submittedAfter
         }
     }

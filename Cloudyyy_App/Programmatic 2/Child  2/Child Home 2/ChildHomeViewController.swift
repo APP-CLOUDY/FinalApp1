@@ -628,7 +628,7 @@ final class ChildHomeViewController: UIViewController {
     }
     
     private func navigateToMissionDetail(for task: ScheduleTaskModelChild) {
-        let approvalNeeded = task.approval_required ?? true
+        let approvalNeeded = task.approval_required ?? false
         
         let mission = Mission(
             id: task.id,

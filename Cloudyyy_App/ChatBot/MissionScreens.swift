@@ -384,7 +384,10 @@ struct MissionDetailView: View {
                 let approvalStatus = mission.approvalRequired ? "pending" : "approved"
                 let didPersist = await ChildHomeService.shared.verifySubmissionState(
                     taskId: mission.id,
-                    expectedStatus: approvalStatus
+                    expectedStatus: approvalStatus,
+                    maxAttempts: 8,
+                    delayNanoseconds: 500_000_000,
+                    submittedAfter: nil
                 )
 
                 if didPersist {
