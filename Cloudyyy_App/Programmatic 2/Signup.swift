@@ -80,12 +80,6 @@ final class Signup: UIViewController {
         private let nameField: CustomTextField = {
             let f = CustomTextField(placeholder: "Name")
             f.accessibilityLabel = "Full name"
-            
-            // FIX: Make placeholder visible
-            f.attributedPlaceholder = NSAttributedString(
-                string: "Name",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return f
         }()
         
@@ -101,12 +95,6 @@ final class Signup: UIViewController {
             f.keyboardType = .emailAddress
             f.autocapitalizationType = .none
             f.accessibilityIdentifier = "emailField"
-            
-            // FIX: Make placeholder visible
-            f.attributedPlaceholder = NSAttributedString(
-                string: "Email",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return f
         }()
         
@@ -115,11 +103,6 @@ final class Signup: UIViewController {
             f.keyboardType = .emailAddress
             f.autocapitalizationType = .none
             f.accessibilityIdentifier = "confirmEmailField"
-            
-            f.attributedPlaceholder = NSAttributedString(
-                string: "Confirm Email",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return f
         }()
         
@@ -127,12 +110,6 @@ final class Signup: UIViewController {
             let p = PasswordField(placeholder: "Set Password")
             p.disableAutoFill = true
             p.accessibilityLabel = "Password"
-            
-            // FIX: Make placeholder visible
-            p.attributedPlaceholder = NSAttributedString(
-                string: "Set Password",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return p
         }()
 
@@ -207,7 +184,7 @@ final class Signup: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .white
+        card.backgroundColor = .secondarySystemGroupedBackground
     }
 
     // MARK: - Hierarchy

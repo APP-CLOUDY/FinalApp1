@@ -87,24 +87,12 @@ final class Login: UIViewController {
             let t = CustomTextField(placeholder: "Email")
             t.keyboardType = .emailAddress
             t.autocapitalizationType = .none
-            
-            // FIX: Make placeholder text da rker and more visible
-            t.attributedPlaceholder = NSAttributedString(
-                string: "Email",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return t
         }()
 
         private let passwordField: PasswordField = {
             let p = PasswordField(placeholder: "Password")
             p.disableAutoFill = true
-            
-            // FIX: Make placeholder text darker and more visible
-            p.attributedPlaceholder = NSAttributedString(
-                string: "Password",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return p
         }()
     private let rememberCheckbox: UIButton = {
@@ -257,7 +245,7 @@ final class Login: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .white
+        card.backgroundColor = .secondarySystemGroupedBackground
     }
 
     // MARK: - Hierarchy

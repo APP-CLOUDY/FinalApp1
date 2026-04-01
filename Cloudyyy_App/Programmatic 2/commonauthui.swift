@@ -118,7 +118,7 @@ public final class CardView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .white
+        backgroundColor = .secondarySystemGroupedBackground
         layer.cornerRadius = 18
         layer.masksToBounds = false
         layer.shadowColor = UIColor.black.cgColor
@@ -133,16 +133,17 @@ public class CustomTextField: UITextField {
     public init(placeholder: String) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = UIColor(white: 0.98, alpha: 1)
+        backgroundColor = .systemGray6
         layer.cornerRadius = 12
         layer.borderWidth = 1
-        layer.borderColor = UIColor(white: 0.89, alpha: 1).cgColor
+        layer.borderColor = UIColor.systemGray4.cgColor
         font = .systemFont(ofSize: 15)
+        textColor = .label
         
         // Default placeholder color fix
         attributedPlaceholder = NSAttributedString(
             string: placeholder,
-            attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.placeholderText]
         )
         
         leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
