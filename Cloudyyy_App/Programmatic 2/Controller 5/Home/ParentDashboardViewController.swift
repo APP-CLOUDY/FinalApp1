@@ -147,9 +147,17 @@ extension Color {
                 do {
                     async let statsTask = HomeService.shared.fetchHomeStats(for: kid.id)
                     async let todayScheduleTask = TaskService.shared.fetchSchedule(for: kid.id, date: Date())
+                    async let activeAllocatedRewardsTask = HomeService.shared.fetchActiveAllocatedRewardCount(for: kid.id)
                     let stats = try await statsTask
                     let todaySchedule = try await todayScheduleTask
-                    await MainActor.run { self.updateUI(with: stats, todaySchedule: todaySchedule) }
+                    let activeAllocatedRewards = try await activeAllocatedRewardsTask
+                    await MainActor.run {
+                        self.updateUI(
+                            with: stats,
+                            todaySchedule: todaySchedule,
+                            activeAllocatedRewards: activeAllocatedRewards
+                        )
+                    }
                 } catch {
                     print("Error stats: \(error)")
                 }
@@ -206,7 +214,11 @@ extension Color {
                     }
                 }
         
-        private func updateUI(with stats: HomeStats, todaySchedule: [ScheduleTaskModel]) {
+        private func updateUI(
+            with stats: HomeStats,
+            todaySchedule: [ScheduleTaskModel],
+            activeAllocatedRewards: Int
+        ) {
             let completedToday = todaySchedule.filter { $0.submission_status?.lowercased() == "approved" }.count
             let totalToday = todaySchedule.count
             let progress = totalToday > 0
@@ -221,7 +233,7 @@ extension Color {
                 animated: true
             )
             pendingLabel.text = "\(stats.pending_count)"
-            allocatedLabel.text = "\(stats.allocated_count)"
+            allocatedLabel.text = "\(activeAllocatedRewards)"
         }
 
         private func fetchScheduleMetrics(

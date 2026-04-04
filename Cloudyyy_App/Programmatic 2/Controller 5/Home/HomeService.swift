@@ -10,6 +10,14 @@ struct HomeStats: Decodable, Sendable {
     let redeemed_count: Int
 }
 
+private struct RewardAssignmentRow: Decodable, Sendable {
+    let reward_id: UUID?
+}
+
+private struct ApprovedRewardClaimRow: Decodable, Sendable {
+    let reward_id: UUID?
+}
+
 struct ChartDataPoint: Decodable, Sendable, Identifiable {
     var id: String { day }
     let day: String
@@ -70,6 +78,33 @@ final class HomeService: Sendable {
         return rows.compactMap { row in
             guard let submittedAt = row.submitted_at else { return nil }
             return Self.parseSupabaseDate(submittedAt)
+        }
+    }
+
+    func fetchActiveAllocatedRewardCount(for childId: UUID) async throws -> Int {
+        let assignmentsResponse = try await client
+            .from("reward_assignments")
+            .select("reward_id")
+            .eq("child_id", value: childId)
+            .execute()
+
+        let claimsResponse = try await client
+            .from("reward_claims")
+            .select("reward_id")
+            .eq("child_id", value: childId)
+            .eq("status", value: "approved")
+            .execute()
+
+        let assignments = try JSONDecoder().decode([RewardAssignmentRow].self, from: assignmentsResponse.data)
+        let approvedClaims = try JSONDecoder().decode([ApprovedRewardClaimRow].self, from: claimsResponse.data)
+        let completedRewardIDs = Set(approvedClaims.compactMap(\.reward_id))
+
+        return assignments.reduce(into: 0) { count, row in
+            guard let rewardId = row.reward_id,
+                  !completedRewardIDs.contains(rewardId) else {
+                return
+            }
+            count += 1
         }
     }
 
