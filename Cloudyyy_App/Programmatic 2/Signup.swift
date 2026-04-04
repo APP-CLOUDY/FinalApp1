@@ -15,6 +15,10 @@ private struct ProfileInsert: Encodable {
     let date_of_birth: String?
 }
 
+private struct ExistingProfileRow: Decodable {
+    let id: UUID
+}
+
 final class Signup: UIViewController {
 
     // MARK: - UI Components
@@ -80,12 +84,6 @@ final class Signup: UIViewController {
         private let nameField: CustomTextField = {
             let f = CustomTextField(placeholder: "Name")
             f.accessibilityLabel = "Full name"
-            
-            // FIX: Make placeholder visible
-            f.attributedPlaceholder = NSAttributedString(
-                string: "Name",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return f
         }()
         
@@ -101,25 +99,20 @@ final class Signup: UIViewController {
             f.keyboardType = .emailAddress
             f.autocapitalizationType = .none
             f.accessibilityIdentifier = "emailField"
-            
-            // FIX: Make placeholder visible
-            f.attributedPlaceholder = NSAttributedString(
-                string: "Email",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return f
+        }()
+        
+        private let confirmPasswordField: PasswordField = {
+            let p = PasswordField(placeholder: "Confirm Password")
+            p.disableAutoFill = true
+            p.accessibilityIdentifier = "confirmPasswordField"
+            return p
         }()
         
         private let passwordField: PasswordField = {
             let p = PasswordField(placeholder: "Set Password")
             p.disableAutoFill = true
             p.accessibilityLabel = "Password"
-            
-            // FIX: Make placeholder visible
-            p.attributedPlaceholder = NSAttributedString(
-                string: "Set Password",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return p
         }()
 
@@ -194,7 +187,7 @@ final class Signup: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .white
+        card.backgroundColor = .secondarySystemGroupedBackground
     }
 
     // MARK: - Hierarchy
@@ -208,8 +201,8 @@ final class Signup: UIViewController {
         scrollView.addSubview(contentView)
         contentView.addSubview(card)
 
-        // Card Subviews (New Order: Name -> Role -> Email -> Password)
-        [nameField, roleSegmented, emailField, passwordField, signUpButton, footerStack].forEach {
+        // Card Subviews (Name -> Role -> Email -> Password -> Confirm Password)
+        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, footerStack].forEach {
             card.addSubview($0)
         }
         
@@ -294,10 +287,16 @@ final class Signup: UIViewController {
             passwordField.topAnchor.constraint(equalTo: emailField.bottomAnchor, constant: spacing),
             passwordField.heightAnchor.constraint(equalToConstant: 50),
 
+            // 5. Confirm Password
+            confirmPasswordField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
+            confirmPasswordField.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
+            confirmPasswordField.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: spacing),
+            confirmPasswordField.heightAnchor.constraint(equalToConstant: 50),
+
             // Sign Up Button
             signUpButton.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             signUpButton.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
-            signUpButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 32),
+            signUpButton.topAnchor.constraint(equalTo: confirmPasswordField.bottomAnchor, constant: 32),
             signUpButton.heightAnchor.constraint(equalToConstant: 52),
             
             // Footer Stack
@@ -353,9 +352,15 @@ final class Signup: UIViewController {
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let pass = passwordField.text ?? ""
+        let confirmPassword = confirmPasswordField.text ?? ""
 
-        guard !name.isEmpty, !email.isEmpty, !pass.isEmpty else {
+        guard !name.isEmpty, !email.isEmpty, !confirmPassword.isEmpty, !pass.isEmpty else {
             showAlert(title: "Missing fields", message: "Please complete all fields.")
+            return
+        }
+        
+        guard pass == confirmPassword else {
+            showAlert(title: "Password Mismatch", message: "Your password and confirmation password do not match.")
             return
         }
 
@@ -369,7 +374,19 @@ final class Signup: UIViewController {
         case 2: selectedRole = "guardian"
         default: selectedRole = "mom" // Fallback
         }
+        // 2) Validate Password Length
+        guard pass.count >= 6 else {
+            showAlert(title: "Weak Password", message: "Password must be at least 6 characters long.")
+            return
+        }
+        
         // --- FIX END ---
+        
+        // 1) Validate Email Format & Domain
+        guard isValidEmail(email) else {
+            showAlert(title: "Invalid Email", message: "Please enter a real, valid email address. Disposable or test domains are not allowed.")
+            return
+        }
         
         // DOB removed from UI, so we pass nil
         let dobISO: String? = nil
@@ -388,39 +405,78 @@ final class Signup: UIViewController {
                     ]
                 )
 
-                let user = result.user
-                let userId = user.id.uuidString
-
-                // 2) Insert Profile
-                let profile = ProfileInsert(
-                    id: userId,
-                    first_name: name,
+                try await self.ensureParentProfileExists(
+                    userId: result.user.id.uuidString,
+                    name: name,
                     email: email,
-                    role: selectedRole, // Use the mapped role
-                    date_of_birth: dobISO
+                    role: selectedRole
                 )
 
-                try await SupabaseManager.shared.client
-                    .from("users")
-                    .insert(profile)
-                    .execute()
-
-                // 3) Navigate
+                print("✅ Signup/Auth Request Successful! Proceeding to App...")
+                
                 await MainActor.run {
                     self.setLoading(false)
-                     
-                     let vc = FamilyName()
-                     self.navigationController?.pushViewController(vc, animated: true)
-                    print("Sign up successful as \(selectedRole)")
+                    // Skip verification and go straight to the app.
+                    let vc = FamilyName()
+                    self.navigationController?.pushViewController(vc, animated: true)
                 }
 
             } catch {
                 await MainActor.run {
                     self.setLoading(false)
-                    self.showAlert(title: "Sign up failed", message: error.localizedDescription)
+                    
+                    let errorMsg = error.localizedDescription
+                    print("❌ Signup Error: \(errorMsg)")
+                    
+                    // 💡 SMART LOGIC: If user already exists
+                    if errorMsg.contains("already registered") || errorMsg.contains("Already exists") {
+                        let alert = UIAlertController(
+                            title: "Account Exists",
+                            message: "This email is already registered. Would you like to log in instead?",
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "Log In", style: .default, handler: { _ in
+                            self.didTapLogin()
+                        }))
+                        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                        self.present(alert, animated: true)
+                    } else {
+                        self.showAlert(title: "Sign up failed", message: errorMsg)
+                    }
                 }
             }
         }
+    }
+
+    private func ensureParentProfileExists(
+        userId: String,
+        name: String,
+        email: String,
+        role: String
+    ) async throws {
+        let client = SupabaseManager.shared.client
+
+        let response = try await client
+            .from("users")
+            .select("id")
+            .eq("id", value: userId)
+            .execute()
+
+        let existing = (try? JSONDecoder().decode([ExistingProfileRow].self, from: response.data)) ?? []
+        guard existing.isEmpty else { return }
+
+        let profile = ProfileInsert(
+            id: userId,
+            first_name: name,
+            email: email,
+            role: role,
+            date_of_birth: nil
+        )
+
+        try await client
+            .from("users")
+            .insert(profile)
+            .execute()
     }
     
     // MARK: - Helpers
@@ -466,6 +522,27 @@ final class Signup: UIViewController {
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
     }
+    
+    private func isValidEmail(_ email: String) -> Bool {
+        // 1. Basic Regex
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        guard emailPred.evaluate(with: email) else { return false }
+        
+        // 2. Blacklist Check (No Disposable/Test Emails)
+        let domain = email.lowercased().components(separatedBy: "@").last ?? ""
+        let blacklist = [
+            "mailinator.com", "temp-mail.org", "10minutemail.com",
+            "guerrillamail.com", "trashmail.com", "test.com", "abc.com", "example.com"
+        ]
+        
+        if blacklist.contains(domain) {
+            print("🚫 Security: Blocked signup attempt with blacklisted domain: \(domain)")
+            return false
+        }
+        
+        return true
+    }
 }
 
 // MARK: - UIView extension
@@ -478,4 +555,3 @@ private extension UIView {
         return nil
     }
 }
-

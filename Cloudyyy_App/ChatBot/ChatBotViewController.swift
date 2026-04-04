@@ -1,6 +1,6 @@
 //import SwiftUI
 //import UIKit
-//
+//arfdsvc
 //// MARK: - 0. Notification Name Extension
 //extension Notification.Name {
 //    static let taskDidComplete = Notification.Name("taskDidComplete")
@@ -751,7 +751,7 @@
 //            do {
 //                var finalPhotoUrl: String? = nil
 //                
-//                if let img = capturedImage, let childId = ChildSessionManager.shared.currentChildId {
+//                if let img = capturedImage, let childId = SessionManager.shared.childId {
 //                    finalPhotoUrl = try await ChildHomeService.shared.uploadProof(image: img, childId: childId)
 //                }
 //                

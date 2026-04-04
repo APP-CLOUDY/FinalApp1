@@ -11,6 +11,9 @@ final class KidsApprovalsViewController: UIViewController {
 
     // MARK: - UI Elements
     private let backgroundGradientLayer = CAGradientLayer()
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
+    }()
     
     private let headerTitle: UILabel = {
         let lbl = UILabel()
@@ -22,7 +25,7 @@ final class KidsApprovalsViewController: UIViewController {
     }()
     
     private let segmentControl: UISegmentedControl = {
-        let sc = UISegmentedControl(items: ["Pending", "Approved", "Declined"])
+        let sc = UISegmentedControl(items: ["Pending", "Approved", "Redo"])
         sc.selectedSegmentIndex = 0
         sc.translatesAutoresizingMaskIntoConstraints = false
         sc.backgroundColor = UIColor(white: 1, alpha: 0.1)
@@ -60,6 +63,10 @@ final class KidsApprovalsViewController: UIViewController {
         backgroundGradientLayer.frame = view.bounds
     }
 
+    @objc private func backTapped() {
+        navigationController?.popViewController(animated: true)
+    }
+
     // MARK: - Setup
     private func setupGradient() {
         backgroundGradientLayer.colors = [
@@ -80,6 +87,7 @@ final class KidsApprovalsViewController: UIViewController {
     }
     
     private func setupLayout() {
+        view.addSubview(backButton)
         view.addSubview(headerTitle)
         view.addSubview(segmentControl)
         
@@ -92,8 +100,11 @@ final class KidsApprovalsViewController: UIViewController {
         scrollView.addSubview(stackView)
         
         NSLayoutConstraint.activate([
-            headerTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            headerTitle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+
+            headerTitle.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
+            headerTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             
             segmentControl.topAnchor.constraint(equalTo: headerTitle.bottomAnchor, constant: 20),
             segmentControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -166,16 +177,17 @@ final class KidsApprovalsViewController: UIViewController {
         switch segmentControl.selectedSegmentIndex {
         case 0: filterStatus = "pending"
         case 1: filterStatus = "approved"
-        case 2: filterStatus = "declined" // Handles 'declined' and 'rejected'
+        case 2: filterStatus = "redo"
         default: filterStatus = "pending"
         }
         
         // Filter raw data
         displayItems = allActivityItems.filter { item in
-            if filterStatus == "declined" {
-                return item.status == "declined" || item.status == "rejected"
+            if filterStatus == "redo" {
+                let status = item.status.lowercased()
+                return status == "declined" || status == "rejected" || status == "redo"
             }
-            return item.status == filterStatus
+            return item.status.lowercased() == filterStatus
         }
         
         renderList()
@@ -230,9 +242,9 @@ class ApprovalCard: UIView {
         case "approved":
             statusColor = UIColor(red: 46/255, green: 204/255, blue: 113/255, alpha: 1) // Green
             statusIconName = "checkmark.circle.fill"
-        case "declined", "rejected":
-            statusColor = UIColor(red: 231/255, green: 76/255, blue: 60/255, alpha: 1) // Red
-            statusIconName = "xmark.circle.fill"
+        case "declined", "rejected", "redo":
+            statusColor = UIColor(red: 243/255, green: 156/255, blue: 18/255, alpha: 1) // Orange
+            statusIconName = "arrow.clockwise.circle.fill"
         default: // Pending
             statusColor = UIColor(red: 241/255, green: 196/255, blue: 15/255, alpha: 1) // Yellow
             statusIconName = "hourglass"

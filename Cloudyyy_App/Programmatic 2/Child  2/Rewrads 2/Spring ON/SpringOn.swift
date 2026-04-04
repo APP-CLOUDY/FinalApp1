@@ -13,7 +13,9 @@ final class SpringOnChildViewController: UIViewController {
     private var rewardStats: ChildRewardStats?
     private var progressReport: ProgressReport?
     // Top bar
-    private let backButton = UIButton(type: .system)
+    private lazy var backButton: UIButton = {
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
+    }()
     private let titleLabel = UILabel()
     private let coinBadge = PaddingLabel(top: 4, left: 10, bottom: 4, right: 10)
 
@@ -118,7 +120,7 @@ final class SpringOnChildViewController: UIViewController {
 
     
     private func loadSpringRewards() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
 
         do {
             let rewardIds = try await SpringOnService.shared
@@ -210,7 +212,7 @@ final class SpringOnChildViewController: UIViewController {
 
     private func loadProgressForCurrentReward() async {
         guard
-            let childId = ChildSessionManager.shared.currentChildId,
+            let childId = SessionManager.shared.childId,
             currentRewardIndex < springRewardIds.count
         else { return }
 
@@ -290,7 +292,7 @@ final class SpringOnChildViewController: UIViewController {
     }
     
     private func loadStars() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
 
         let oldStars = progressReport?.current_balance ?? 0
 
@@ -352,14 +354,6 @@ final class SpringOnChildViewController: UIViewController {
         backButton.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         coinBadge.translatesAutoresizingMaskIntoConstraints = false
-
-        // Back Button (circle)
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-        backButton.backgroundColor = UIColor.white.withAlphaComponent(0.18)
-        backButton.layer.cornerRadius = 18
-        backButton.layer.masksToBounds = true
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
 
         // Title
         titleLabel.text = "Spring On"
@@ -461,8 +455,8 @@ final class SpringOnChildViewController: UIViewController {
             // Top bar (all constraints relative to `contentView`)
             backButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             backButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
 
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
@@ -760,7 +754,7 @@ final class SpringOnChildViewController: UIViewController {
 
     
     private func performPurchase(pieces: Int, cost: Int) {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
         guard currentRewardIndex < springRewardIds.count else { return }
 
         let rewardId = springRewardIds[currentRewardIndex]

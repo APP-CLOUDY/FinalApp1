@@ -6,13 +6,7 @@
 import UIKit
 import Supabase
 
-private struct LoginUserProfile: Decodable {
-    let id: UUID
-    let first_name: String
-    let email: String
-    let role: String
-    let date_of_birth: String?
-}
+// LoginUserProfile removed, using UserProfile instead
 
 final class Login: UIViewController {
 
@@ -93,24 +87,12 @@ final class Login: UIViewController {
             let t = CustomTextField(placeholder: "Email")
             t.keyboardType = .emailAddress
             t.autocapitalizationType = .none
-            
-            // FIX: Make placeholder text da rker and more visible
-            t.attributedPlaceholder = NSAttributedString(
-                string: "Email",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return t
         }()
 
         private let passwordField: PasswordField = {
             let p = PasswordField(placeholder: "Password")
             p.disableAutoFill = true
-            
-            // FIX: Make placeholder text darker and more visible
-            p.attributedPlaceholder = NSAttributedString(
-                string: "Password",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
-            )
             return p
         }()
     private let rememberCheckbox: UIButton = {
@@ -142,73 +124,7 @@ final class Login: UIViewController {
 
     private let loginButton = GradientButton(title: "Log In")
 
-    private let dividerLeft: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .systemGray5
-        return v
-    }()
 
-    private let dividerRight: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .systemGray5
-        return v
-    }()
-
-    private let dividerLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Or"
-        l.font = .systemFont(ofSize: 13, weight: .medium)
-        l.textColor = .tertiaryLabel
-        return l
-    }()
-
-    // Social Buttons
-    private let appleButton: UIButton = {
-        var config = UIButton.Configuration.bordered()
-        // Standard SF Symbol size
-        config.image = UIImage(systemName: "applelogo")
-        config.title = "Continue with Apple"
-        config.imagePadding = 10
-        config.baseForegroundColor = .label
-        config.background.backgroundColor = .systemBackground
-        config.background.strokeColor = .systemGray4
-        config.background.strokeWidth = 1
-        config.cornerStyle = .medium
-        
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
-
-    private let googleButton: UIButton = {
-        var config = UIButton.Configuration.bordered()
-        
-        // 1. Load Image
-        if let originalImage = UIImage(named: "googleImg") {
-            // 2. Resize to match Apple logo (approx 20x20)
-            let targetSize = CGSize(width: 18, height: 18)
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
-            let resized = renderer.image { _ in
-                originalImage.draw(in: CGRect(origin: .zero, size: targetSize))
-            }
-            config.image = resized.withRenderingMode(.alwaysOriginal)
-        }
-        
-        config.title = "Continue with Google"
-        config.imagePadding = 10
-        config.baseForegroundColor = .label
-        config.background.backgroundColor = .systemBackground
-        config.background.strokeColor = .systemGray4
-        config.background.strokeWidth = 1
-        config.cornerStyle = .medium
-
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
     
     private let noAccountLabel: UILabel = {
         let l = UILabel()
@@ -263,7 +179,7 @@ final class Login: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .white
+        card.backgroundColor = .secondarySystemGroupedBackground
     }
 
     // MARK: - Hierarchy
@@ -276,8 +192,7 @@ final class Login: UIViewController {
         contentView.addSubview(card)
 
         [emailField, passwordField, rememberCheckbox, rememberLabel, forgotPasswordButton,
-         loginButton, dividerLeft, dividerLabel, dividerRight,
-         appleButton, googleButton, footerStack]
+         loginButton, footerStack]
             .forEach { card.addSubview($0) }
 
         view.addSubview(closeButton)
@@ -334,8 +249,6 @@ final class Login: UIViewController {
         ])
 
         // --- Card Constraints ---
-        dividerLabel.setContentHuggingPriority(.required, for: .horizontal)
-
         NSLayoutConstraint.activate([
             emailField.topAnchor.constraint(equalTo: card.topAnchor, constant: 32),
             emailField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
@@ -363,30 +276,7 @@ final class Login: UIViewController {
             loginButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
             loginButton.heightAnchor.constraint(equalToConstant: 52),
 
-            dividerLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-            dividerLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 30),
-
-            dividerLeft.centerYAnchor.constraint(equalTo: dividerLabel.centerYAnchor),
-            dividerLeft.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            dividerLeft.trailingAnchor.constraint(equalTo: dividerLabel.leadingAnchor, constant: -12),
-            dividerLeft.heightAnchor.constraint(equalToConstant: 1),
-
-            dividerRight.centerYAnchor.constraint(equalTo: dividerLabel.centerYAnchor),
-            dividerRight.leadingAnchor.constraint(equalTo: dividerLabel.trailingAnchor, constant: 12),
-            dividerRight.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            dividerRight.heightAnchor.constraint(equalToConstant: 1),
-
-            appleButton.topAnchor.constraint(equalTo: dividerLabel.bottomAnchor, constant: 20),
-            appleButton.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            appleButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            appleButton.heightAnchor.constraint(equalToConstant: 50),
-
-            googleButton.topAnchor.constraint(equalTo: appleButton.bottomAnchor, constant: 12),
-            googleButton.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            googleButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            googleButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            footerStack.topAnchor.constraint(equalTo: googleButton.bottomAnchor, constant: 30),
+            footerStack.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 30),
             footerStack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             footerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -30)
         ])
@@ -399,8 +289,6 @@ final class Login: UIViewController {
         rememberCheckbox.addTarget(self, action: #selector(toggleRemember), for: .touchUpInside)
         forgotPasswordButton.addTarget(self, action: #selector(handleForgot), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(handleLogin), for: .touchUpInside)
-        appleButton.addTarget(self, action: #selector(handleApple), for: .touchUpInside)
-        googleButton.addTarget(self, action: #selector(handleGoogle), for: .touchUpInside)
     }
 
     @objc private func didTapClose() {
@@ -447,19 +335,7 @@ final class Login: UIViewController {
 
         _Concurrency.Task {
             do {
-                let session = try await SupabaseManager.shared.client.auth.signIn(
-                    email: email,
-                    password: password
-                )
-                let userId = session.user.id
-
-                let profile: LoginUserProfile = try await SupabaseManager.shared.client
-                    .from("users")
-                    .select()
-                    .eq("id", value: userId)
-                    .single()
-                    .execute()
-                    .value
+                try await SessionManager.shared.signInParent(email: email, password: password)
 
                 await MainActor.run {
                     let isChecked = self.rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22))
@@ -473,12 +349,11 @@ final class Login: UIViewController {
 
                 await MainActor.run {
                     self.setLoading(false)
-                    let mainTabBarController = AppTabBarController()
-                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate,
-                       let window = sceneDelegate.window {
-                        window.rootViewController = mainTabBarController
-                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                    // Use SceneDelegate to switch root safely
+                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate {
+                        sceneDelegate.switchToMainApp(role: .parent)
                     } else {
+                        let mainTabBarController = AppTabBarController()
                         self.navigationController?.pushViewController(mainTabBarController, animated: true)
                     }
                 }
@@ -491,13 +366,6 @@ final class Login: UIViewController {
         }
     }
 
-    @objc private func handleApple() {
-        showAlert("Apple", "Apple sign-in")
-    }
-
-    @objc private func handleGoogle() {
-        showAlert("Google", "Google sign-in")
-    }
 
     private func showAlert(_ title: String, _ msg: String) {
         let alert = UIAlertController(title: title, message: msg, preferredStyle: .alert)

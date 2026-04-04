@@ -169,6 +169,7 @@ struct MissionDetailView: View {
     @State private var sourceType: UIImagePickerController.SourceType = .camera
     @State private var capturedImage: UIImage?
     @State private var isUploading = false
+    @State private var submissionErrorMessage: String?
     
     var body: some View {
         ZStack {
@@ -340,6 +341,14 @@ struct MissionDetailView: View {
             ImagePicker(selectedImage: $capturedImage, sourceType: sourceType)
                 .ignoresSafeArea()
         }
+        .alert("Submission Failed", isPresented: Binding(
+            get: { submissionErrorMessage != nil },
+            set: { if !$0 { submissionErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(submissionErrorMessage ?? "Something went wrong.")
+        }
     }
     
     func handleDoneTap() {
@@ -358,7 +367,7 @@ struct MissionDetailView: View {
             do {
                 var finalPhotoUrl: String? = nil
                
-                if let img = capturedImage, let childId = ChildSessionManager.shared.currentChildId {
+                if let img = capturedImage, let childId = SessionManager.shared.childId {
                     finalPhotoUrl = try await ChildHomeService.shared.uploadProof(image: img, childId: childId)
                 }
                
@@ -372,7 +381,24 @@ struct MissionDetailView: View {
                 await navigateBackToHome()
             } catch {
                 print("Error submitting: \(error)")
-                await navigateBackToHome()
+                let approvalStatus = mission.approvalRequired ? "pending" : "approved"
+                let didPersist = await ChildHomeService.shared.verifySubmissionState(
+                    taskId: mission.id,
+                    expectedStatus: approvalStatus,
+                    maxAttempts: 8,
+                    delayNanoseconds: 500_000_000,
+                    submittedAfter: nil
+                )
+
+                if didPersist {
+                    await navigateBackToHome()
+                    return
+                }
+
+                await MainActor.run {
+                    isUploading = false
+                    submissionErrorMessage = error.localizedDescription
+                }
             }
         }
     }

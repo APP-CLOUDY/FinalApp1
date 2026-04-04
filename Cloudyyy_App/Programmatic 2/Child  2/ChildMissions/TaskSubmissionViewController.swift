@@ -53,7 +53,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         view.addSubview(activityIndicator)
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             
             cameraButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -96,15 +96,20 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         
         Task {
             do {
-                // Ensure we have a child ID (Fallback to Rob Stark's ID if nil for testing)
-                let childId = ChildSessionManager.shared.currentChildId ?? UUID(uuidString: "3ac094dd-2c44-428f-8bbe-59b4989bfad8")!
+                guard let childId = SessionManager.shared.childId else {
+                    throw NSError(
+                        domain: "TaskSubmission",
+                        code: 401,
+                        userInfo: [NSLocalizedDescriptionKey: "No child session found for task submission."]
+                    )
+                }
                 
                 // 1. Upload the image
                 let imageUrl = try await ChildHomeService.shared.uploadProof(image: image, childId: childId)
                 
                 // 2. ✅ CHECK APPROVAL REQUIREMENT
                 // We pull this from the task model (ScheduleTaskModelChild)
-                let isApprovalNeeded = task.approval_required ?? true
+                let isApprovalNeeded = task.approval_required ?? false
                 
                 // 3. ✅ SUBMIT WITH NEW PARAMETER
                 try await ChildHomeService.shared.submitTask(
@@ -120,7 +125,35 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
                 }
             } catch {
                 print("Error: \(error)")
-                await MainActor.run { self.activityIndicator.stopAnimating(); self.submitButton.isEnabled = true }
+                let expectedStatus = (task.approval_required ?? false) ? "pending" : "approved"
+                let didPersist = await ChildHomeService.shared.verifySubmissionState(
+                    taskId: task.id,
+                    expectedStatus: expectedStatus,
+                    maxAttempts: 8,
+                    delayNanoseconds: 500_000_000,
+                    submittedAfter: nil
+                )
+
+                if didPersist {
+                    await MainActor.run {
+                        self.activityIndicator.stopAnimating()
+                        NotificationCenter.default.post(name: .taskDidComplete, object: nil)
+                        self.dismiss(animated: true)
+                    }
+                    return
+                }
+
+                await MainActor.run {
+                    self.activityIndicator.stopAnimating()
+                    self.submitButton.isEnabled = true
+                    let alert = UIAlertController(
+                        title: "Submission Failed",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
             }
         }
     }

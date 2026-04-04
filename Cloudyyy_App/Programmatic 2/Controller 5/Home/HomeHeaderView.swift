@@ -31,8 +31,10 @@ final class HomeHeaderView: UIView {
         b.translatesAutoresizingMaskIntoConstraints = false
 
         // background circle
-        b.backgroundColor = UIColor(white: 1, alpha: 0.06)
+        b.backgroundColor = UIColor(white: 1, alpha: 0.10)
         b.layer.cornerRadius = 20
+        b.layer.borderWidth = 1
+        b.layer.borderColor = UIColor(white: 1, alpha: 0.15).cgColor
         b.layer.masksToBounds = true
 
         // back button is hidden unless VC enables it
@@ -199,5 +201,4 @@ final class HomeHeaderView: UIView {
     @objc private func plusTapped()   { onPlusTapped?() }
     @objc private func backTapped()   { onBackTapped?() }
 }
-
 

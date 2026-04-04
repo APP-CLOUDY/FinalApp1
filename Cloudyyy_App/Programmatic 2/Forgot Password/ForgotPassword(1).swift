@@ -138,7 +138,7 @@ class PremiumBaseViewController: UIViewController {
         view.addSubview(cardView)
         cardView.translatesAutoresizingMaskIntoConstraints = false
         // Make the card slightly off-white so the white input fields stand out
-        cardView.backgroundColor = UIColor(red: 248/255, green: 249/255, blue: 253/255, alpha: 1)
+        cardView.backgroundColor = .secondarySystemGroupedBackground
         cardView.layer.cornerRadius = 30
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.1
@@ -195,7 +195,7 @@ class PremiumBaseViewController: UIViewController {
         tf.translatesAutoresizingMaskIntoConstraints = false
         
         // 1. Background White
-        tf.backgroundColor = .white
+        tf.backgroundColor = .systemGray6
         
         // 2. Visible Outline (Grey Border)
         tf.layer.borderWidth = 1.0
@@ -205,7 +205,7 @@ class PremiumBaseViewController: UIViewController {
         tf.layer.cornerRadius = 14
         
         tf.font = .systemFont(ofSize: 16)
-        tf.textColor = .black
+        tf.textColor = .label
         
         // Placeholder Styling
         let placeholderColor = UIColor.systemGray
@@ -327,14 +327,14 @@ final class VerifyOTP: PremiumBaseViewController, UITextFieldDelegate {
             let tf = UITextField()
             
             // STYLE: White BG with Grey Outline
-            tf.backgroundColor = .white
+            tf.backgroundColor = .systemGray6
             tf.layer.borderWidth = 1.0
             tf.layer.borderColor = UIColor.systemGray4.cgColor
             tf.layer.cornerRadius = 14
             
             tf.textAlignment = .center
             tf.font = .systemFont(ofSize: 24, weight: .bold)
-            tf.textColor = .black
+            tf.textColor = .label
             tf.keyboardType = .numberPad
             tf.tintColor = .systemBlue
             

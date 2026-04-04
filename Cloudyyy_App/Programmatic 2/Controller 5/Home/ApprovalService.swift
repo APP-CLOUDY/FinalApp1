@@ -34,13 +34,15 @@ private struct RewardRow: Decodable {
 // Helper struct to find the child ID before adding points
 private struct ChildLookup: Decodable {
     let child_id: UUID
+    let task_id: UUID?
+    let status: String?
+}
+
+private struct SubmissionIdentityRow: Decodable {
+    let id: UUID
 }
 
 // Helper struct to read current wallet balance
-private struct ChildWallet: Decodable {
-    let current_points: Int
-}
-
 // MARK: - Approval Service
 
 final class ApprovalService: Sendable {
@@ -172,7 +174,7 @@ final class ApprovalService: Sendable {
         }
     }
 
-    // MARK: - FETCH DECLINED (REDEEMED)
+    // MARK: - FETCH REDO / DECLINED
 
     func fetchRedeemed(childId: UUID) async throws -> [[String: String]] {
         
@@ -200,9 +202,9 @@ final class ApprovalService: Sendable {
             return [
                 "id": row.id.uuidString,
                 "type": "task",
-                "title": "Task (Declined)",
+                "title": "Task (Redo)",
                 "subtitle": title,
-                "date": "Declined on \(formatDate(row.declined_at))",
+                "date": "Redo requested on \(formatDate(row.declined_at))",
                 "points": "\(points) ⭐️",
                 "photo_url": row.photo_url ?? "",
                 "raw_date": row.declined_at ?? ""
@@ -213,9 +215,9 @@ final class ApprovalService: Sendable {
             [
                 "id": $0.id.uuidString,
                 "type": "reward",
-                "title": "Reward (Declined)",
+                "title": "Reward (Redo)",
                 "subtitle": $0.rewards.title,
-                "date": "Declined on \(formatDate($0.declined_at))",
+                "date": "Redo requested on \(formatDate($0.declined_at))",
                 "points": "\($0.rewards.points) ⭐️",
                 "raw_date": $0.declined_at ?? ""
             ]
@@ -229,55 +231,49 @@ final class ApprovalService: Sendable {
     // MARK: - ACTIONS (Manual Updates)
 
     func approve(item: [String: String]) async throws {
-        guard let id = item["id"],
-              let pointsStr = item["points"] else { return }
-        
-        // 1. Clean the points string
-        let cleanPoints = pointsStr.replacingOccurrences(of: " ⭐️", with: "")
-        let pointsToAdd = Int(cleanPoints) ?? 0
+        guard let id = item["id"] else { return }
         let now = ISO8601DateFormatter().string(from: Date())
 
         if item["type"] == "task" {
-            // --- MANUAL LOGIC START ---
-            
-            // Step A: Find out WHICH child submitted this
+            // The backend is the source of truth for task approval side effects.
+            // We only transition the submission status here to avoid double-crediting points.
             let lookupRes = try await client
                 .from("task_submissions")
-                .select("child_id")
+                .select("child_id, task_id, status")
                 .eq("id", value: id)
                 .single()
                 .execute()
             
             let lookup = try JSONDecoder().decode(ChildLookup.self, from: lookupRes.data)
-            let childId = lookup.child_id
-            
-            // Step B: Mark submission as Approved
+
+            if lookup.status?.lowercased() == "approved" {
+                return
+            }
+
+            if let taskId = lookup.task_id {
+                let duplicateRes = try await client
+                    .from("task_submissions")
+                    .select("id")
+                    .eq("child_id", value: lookup.child_id)
+                    .eq("task_id", value: taskId)
+                    .order("submitted_at", ascending: false)
+                    .execute()
+
+                let rows = (try? JSONDecoder().decode([SubmissionIdentityRow].self, from: duplicateRes.data)) ?? []
+                for row in rows where row.id.uuidString != id {
+                    try? await client
+                        .from("task_submissions")
+                        .delete()
+                        .eq("id", value: row.id)
+                        .execute()
+                }
+            }
+
             try await client
                 .from("task_submissions")
                 .update(["status": "approved", "approved_at": now])
                 .eq("id", value: id)
                 .execute()
-            
-            // Step C: Get Current Wallet Balance
-            let walletRes = try await client
-                .from("children")
-                .select("current_points")
-                .eq("id", value: childId)
-                .single()
-                .execute()
-            
-            let wallet = try JSONDecoder().decode(ChildWallet.self, from: walletRes.data)
-            
-            // Step D: Calculate & Save New Balance
-            let newBalance = wallet.current_points + pointsToAdd
-            
-            try await client
-                .from("children")
-                .update(["current_points": newBalance])
-                .eq("id", value: childId)
-                .execute()
-                
-            // --- MANUAL LOGIC END ---
             
         } else {
             // Reward Logic: Just mark approved (Points deducted when claimed)

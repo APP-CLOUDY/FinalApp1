@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 
 // MARK: - Enums
 enum TimeScope: Int {
@@ -12,6 +13,9 @@ final class ProgressViewController: UIViewController {
     private var kids: [ChildModel] = []
     private var selectedKid: ChildModel?
     private var currentScope: TimeScope = .weekly
+    private var chartPoints: [DashboardChartPoint] = []
+    private var chartHostingController: UIHostingController<AnyView>?
+    private var latestDataRequestID = UUID()
 
     // MARK: - UI Components
     private let gradient = CAGradientLayer()
@@ -46,10 +50,19 @@ final class ProgressViewController: UIViewController {
         return sc
     }()
     
-    // 2. Main Cards
-    private let taskCompletionCard = TaskCompletionCard()
-    private let pointsRow = PointsOverviewRow()
-    
+    private let trendCard = GlassView(style: .card, cornerRadius: 24)
+    private let trendTitleLabel = UILabel()
+    private let trendSubtitleLabel = UILabel()
+    private let chartHolder = UIView()
+
+    private let summaryRow = UIStackView()
+    private let completedCard = SummaryStatCardView(title: "Completed")
+    private let consistencyCard = SummaryStatCardView(title: "Consistency")
+    private let bestCategoryCard = SummaryStatCardView(title: "Best Category")
+
+    private let consistencySummaryCard = InsightCardView(title: "Consistency Summary")
+    private let consistencySummaryStack = UIStackView()
+
     // 3. Section Headers
     private func createSectionHeader(_ text: String) -> UILabel {
         let l = UILabel()
@@ -60,11 +73,12 @@ final class ProgressViewController: UIViewController {
         return l
     }
     
-    private lazy var recentLabel = createSectionHeader("Recent Achievements")
+    private lazy var highlightsLabel = createSectionHeader("This Period Insights")
     private lazy var effortsLabel = createSectionHeader("Effort Breakdown")
     
     // 4. Stacks
-    private let achievementsStack = UIStackView()
+    private let insightsCard = InsightCardView(title: "Highlights")
+    private let insightsStack = UIStackView()
     private let effortsCardContainer: UIView = {
         let v = UIView()
         v.backgroundColor = UIColor(red: 30/255, green: 35/255, blue: 55/255, alpha: 0.8)
@@ -84,9 +98,6 @@ final class ProgressViewController: UIViewController {
         setupHeader()
         setupScrollView()
         setupMainStack()
-        
-        // Embed segment inside card
-        taskCompletionCard.embedSegment(scopeSegment)
         
         // Dropdown Action
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
@@ -126,19 +137,22 @@ final class ProgressViewController: UIViewController {
     @objc private func handleScopeChange(_ sender: UISegmentedControl) {
         currentScope = TimeScope(rawValue: sender.selectedSegmentIndex) ?? .weekly
         
-        // Animate transition
         UIView.animate(withDuration: 0.15, animations: {
-            self.taskCompletionCard.arcContainer.alpha = 0.5
-            self.taskCompletionCard.percentageLabel.alpha = 0.5
-            self.pointsRow.alpha = 0.5
+            self.trendCard.alpha = 0.55
+            self.summaryRow.alpha = 0.55
+            self.consistencySummaryCard.alpha = 0.55
+            self.effortsCardContainer.alpha = 0.55
+            self.insightsCard.alpha = 0.55
         }) { _ in
             if let kid = self.selectedKid {
                 self.updateDataView(for: kid)
             }
             UIView.animate(withDuration: 0.25) {
-                self.taskCompletionCard.arcContainer.alpha = 1.0
-                self.taskCompletionCard.percentageLabel.alpha = 1.0
-                self.pointsRow.alpha = 1.0
+                self.trendCard.alpha = 1.0
+                self.summaryRow.alpha = 1.0
+                self.consistencySummaryCard.alpha = 1.0
+                self.effortsCardContainer.alpha = 1.0
+                self.insightsCard.alpha = 1.0
             }
         }
     }
@@ -208,45 +222,76 @@ final class ProgressViewController: UIViewController {
     // MARK: - Data Update (Backend Connected)
     
     private func updateDataView(for kid: ChildModel) {
-        // 1. Clear previous UI
-        achievementsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        consistencySummaryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        insightsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         guard let childId = UUID(uuidString: kid.id.uuidString) else { return }
+        let requestID = UUID()
+        latestDataRequestID = requestID
+        let requestedScope = currentScope
         
         Task {
             do {
-                // 🔥 CALL SUPABASE via ProgressService
-                let stats = try await ProgressService.shared.fetchStats(childId: childId, scope: currentScope)
+                async let statsTask = ProgressService.shared.fetchStats(childId: childId, scope: requestedScope)
+                async let chartDataTask = HomeService.shared.fetchChartData(
+                    for: childId,
+                    range: requestedScope == .weekly ? "weekly" : "monthly"
+                )
+                let stats = try await statsTask
+                let chartData = try await chartDataTask
                 
                 await MainActor.run {
-                    // A. Update Circle Chart
-                    let totalTasks = max(stats.total_tasks, 1) // Prevent divide by zero
-                    let percentage = CGFloat(stats.completed_tasks) / CGFloat(totalTasks)
-                    
-                    self.taskCompletionCard.configure(
-                        percentage: percentage,
-                        tasksDone: stats.completed_tasks,
-                        totalTasks: totalTasks
+                    guard self.latestDataRequestID == requestID,
+                          self.selectedKid?.id == kid.id,
+                          self.currentScope == requestedScope else {
+                        return
+                    }
+
+                    let orderedChartPoints = self.makeOrderedChartPoints(from: chartData)
+                    self.chartPoints = orderedChartPoints
+                    self.updateChart()
+
+                    let periodCompleted = max(orderedChartPoints.reduce(0) { $0 + $1.completed }, 0)
+                    let periodPending = max(orderedChartPoints.reduce(0) { $0 + $1.assigned }, 0)
+                    let periodTotal = periodCompleted + periodPending
+                    let completionRate = periodTotal > 0
+                        ? Int((Double(periodCompleted) / Double(periodTotal)) * 100)
+                        : 0
+                    let activeDays = orderedChartPoints.filter { $0.completed > 0 }.count
+                    let totalPeriodDays = orderedChartPoints.count
+
+                    let bestCategory = stats.breakdown?
+                        .max(by: { $0.count < $1.count })?
+                        .name ?? "No activity"
+
+                    self.completedCard.configure(
+                        value: "\(periodCompleted)",
+                        detail: periodTotal > 0
+                            ? "of \(periodTotal) tasks"
+                            : "No tasks"
                     )
-                    
-                    // B. Update Points
-                    // Calculate Goal: Weekly = 350 pts, Monthly = 1500 pts (Adjust as needed)
-                    let days = (self.currentScope == .weekly) ? 7 : 30
-                    let estimatedGoal = 50 * days
-                    
-                    self.pointsRow.configure(
-                        earned: stats.points_earned,
-                        goal: estimatedGoal,
-                        totalBalance: stats.current_balance
+                    self.consistencyCard.configure(
+                        value: "\(activeDays)/\(max(totalPeriodDays, 1))",
+                        detail: requestedScope == .weekly ? "days active" : "weeks active"
                     )
-                    
-                    // C. Update Efforts (Categories)
+                    self.bestCategoryCard.configure(
+                        value: bestCategory,
+                        detail: "top category"
+                    )
+
+                    self.populateConsistencySummary(
+                        activeDays: activeDays,
+                        totalDays: totalPeriodDays,
+                        completionRate: completionRate,
+                        chartPoints: orderedChartPoints
+                    )
+
                     if let breakdown = stats.breakdown, !breakdown.isEmpty {
-                        for item in breakdown {
+                        for item in breakdown.sorted(by: { $0.count > $1.count }) {
                             let catTotal = max(item.total, 1)
                             let prog = Float(item.count) / Float(catTotal)
-                            
+
                             self.addEffort(
                                 title: item.name,
                                 prog: prog,
@@ -254,30 +299,112 @@ final class ProgressViewController: UIViewController {
                             )
                         }
                     } else {
-                        // Empty State
                         self.addEffort(title: "No activity yet", prog: 0.0, text: "0/0")
                     }
-                    
-                    // D. Dynamic Achievements
-                    if stats.points_earned > 100 {
-                        self.addAchievement(title: "Point Master", sub: "Earned > 100 pts", kidName: kid.name)
-                    }
-                    if percentage >= 1.0 && stats.completed_tasks > 0 {
-                        self.addAchievement(title: "Perfectionist", sub: "Completed all tasks", kidName: kid.name)
-                    } else if percentage >= 0.5 {
-                        self.addAchievement(title: "Halfway There", sub: "50% tasks done", kidName: kid.name)
-                    }
+
+                    self.populateInsights(
+                        stats: stats,
+                        chartPoints: orderedChartPoints,
+                        bestCategory: bestCategory
+                    )
                 }
             } catch {
                 print("❌ Error fetching progress stats: \(error)")
             }
         }
     }
-    
-    private func addAchievement(title: String, sub: String, kidName: String) {
-        let card = AchievementCardView(title: title, subtitle: sub, child: kidName)
-        achievementsStack.addArrangedSubview(card)
-        card.heightAnchor.constraint(equalToConstant: 72).isActive = true
+
+    private func makeOrderedChartPoints(from rawPoints: [ChartDataPoint]) -> [DashboardChartPoint] {
+        if currentScope == .weekly {
+            let allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            let lookup = Dictionary(uniqueKeysWithValues: rawPoints.map { ($0.day, $0) })
+            return allDays.map { day in
+                let point = lookup[day]
+                return DashboardChartPoint(
+                    label: day,
+                    completed: point?.completed_count ?? 0,
+                    assigned: point?.pending_count ?? 0
+                )
+            }
+        }
+
+        let explicitWeekLookup = Dictionary(uniqueKeysWithValues: rawPoints.map { ($0.day, $0) })
+        let explicitMaxWeeks = rawPoints
+            .compactMap { Self.parseWeekIndex(from: $0.day) }
+            .max()
+
+        if let explicitMaxWeeks {
+            return (1...explicitMaxWeeks).map { index in
+                let label = "Week \(index)"
+                let point = explicitWeekLookup[label]
+                return DashboardChartPoint(
+                    label: label,
+                    completed: point?.completed_count ?? 0,
+                    assigned: point?.pending_count ?? 0
+                )
+            }
+        }
+
+        let groupedMonthlyPoints = Self.groupMonthlyPointsIntoWeeks(rawPoints)
+        if !groupedMonthlyPoints.isEmpty {
+            return groupedMonthlyPoints
+        }
+
+        return []
+    }
+
+    private func populateConsistencySummary(
+        activeDays: Int,
+        totalDays: Int,
+        completionRate: Int,
+        chartPoints: [DashboardChartPoint]
+    ) {
+        let bestDay = chartPoints.max(by: { $0.completed < $1.completed })?.label ?? "-"
+        let missedDays = chartPoints.filter { $0.completed == 0 }.map(\.label)
+        let missedText = missedDays.isEmpty ? "None" : missedDays.joined(separator: ", ")
+
+        [
+            "Completed at least one task on \(activeDays) of \(max(totalDays, 1)) \(currentScope == .weekly ? "days" : "weeks").",
+            "Completion rate: \(completionRate)%.",
+            "Best \(currentScope == .weekly ? "day" : "week"): \(bestDay).",
+            "No completion on: \(missedText)."
+        ].forEach { line in
+            let row = InsightLineView(text: line)
+            consistencySummaryStack.addArrangedSubview(row)
+        }
+    }
+
+    private func populateInsights(
+        stats: ProgressReport,
+        chartPoints: [DashboardChartPoint],
+        bestCategory: String
+    ) {
+        let totalPending = chartPoints.reduce(0) { $0 + $1.assigned }
+        let strongestPoint = chartPoints.max(by: { $0.completed < $1.completed })
+        let weakestPoint = chartPoints
+            .filter { $0.completed == 0 && $0.assigned > 0 }
+            .first
+
+        var lines: [String] = []
+        lines.append("Most active category: \(bestCategory).")
+        lines.append("Points earned this \(currentScope == .weekly ? "week" : "month"): \(stats.points_earned).")
+
+        if let strongestPoint, strongestPoint.completed > 0 {
+            lines.append("Strongest \(currentScope == .weekly ? "day" : "week"): \(strongestPoint.label) with \(strongestPoint.completed) completed.")
+        }
+
+        if let weakestPoint {
+            lines.append("Needs attention: \(weakestPoint.label) had \(weakestPoint.assigned) pending and no completions.")
+        } else if totalPending == 0 {
+            lines.append("No pending backlog in this period.")
+        } else {
+            lines.append("Pending workload in this period: \(totalPending) tasks.")
+        }
+
+        lines.forEach { line in
+            let row = InsightLineView(text: line)
+            insightsStack.addArrangedSubview(row)
+        }
     }
     
     private func addEffort(title: String, prog: Float, text: String) {
@@ -324,7 +451,7 @@ final class ProgressViewController: UIViewController {
             scrollView.topAnchor.constraint(equalTo: header.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
@@ -346,24 +473,109 @@ final class ProgressViewController: UIViewController {
             mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             mainStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40)
         ])
-        
-        // 1. Task Card
-        taskCompletionCard.heightAnchor.constraint(equalToConstant: 260).isActive = true
-        mainStack.addArrangedSubview(taskCompletionCard)
-        
-        // 2. Points Row
-        pointsRow.heightAnchor.constraint(equalToConstant: 110).isActive = true
-        mainStack.addArrangedSubview(pointsRow)
-        
-        // 3. Achievements
-        achievementsStack.axis = .vertical
-        achievementsStack.spacing = 12
-        mainStack.addArrangedSubview(recentLabel)
-        mainStack.addArrangedSubview(achievementsStack)
-        
-        // 4. Efforts
+
+        setupTrendCard()
+        setupSummaryRow()
+        setupConsistencyCard()
+
         mainStack.addArrangedSubview(effortsLabel)
-        
+        setupEffortsCard()
+        mainStack.addArrangedSubview(highlightsLabel)
+        setupInsightsCard()
+    }
+
+    private func setupTrendCard() {
+        trendCard.heightAnchor.constraint(equalToConstant: 310).isActive = true
+        mainStack.addArrangedSubview(trendCard)
+
+        [trendTitleLabel, trendSubtitleLabel, scopeSegment, chartHolder].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            trendCard.addSubview($0)
+        }
+
+        trendTitleLabel.text = "Completion Trend"
+        trendTitleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        trendTitleLabel.textColor = .white
+
+        trendSubtitleLabel.text = "Track how completion changes over time"
+        trendSubtitleLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        trendSubtitleLabel.textColor = UIColor.white.withAlphaComponent(0.68)
+        trendSubtitleLabel.numberOfLines = 0
+
+        chartHolder.backgroundColor = .clear
+
+        NSLayoutConstraint.activate([
+            trendTitleLabel.topAnchor.constraint(equalTo: trendCard.topAnchor, constant: 20),
+            trendTitleLabel.leadingAnchor.constraint(equalTo: trendCard.leadingAnchor, constant: 20),
+            trendTitleLabel.trailingAnchor.constraint(equalTo: trendCard.trailingAnchor, constant: -20),
+
+            trendSubtitleLabel.topAnchor.constraint(equalTo: trendTitleLabel.bottomAnchor, constant: 4),
+            trendSubtitleLabel.leadingAnchor.constraint(equalTo: trendTitleLabel.leadingAnchor),
+            trendSubtitleLabel.trailingAnchor.constraint(equalTo: trendTitleLabel.trailingAnchor),
+
+            scopeSegment.topAnchor.constraint(equalTo: trendSubtitleLabel.bottomAnchor, constant: 16),
+            scopeSegment.leadingAnchor.constraint(equalTo: trendCard.leadingAnchor, constant: 20),
+            scopeSegment.trailingAnchor.constraint(equalTo: trendCard.trailingAnchor, constant: -20),
+            scopeSegment.heightAnchor.constraint(equalToConstant: 34),
+
+            chartHolder.topAnchor.constraint(equalTo: scopeSegment.bottomAnchor, constant: 16),
+            chartHolder.leadingAnchor.constraint(equalTo: trendCard.leadingAnchor, constant: 8),
+            chartHolder.trailingAnchor.constraint(equalTo: trendCard.trailingAnchor, constant: -8),
+            chartHolder.bottomAnchor.constraint(equalTo: trendCard.bottomAnchor, constant: -10)
+        ])
+
+        if #available(iOS 16.0, *) {
+            let hosting = UIHostingController(rootView: AnyView(DashboardChartView(points: [])))
+            hosting.view.backgroundColor = .clear
+            addChild(hosting)
+            chartHolder.addSubview(hosting.view)
+            hosting.view.translatesAutoresizingMaskIntoConstraints = false
+
+            NSLayoutConstraint.activate([
+                hosting.view.topAnchor.constraint(equalTo: chartHolder.topAnchor),
+                hosting.view.leadingAnchor.constraint(equalTo: chartHolder.leadingAnchor),
+                hosting.view.trailingAnchor.constraint(equalTo: chartHolder.trailingAnchor),
+                hosting.view.bottomAnchor.constraint(equalTo: chartHolder.bottomAnchor)
+            ])
+
+            hosting.didMove(toParent: self)
+            chartHostingController = hosting
+        }
+    }
+
+    private func setupSummaryRow() {
+        summaryRow.axis = .horizontal
+        summaryRow.spacing = 10
+        summaryRow.distribution = .fillEqually
+        summaryRow.alignment = .fill
+        summaryRow.translatesAutoresizingMaskIntoConstraints = false
+
+        [completedCard, consistencyCard, bestCategoryCard].forEach {
+            $0.heightAnchor.constraint(equalToConstant: 118).isActive = true
+            summaryRow.addArrangedSubview($0)
+        }
+
+        mainStack.addArrangedSubview(summaryRow)
+    }
+
+    private func setupConsistencyCard() {
+        consistencySummaryCard.translatesAutoresizingMaskIntoConstraints = false
+        mainStack.addArrangedSubview(consistencySummaryCard)
+
+        consistencySummaryStack.axis = .vertical
+        consistencySummaryStack.spacing = 10
+        consistencySummaryStack.translatesAutoresizingMaskIntoConstraints = false
+        consistencySummaryCard.contentView.addSubview(consistencySummaryStack)
+
+        NSLayoutConstraint.activate([
+            consistencySummaryStack.topAnchor.constraint(equalTo: consistencySummaryCard.contentView.topAnchor, constant: 18),
+            consistencySummaryStack.leadingAnchor.constraint(equalTo: consistencySummaryCard.contentView.leadingAnchor, constant: 18),
+            consistencySummaryStack.trailingAnchor.constraint(equalTo: consistencySummaryCard.contentView.trailingAnchor, constant: -18),
+            consistencySummaryStack.bottomAnchor.constraint(equalTo: consistencySummaryCard.contentView.bottomAnchor, constant: -18)
+        ])
+    }
+
+    private func setupEffortsCard() {
         effortsCardContainer.addSubview(effortsStack)
         effortsStack.translatesAutoresizingMaskIntoConstraints = false
         effortsStack.axis = .vertical
@@ -375,6 +587,118 @@ final class ProgressViewController: UIViewController {
             effortsStack.bottomAnchor.constraint(equalTo: effortsCardContainer.bottomAnchor, constant: -20)
         ])
         mainStack.addArrangedSubview(effortsCardContainer)
+    }
+
+    private func setupInsightsCard() {
+        insightsCard.translatesAutoresizingMaskIntoConstraints = false
+        mainStack.addArrangedSubview(insightsCard)
+
+        insightsStack.axis = .vertical
+        insightsStack.spacing = 10
+        insightsStack.translatesAutoresizingMaskIntoConstraints = false
+        insightsCard.contentView.addSubview(insightsStack)
+
+        NSLayoutConstraint.activate([
+            insightsStack.topAnchor.constraint(equalTo: insightsCard.contentView.topAnchor, constant: 18),
+            insightsStack.leadingAnchor.constraint(equalTo: insightsCard.contentView.leadingAnchor, constant: 18),
+            insightsStack.trailingAnchor.constraint(equalTo: insightsCard.contentView.trailingAnchor, constant: -18),
+            insightsStack.bottomAnchor.constraint(equalTo: insightsCard.contentView.bottomAnchor, constant: -18)
+        ])
+    }
+
+    private func updateChart() {
+        if #available(iOS 16.0, *) {
+            chartHostingController?.rootView = AnyView(DashboardChartView(points: chartPoints))
+        }
+    }
+}
+
+private extension ProgressViewController {
+    static func parseWeekIndex(from label: String) -> Int? {
+        let normalized = label
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard normalized.hasPrefix("week ") else { return nil }
+        return Int(normalized.replacingOccurrences(of: "week ", with: ""))
+    }
+
+    static func groupMonthlyPointsIntoWeeks(_ rawPoints: [ChartDataPoint]) -> [DashboardChartPoint] {
+        guard !rawPoints.isEmpty else { return [] }
+
+        let datedPoints = rawPoints.compactMap { point -> (Date, ChartDataPoint)? in
+            guard let date = parseChartDate(point.day) else { return nil }
+            return (date, point)
+        }
+
+        if !datedPoints.isEmpty {
+            let calendar = Calendar(identifier: .gregorian)
+            let sorted = datedPoints.sorted { $0.0 < $1.0 }
+            let startDate = calendar.startOfDay(for: sorted[0].0)
+            var buckets: [Int: (completed: Int, pending: Int)] = [:]
+
+            for (date, point) in sorted {
+                let days = calendar.dateComponents([.day], from: startDate, to: calendar.startOfDay(for: date)).day ?? 0
+                let weekIndex = max(0, days / 7) + 1
+                var bucket = buckets[weekIndex] ?? (0, 0)
+                bucket.completed += point.completed_count
+                bucket.pending += point.pending_count
+                buckets[weekIndex] = bucket
+            }
+
+            let maxWeek = buckets.keys.max() ?? 1
+            return (1...maxWeek).map { index in
+                let bucket = buckets[index] ?? (0, 0)
+                return DashboardChartPoint(
+                    label: "Week \(index)",
+                    completed: bucket.completed,
+                    assigned: bucket.pending
+                )
+            }
+        }
+
+        var grouped: [DashboardChartPoint] = []
+        let chunks = stride(from: 0, to: rawPoints.count, by: 7).map {
+            Array(rawPoints[$0..<min($0 + 7, rawPoints.count)])
+        }
+
+        for (offset, chunk) in chunks.enumerated() {
+            grouped.append(
+                DashboardChartPoint(
+                    label: "Week \(offset + 1)",
+                    completed: chunk.reduce(0) { $0 + $1.completed_count },
+                    assigned: chunk.reduce(0) { $0 + $1.pending_count }
+                )
+            )
+        }
+
+        return grouped
+    }
+
+    static func parseChartDate(_ value: String) -> Date? {
+        let formats = [
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "dd-MM-yyyy",
+            "dd/MM/yyyy",
+            "MMM d",
+            "d MMM",
+            "MMM d, yyyy",
+            "d MMM yyyy"
+        ]
+
+        for format in formats {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = format
+
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        return nil
     }
 }
 
@@ -748,5 +1072,151 @@ final class EffortRow: UIView {
             fill.widthAnchor.constraint(equalTo: track.widthAnchor, multiplier: CGFloat(progress))
         ])
     }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+final class SummaryStatCardView: UIView {
+    private let glass = GlassView(style: .card, cornerRadius: 18)
+    private let titleLabel = UILabel()
+    private let valueLabel = UILabel()
+    private let detailLabel = UILabel()
+
+    init(title: String) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(glass)
+        glass.translatesAutoresizingMaskIntoConstraints = false
+
+        titleLabel.text = title.uppercased()
+        titleLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        titleLabel.textColor = UIColor.white.withAlphaComponent(0.55)
+        titleLabel.numberOfLines = 2
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.72
+        titleLabel.lineBreakMode = .byWordWrapping
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        valueLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        valueLabel.textColor = .white
+        valueLabel.numberOfLines = 2
+        valueLabel.adjustsFontSizeToFitWidth = true
+        valueLabel.minimumScaleFactor = 0.75
+        valueLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        detailLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        detailLabel.textColor = UIColor.white.withAlphaComponent(0.72)
+        detailLabel.numberOfLines = 2
+        detailLabel.adjustsFontSizeToFitWidth = true
+        detailLabel.minimumScaleFactor = 0.85
+        detailLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        glass.addSubview(titleLabel)
+        glass.addSubview(valueLabel)
+        glass.addSubview(detailLabel)
+
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: topAnchor),
+            glass.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            titleLabel.topAnchor.constraint(equalTo: glass.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -16),
+
+            valueLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            valueLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            valueLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+
+            detailLabel.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 4),
+            detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            detailLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            detailLabel.bottomAnchor.constraint(lessThanOrEqualTo: glass.bottomAnchor, constant: -16)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(value: String, detail: String) {
+        valueLabel.text = value
+        detailLabel.text = detail
+    }
+}
+
+final class InsightCardView: UIView {
+    let glass = GlassView(style: .card, cornerRadius: 20)
+    let contentView = UIView()
+
+    init(title: String) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 18, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(glass)
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(titleLabel)
+        glass.addSubview(contentView)
+
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: topAnchor),
+            glass.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            titleLabel.topAnchor.constraint(equalTo: glass.topAnchor, constant: 18),
+            titleLabel.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 18),
+            titleLabel.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -18),
+
+            contentView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 14),
+            contentView.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: glass.bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+final class InsightLineView: UIView {
+    init(text: String) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let bullet = UIView()
+        bullet.translatesAutoresizingMaskIntoConstraints = false
+        bullet.backgroundColor = UIColor(red: 115/255, green: 185/255, blue: 255/255, alpha: 1)
+        bullet.layer.cornerRadius = 4
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = text
+        label.numberOfLines = 0
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = UIColor.white.withAlphaComponent(0.86)
+
+        addSubview(bullet)
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            bullet.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bullet.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            bullet.widthAnchor.constraint(equalToConstant: 8),
+            bullet.heightAnchor.constraint(equalToConstant: 8),
+
+            label.leadingAnchor.constraint(equalTo: bullet.trailingAnchor, constant: 12),
+            label.topAnchor.constraint(equalTo: topAnchor),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
     required init?(coder: NSCoder) { fatalError() }
 }

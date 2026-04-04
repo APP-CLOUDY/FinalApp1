@@ -98,14 +98,14 @@ final class JoinWithCode: PremiumBaseViewController, UITextFieldDelegate {
         for index in 0..<codeLength {
             let tf = UITextField()
             
-            tf.backgroundColor = .white
+            tf.backgroundColor = .systemGray6
             tf.layer.borderWidth = 1.0
             tf.layer.borderColor = UIColor.systemGray4.cgColor
             tf.layer.cornerRadius = 12
             
             tf.textAlignment = .center
             tf.font = .systemFont(ofSize: 22, weight: .bold)
-            tf.textColor = .black
+            tf.textColor = .label
             tf.keyboardType = .numberPad
             tf.tintColor = .systemBlue
             

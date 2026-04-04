@@ -201,8 +201,8 @@ class CloudyViewModel: ObservableObject {
         isAIThinking = true
         
         Task {
-            // ✅ 4. Pass Missions, Shop Items, and Balance to AI
-            let response = await GeminiAIService.shared.sendMessage(
+            // ✅ 4. Use Apple Intelligence for responses
+            let response = await AppleAIService.shared.sendMessage(
                 userQuery: userText,
                 missions: missions,
                 rewardsList: self.availableRewards, // <--- Passing the shop items

@@ -41,24 +41,9 @@ final class ChildAccountViewController: UIViewController {
     }()
 
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        return b
+        ChildBackButtonFactory.make(target: self, action: #selector(backTapped))
     }()
     
-    private lazy var editButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setTitle("Edit", for: .normal)
-        b.titleLabel?.font = UIFont.boldSystemFont(ofSize: 17)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(editTapped), for: .touchUpInside)
-        return b
-    }()
-
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -81,42 +66,25 @@ final class ChildAccountViewController: UIViewController {
         return l
     }()
 
-    // MARK: - Labels & Fields
+    // MARK: - Fields
 
-    private lazy var nameLabel = makeLabel(text: "Name")
-    private lazy var nickNameLabel = makeLabel(text: "Nick name")
-    private lazy var dobLabel = makeLabel(text: "Birth of date")
-    private lazy var familyNameLabel = makeLabel(text: "Family Name")
-
-    // Merged Name Field (as requested)
     private lazy var nameField = makeTextField(placeholder: "Enter name")
-    
     private lazy var nickField = makeTextField(placeholder: "Display name")
-    
+
     private lazy var dobField: UITextField = {
-        let tf = makeTextField(placeholder: "18/03/2024")
-        // Calendar icon for Date field
+        let tf = makeTextField(placeholder: "Date of Birth (DD/MM/YYYY)")
         let cal = UIImageView(image: UIImage(systemName: "calendar"))
-        cal.tintColor = UIColor(white: 0.6, alpha: 1)
+        cal.tintColor = UIColor(white: 0.55, alpha: 1)
         cal.contentMode = .center
         cal.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
         tf.rightView = cal
         tf.rightViewMode = .always
         return tf
     }()
-    
-    // New Family Name Field
-    private lazy var familyNameField: UITextField = {
-        let tf = makeTextField(placeholder: "Happy Home")
-        // Eye-slash icon for Family Name (matching ref image style)
-        let eye = UIImageView(image: UIImage(systemName: "eye.slash"))
-        eye.tintColor = UIColor(white: 0.6, alpha: 1)
-        eye.contentMode = .center
-        eye.frame = CGRect(x: 0, y: 0, width: 36, height: 36)
-        tf.rightView = eye
-        tf.rightViewMode = .always
-        return tf
-    }()
+
+    private let genderSelector = ProfileGenderSelector(options: ["Female", "Male"])
+
+    private lazy var familyField = makeTextField(placeholder: "Family Name")
 
     // MARK: - Lifecycle
 
@@ -128,6 +96,8 @@ final class ChildAccountViewController: UIViewController {
         setupConstraints()
         setupDatePicker()
         registerKeyboardNotifications()
+        applyReadOnlyState()
+        fetchChildDetails()
     }
 
     override func viewWillLayoutSubviews() {
@@ -144,6 +114,7 @@ final class ChildAccountViewController: UIViewController {
         super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate(alongsideTransition: { _ in
             self.backgroundGradientLayer?.frame = CGRect(origin: .zero, size: size)
+            self.genderSelector.refreshPillPosition(animated: false)
             self.view.layoutIfNeeded()
         }, completion: nil)
     }
@@ -159,63 +130,27 @@ final class ChildAccountViewController: UIViewController {
         contentView.addSubview(cloudImageView)
         contentView.addSubview(cardView)
 
-        // Stack updated with Family Name instead of Gender
         let stack = UIStackView(arrangedSubviews: [
             titleLabel,
-
-            nameLabel,
             nameField,
-
-            nickNameLabel,
             nickField,
-
-            dobLabel,
             dobField,
-            
-            familyNameLabel,
-            familyNameField
+            genderSelector,
+            familyField
         ])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 10
+        stack.spacing = 24
         stack.alignment = .fill
         stack.distribution = .fill
-
-        // Custom Spacing
-        stack.setCustomSpacing(24, after: nameField)
-        stack.setCustomSpacing(24, after: nickField)
-        stack.setCustomSpacing(24, after: dobField)
-        stack.setCustomSpacing(24, after: familyNameField)
-
-        // Label spacing
-        stack.setCustomSpacing(4, after: nameLabel)
-        stack.setCustomSpacing(4, after: nickNameLabel)
-        stack.setCustomSpacing(4, after: dobLabel)
-        stack.setCustomSpacing(4, after: familyNameLabel)
+        stack.setCustomSpacing(32, after: titleLabel)
 
         cardView.addSubview(stack)
 
-        // Navigation / Buttons
         if let nav = navigationController, !nav.isNavigationBarHidden {
-            navigationItem.leftBarButtonItem = UIBarButtonItem(
-                image: UIImage(systemName: "chevron.left"),
-                style: .plain,
-                target: self,
-                action: #selector(backTapped)
-            )
-            navigationItem.leftBarButtonItem?.tintColor = .white
-            
-            navigationItem.rightBarButtonItem = UIBarButtonItem(
-                title: "Edit",
-                style: .plain,
-                target: self,
-                action: #selector(editTapped)
-            )
-            navigationItem.rightBarButtonItem?.tintColor = .white
-            
+            navigationItem.leftBarButtonItem = UIBarButtonItem(customView: backButton)
         } else {
             view.addSubview(backButton)
-            view.addSubview(editButton)
         }
     }
 
@@ -249,20 +184,12 @@ final class ChildAccountViewController: UIViewController {
         if backButton.superview != nil {
             activeConstraints.append(contentsOf: [
                 backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
-                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12),
-                backButton.widthAnchor.constraint(equalToConstant: 36),
-                backButton.heightAnchor.constraint(equalToConstant: 36)
+                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 8),
+                backButton.widthAnchor.constraint(equalToConstant: 40),
+                backButton.heightAnchor.constraint(equalToConstant: 40)
             ])
         }
         
-        if editButton.superview != nil {
-            activeConstraints.append(contentsOf: [
-                editButton.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -16),
-                editButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-                editButton.heightAnchor.constraint(equalToConstant: 36)
-            ])
-        }
-
         NSLayoutConstraint.activate(activeConstraints)
 
         NSLayoutConstraint.activate([
@@ -358,6 +285,52 @@ final class ChildAccountViewController: UIViewController {
         scrollView.verticalScrollIndicatorInsets.bottom = .zero
     }
 
+    // MARK: - Data
+
+    private func fetchChildDetails() {
+        Task {
+            do {
+                let child = try await ProfileService.shared.fetchChildProfile()
+                let familyName = try await ProfileService.shared.fetchChildFamilyName(familyId: child.family_id)
+
+                await MainActor.run {
+                    self.nameField.text = child.name
+                    self.nickField.text = (child.nickname?.isEmpty == false) ? child.nickname : "Chore Champion"
+                    self.dobField.text = self.formattedDate(child.birth_date)
+                    self.familyField.text = familyName ?? "--"
+                    self.genderSelector.setSelection(gender: child.gender)
+                }
+            } catch {
+                print("❌ Failed to load child account details: \(error)")
+            }
+        }
+    }
+
+    private func formattedDate(_ value: String?) -> String {
+        guard let value, !value.isEmpty else { return "--" }
+
+        let input = DateFormatter()
+        input.dateFormat = "yyyy-MM-dd"
+        input.locale = Locale(identifier: "en_US_POSIX")
+
+        let output = DateFormatter()
+        output.dateFormat = "dd/MM/yyyy"
+        output.locale = Locale(identifier: "en_US_POSIX")
+
+        if let date = input.date(from: value) {
+            return output.string(from: date)
+        }
+
+        return value
+    }
+
+    private func applyReadOnlyState() {
+        [nameField, nickField, dobField, familyField].forEach {
+            $0.isEnabled = false
+        }
+        genderSelector.isUserInteractionEnabled = false
+    }
+
     // MARK: - Actions
 
     @objc private func backTapped() {
@@ -368,42 +341,20 @@ final class ChildAccountViewController: UIViewController {
         }
     }
 
-    @objc private func editTapped() {
-        print("Edit tapped")
-        let isEditing = !nameField.isEnabled
-        nameField.isEnabled = isEditing
-        nickField.isEnabled = isEditing
-        dobField.isEnabled = isEditing
-        familyNameField.isEnabled = isEditing
-        
-        let newTitle = isEditing ? "Save" : "Edit"
-        if let nav = navigationController, !nav.isNavigationBarHidden {
-            navigationItem.rightBarButtonItem?.title = newTitle
-        } else {
-            editButton.setTitle(newTitle, for: .normal)
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func makeLabel(text: String) -> UILabel {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = text
-        l.font = UIFont.systemFont(ofSize: 13, weight: .regular)
-        l.textColor = UIColor(white: 0.35, alpha: 1)
-        return l
-    }
-
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
         tf.placeholder = placeholder
-        tf.font = UIFont.systemFont(ofSize: 15)
+        tf.font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        tf.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
         tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
-        tf.layer.cornerRadius = 10
-        tf.setChildAccountLeftPadding(12)
-        tf.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        tf.layer.cornerRadius = 14
+        tf.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: UIColor(white: 0.68, alpha: 1)]
+        )
+        tf.setChildAccountLeftPadding(20)
+        tf.heightAnchor.constraint(equalToConstant: 56).isActive = true
         return tf
     }
 }
@@ -437,5 +388,109 @@ private extension NSLayoutConstraint {
     func withChildPriority(_ p: UILayoutPriority) -> NSLayoutConstraint {
         self.priority = p
         return self
+    }
+}
+
+private final class ProfileGenderSelector: UIControl {
+    private let stackView = UIStackView()
+    private let selectedPill = UIView()
+    private var buttons: [UIButton] = []
+    private let options: [String]
+    private(set) var selectedIndex: Int = 0
+
+    init(options: [String]) {
+        self.options = options
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(equalToConstant: 56).isActive = true
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        refreshPillPosition(animated: false)
+    }
+
+    private func setup() {
+        backgroundColor = UIColor(white: 0.96, alpha: 1)
+        layer.cornerRadius = 14
+        clipsToBounds = true
+
+        selectedPill.backgroundColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        selectedPill.layer.cornerRadius = 12
+        selectedPill.isUserInteractionEnabled = false
+        addSubview(selectedPill)
+
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.distribution = .fillEqually
+        stackView.spacing = 12
+        addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6)
+        ])
+
+        for (index, title) in options.enumerated() {
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.setTitle(title, for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+            button.setTitleColor(index == selectedIndex ? .white : UIColor(white: 0.2, alpha: 1), for: .normal)
+            button.tag = index
+            button.addTarget(self, action: #selector(optionTapped(_:)), for: .touchUpInside)
+            buttons.append(button)
+            stackView.addArrangedSubview(button)
+        }
+    }
+
+    @objc private func optionTapped(_ sender: UIButton) {
+        selectedIndex = sender.tag
+        updateButtonColors()
+        refreshPillPosition(animated: true)
+        sendActions(for: .valueChanged)
+    }
+
+    private func updateButtonColors() {
+        for (index, button) in buttons.enumerated() {
+            button.setTitleColor(index == selectedIndex ? .white : UIColor(white: 0.2, alpha: 1), for: .normal)
+        }
+    }
+
+    func refreshPillPosition(animated: Bool) {
+        guard selectedIndex < buttons.count else { return }
+        let targetButton = buttons[selectedIndex]
+        let targetFrame = convert(targetButton.frame, from: stackView)
+        let insetFrame = targetFrame.insetBy(dx: 0, dy: 0)
+
+        let updates = {
+            self.selectedPill.frame = insetFrame
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut]) {
+                updates()
+            }
+        } else {
+            updates()
+        }
+    }
+
+    func setSelection(gender: String?) {
+        let normalized = gender?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized == "male" {
+            selectedIndex = 1
+        } else {
+            selectedIndex = 0
+        }
+        updateButtonColors()
+        refreshPillPosition(animated: false)
     }
 }

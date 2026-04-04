@@ -157,6 +157,7 @@ final class FamilyService: Sendable {
                     let name: String
                     let join_code: String? // Optional
                     let gender: String?    // Optional
+                    let avatar_url: String?
                 }
                 let children: ChildData?
             }
@@ -174,10 +175,14 @@ final class FamilyService: Sendable {
                 
                 for row in childRows {
                     if let child = row.children {
-                        // Safe Fallback for Gender
-                        let gender = child.gender?.lowercased() ?? "male"
-                        let avatarName = (gender == "female") ? "avatar-f-1.png" : "avatar-m-1.png"
-                        let avatarUrl = ProfileService.shared.getAvatarURL(fileName: avatarName)
+                        let avatarUrl: String?
+                        if let avatarName = child.avatar_url, !avatarName.isEmpty {
+                            avatarUrl = ProfileService.shared.getChildAvatarURL(fileName: avatarName)
+                        } else {
+                            let gender = child.gender?.lowercased() ?? "male"
+                            let fallbackAvatar = (gender == "female") ? "avatar-f-1.png" : "avatar-m-1.png"
+                            avatarUrl = ProfileService.shared.getAvatarURL(fileName: fallbackAvatar)
+                        }
                         
                         let c = FamilyMemberDisplay(
                             id: child.id.uuidString,
@@ -200,10 +205,22 @@ final class FamilyService: Sendable {
     // MARK: - Update
 
     func updateFamilyName(id: UUID, newName: String) async throws {
-        try await client.database
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let response = try await client.database
             .from("families")
-            .update(["family_name": newName])
+            .update(["family_name": trimmedName])
             .eq("id", value: id)
+            .select("id, family_name")
             .execute()
+
+        let families = try JSONDecoder().decode([FamilyInfo].self, from: response.data)
+        guard !families.isEmpty else {
+            throw NSError(
+                domain: "FamilyService",
+                code: 403,
+                userInfo: [NSLocalizedDescriptionKey: "Family name update was blocked or no matching family row was updated."]
+            )
+        }
     }
 }

@@ -15,20 +15,29 @@ struct CloudyFlowView: View {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 0) {
-                    ZStack {
-                        Text("Cloudy").font(.headline).foregroundColor(.white)
-                        HStack {
-                            Button(action: vm.goBack) {
-                                Image(systemName: "chevron.left")
-                                    .font(.title3.bold())
-                                    .foregroundColor((vm.currentState == .chatWelcome && vm.chatHistory.isEmpty) ? .clear : .white)
-                            }
-                            .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
-                            Spacer()
+                    HStack(spacing: 12) {
+                        Button(action: vm.goBack) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor((vm.currentState == .chatWelcome && vm.chatHistory.isEmpty) ? .clear : .white)
                         }
+                        .frame(width: 40, height: 40)
+                        .disabled(vm.currentState == .chatWelcome && vm.chatHistory.isEmpty)
+                        
+                        Spacer()
+                        
+                        Text("Cloudyyy")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                        
+                        Spacer()
+                        
+                        Color.clear
+                            .frame(width: 40, height: 40)
                     }
-                    .frame(height: 44)
-                    .padding(.horizontal)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
                     
                     Rectangle().fill(Color.white.opacity(0.15)).frame(height: 0.5)
                 }
@@ -70,5 +79,6 @@ struct CloudyFlowView: View {
         }
         .task { await vm.loadMissions() }
         .onTapGesture { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

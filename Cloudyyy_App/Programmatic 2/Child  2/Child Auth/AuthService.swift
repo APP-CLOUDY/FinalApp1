@@ -40,9 +40,9 @@ final class AuthService: Sendable {
         
         // Handle Success
         if let id = response.child_id, let name = response.name {
-            // Save the session locally on the Main Actor
+            // Save the session via SessionManager
             await MainActor.run {
-                ChildSessionManager.shared.saveSession(childId: id, name: name)
+                SessionManager.shared.signInChild(childId: id, name: name)
             }
             return true
         }

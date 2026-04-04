@@ -16,6 +16,9 @@ final class RewardsViewController: UIViewController {
     private var enabledCategories: Set<String> = []
     
     private var progressReport: ProgressReport?
+    private var resolvedStreakCount: Int = 0
+    private var resolvedWeekStatus: [Bool] = []
+    private var rpcCurrentStreak: Int = 0
     
     // 🔁 Multiple Dream It rewards (unique)
     private var dreamRewardIds: [UUID] = []
@@ -72,7 +75,7 @@ final class RewardsViewController: UIViewController {
 
     
     private func loadQuickRewards() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else { return }
+        guard let childId = SessionManager.shared.childId else { return }
         
         do {
             let response = try await ChildRewardsService.shared.getChildRewards(
@@ -116,17 +119,6 @@ final class RewardsViewController: UIViewController {
 
                     let isLocked = item.is_locked ?? false
 
-                    let lockReason: QuickRewardLockReason? = {
-                        guard isLocked else { return nil }
-
-                        // 🔒 Backend-driven lock reasons
-                        if item.claim_id != nil {
-                            return .alreadyClaimed
-                        } else {
-                            return .notAssigned
-                        }
-                    }()
-
                     return AssignedQuickReward(
                         id: item.id,
                         claimId: item.claim_id,
@@ -134,7 +126,7 @@ final class RewardsViewController: UIViewController {
                         cost: item.points,
                         imageName: type.image,
                         isLocked: isLocked,
-                        lockReason: lockReason
+                        lockReason: AssignedQuickRewardViewController.lockReason(for: item)
                     )
                 }
 
@@ -211,32 +203,8 @@ final class RewardsViewController: UIViewController {
     }()
     
     
-    private func animateCoins(from oldValue: Int, to newValue: Int) {
-        guard newValue > oldValue else {
-            coinLabel.text = "\(newValue)"
-            return
-        }
-        
-        let steps = newValue - oldValue
-        var current = oldValue
-        
-        Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { timer in
-            current += 1
-            self.coinLabel.text = "\(current)"
-            
-            UIView.animate(withDuration: 0.12,
-                           animations: {
-                self.coinBadgeView.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
-            }, completion: { _ in
-                UIView.animate(withDuration: 0.12) {
-                    self.coinBadgeView.transform = .identity
-                }
-            })
-            
-            if current >= newValue {
-                timer.invalidate()
-            }
-        }
+    private func updateCoins(_ newValue: Int) {
+        coinLabel.text = "\(newValue)"
     }
     
     // Header
@@ -457,14 +425,19 @@ final class RewardsViewController: UIViewController {
     
     private func loadStreakCount() {
         Task {
-            guard let childId = ChildSessionManager.shared.currentChildId else {
+            guard let childId = SessionManager.shared.childId else {
                 print("❌ No child logged in")
                 return
             }
 
             do {
                 let streak = try await StreakService.shared.getCurrentStreak(childId: childId)
-                streakCard.setStreak(streak)
+                await MainActor.run {
+                    print("🔥 Rewards streak debug -> RPC current streak:", streak)
+                    NSLog("🔥 Rewards streak debug -> RPC current streak: \(streak)")
+                    self.rpcCurrentStreak = streak
+                    self.applyResolvedStreak()
+                }
             } catch {
                 print("❌ Failed to load streak count:", error)
             }
@@ -490,23 +463,36 @@ final class RewardsViewController: UIViewController {
     }
     
     private func loadRewardsHomeData() async {
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             print("❌ No child logged in")
             return
         }
         
         do {
+            await MainActor.run {
+                self.homeStats = nil
+                self.rewardStats = nil
+                self.progressReport = nil
+                self.resolvedWeekStatus = []
+                self.resolvedStreakCount = 0
+                self.rpcCurrentStreak = 0
+                self.streakCard.setWeekStatus([])
+                self.streakCard.setStreak(0)
+            }
+
             let homeStats = try await ChildHomeService.shared.fetchChildHomeStats()
             let rewardStats = try await ChildHomeService.shared.fetchChildRewardStats()
             let progress = try await ProgressService.shared.fetchStats(
                 childId: childId,
                 scope: .monthly
             )
+            let weekStatus = try await fetchResolvedWeekStatus(childId: childId)
 
             await MainActor.run {
                 self.homeStats = homeStats
                 self.rewardStats = rewardStats
                 self.progressReport = progress
+                self.resolvedWeekStatus = weekStatus
                 self.updateRewardsUI()
             }
             
@@ -518,27 +504,90 @@ final class RewardsViewController: UIViewController {
     
     private func updateRewardsUI() {
         guard let homeStats = homeStats else { return }
+
+        let hasCurrentWeekCompletion = resolvedWeekStatus.contains(true)
+        resolvedStreakCount = hasCurrentWeekCompletion
+            ? max(rpcCurrentStreak, homeStats.current_streak ?? 0)
+            : 0
+
+        applyResolvedStreak()
         
-        // 🔥 Streak number
-        streakCard.setStreak(homeStats.current_streak ?? 0)
-        
-        // 📅 Weekly dots
-        if let week = homeStats.week_status {
-            streakCard.setWeekStatus(week)
-        } else {
-            streakCard.setWeekStatus([])
-        }
+        print("🔥 Rewards streak debug -> homeStats.current_streak:", homeStats.current_streak ?? 0)
+        print("🔥 Rewards streak debug -> progress.completed_tasks:", progressReport?.completed_tasks ?? 0)
+        print("🔥 Rewards streak debug -> has current week completion:", hasCurrentWeekCompletion)
+        print("🔥 Rewards streak debug -> backend week_status (unused):", homeStats.week_status ?? [])
+        print("🔥 Rewards streak debug -> resolved week_status from streak-month (Mon-Sun):", resolvedWeekStatus)
+        NSLog("🔥 Rewards streak debug -> resolved week_status from streak-month (Mon-Sun): \(resolvedWeekStatus)")
+        streakCard.setWeekStatus(resolvedWeekStatus)
         
         // ⭐ Coins
-        let oldCoins = Int(coinLabel.text ?? "0") ?? 0
         let newCoins = progressReport?.current_balance ?? 0
-        animateCoins(from: oldCoins, to: newCoins)
+        updateCoins(newCoins)
 
         
         Task {
             await loadQuickRewards()
         }
         
+    }
+
+    private func applyResolvedStreak() {
+        print("🔥 Rewards streak debug -> resolved streak shown on card:", resolvedStreakCount)
+        NSLog("🔥 Rewards streak debug -> resolved streak shown on card: \(resolvedStreakCount)")
+        streakCard.setStreak(resolvedStreakCount)
+    }
+
+    private func fetchResolvedWeekStatus(childId: UUID) async throws -> [Bool] {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+
+        let today = Date()
+        let weekday = calendar.component(.weekday, from: today)
+        let daysFromMonday = (weekday + 5) % 7
+        guard let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: calendar.startOfDay(for: today)) else {
+            return []
+        }
+
+        let weekDates = (0..<7).compactMap {
+            calendar.date(byAdding: .day, value: $0, to: monday)
+        }
+
+        let uniqueMonthYears = Set(weekDates.map {
+            let comps = calendar.dateComponents([.year, .month], from: $0)
+            return "\(comps.year ?? 0)-\(comps.month ?? 0)"
+        })
+
+        var completedDaysByMonth: [String: Set<Int>] = [:]
+
+        for key in uniqueMonthYears {
+            let parts = key.split(separator: "-")
+            guard parts.count == 2,
+                  let year = Int(parts[0]),
+                  let month = Int(parts[1]) else { continue }
+
+            let days = try await StreakService.shared.getMonthStreak(
+                childId: childId,
+                month: month,
+                year: year
+            )
+            completedDaysByMonth[key] = days
+        }
+
+        let resolved = weekDates.map { date in
+            let comps = calendar.dateComponents([.year, .month, .day], from: date)
+            let key = "\(comps.year ?? 0)-\(comps.month ?? 0)"
+            let completedDays = completedDaysByMonth[key] ?? []
+            return completedDays.contains(comps.day ?? -1)
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let labels = weekDates.map { formatter.string(from: $0) }
+        print("🔥 Rewards streak debug -> resolved week dates:", labels)
+        NSLog("🔥 Rewards streak debug -> resolved week dates: \(labels)")
+
+        return resolved
     }
     
     // MARK: - Setup

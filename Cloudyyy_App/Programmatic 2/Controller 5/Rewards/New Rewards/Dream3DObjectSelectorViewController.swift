@@ -91,11 +91,7 @@ final class Dream3DObjectSelectorViewController: UIViewController {
 
     // MARK: - Header
     private func setupHeader() {
-        let backButton = UIButton(type: .system)
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = .white
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
+        let backButton = ParentBackButtonFactory.make(target: self, action: #selector(backTapped))
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -104,9 +100,7 @@ final class Dream3DObjectSelectorViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            backButton.widthAnchor.constraint(equalToConstant: 32),
-            backButton.heightAnchor.constraint(equalToConstant: 32),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12)
@@ -236,4 +230,3 @@ final class Dream3DGridCell: UICollectionViewCell {
         titleLabel.text = object.displayName
     }
 }
-

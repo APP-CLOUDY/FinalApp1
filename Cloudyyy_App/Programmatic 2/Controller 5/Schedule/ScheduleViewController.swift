@@ -79,6 +79,11 @@ final class ScheduleViewController: UIViewController {
         
         // Header Actions
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onProfileTapped = { [weak self] in
+            let vc = ParentProfileViewController()
+            vc.hidesBottomBarWhenPushed = true
+            self?.navigationController?.pushViewController(vc, animated: true)
+        }
         header.showProfileButton(true)
         
         // Generate Calendar
@@ -184,8 +189,12 @@ final class ScheduleViewController: UIViewController {
             }
         case 2: // Not Done
             displayedTasks = allTasksForDate.filter {
-                $0.submission_status == nil ||
-                $0.submission_status?.lowercased() == "pending"
+                let status = $0.submission_status?.lowercased()
+                return status == nil ||
+                    status == "pending" ||
+                    status == "declined" ||
+                    status == "rejected" ||
+                    status == "redo"
             }
         default: // All
             displayedTasks = allTasksForDate

@@ -10,11 +10,23 @@ struct HomeStats: Decodable, Sendable {
     let redeemed_count: Int
 }
 
+private struct RewardAssignmentRow: Decodable, Sendable {
+    let reward_id: UUID?
+}
+
+private struct ApprovedRewardClaimRow: Decodable, Sendable {
+    let reward_id: UUID?
+}
+
 struct ChartDataPoint: Decodable, Sendable, Identifiable {
     var id: String { day }
     let day: String
     let completed_count: Int
     let pending_count: Int
+}
+
+private struct ApprovedTaskSubmissionDateRow: Decodable, Sendable {
+    let submitted_at: String?
 }
 
 // MARK: - Service
@@ -52,5 +64,89 @@ final class HomeService: Sendable {
         let response: [ChartDataPoint] = try await client
             .database.rpc("get_child_chart_data", params: params).execute().value
         return response
+    }
+
+    func fetchApprovedTaskSubmissionDates(for childId: UUID) async throws -> [Date] {
+        let response = try await client
+            .from("task_submissions")
+            .select("submitted_at")
+            .eq("child_id", value: childId)
+            .eq("status", value: "approved")
+            .execute()
+
+        let rows = try JSONDecoder().decode([ApprovedTaskSubmissionDateRow].self, from: response.data)
+        return rows.compactMap { row in
+            guard let submittedAt = row.submitted_at else { return nil }
+            return Self.parseSupabaseDate(submittedAt)
+        }
+    }
+
+    func fetchActiveAllocatedRewardCount(for childId: UUID) async throws -> Int {
+        let assignmentsResponse = try await client
+            .from("reward_assignments")
+            .select("reward_id")
+            .eq("child_id", value: childId)
+            .execute()
+
+        let claimsResponse = try await client
+            .from("reward_claims")
+            .select("reward_id")
+            .eq("child_id", value: childId)
+            .eq("status", value: "approved")
+            .execute()
+
+        let assignments = try JSONDecoder().decode([RewardAssignmentRow].self, from: assignmentsResponse.data)
+        let approvedClaims = try JSONDecoder().decode([ApprovedRewardClaimRow].self, from: claimsResponse.data)
+        let completedRewardIDs = Set(approvedClaims.compactMap(\.reward_id))
+
+        return assignments.reduce(into: 0) { count, row in
+            guard let rewardId = row.reward_id,
+                  !completedRewardIDs.contains(rewardId) else {
+                return
+            }
+            count += 1
+        }
+    }
+
+    private static func parseSupabaseDate(_ value: String) -> Date? {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFormatter.date(from: value) {
+            return date
+        }
+
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        if let date = isoFormatter.date(from: value) {
+            return date
+        }
+
+        let fallback = DateFormatter()
+        fallback.locale = Locale(identifier: "en_US_POSIX")
+        fallback.timeZone = TimeZone(secondsFromGMT: 0)
+        fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let date = fallback.date(from: value) {
+            return date
+        }
+
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXXXX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
+            "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss"
+        ]
+
+        for format in formats {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone.current
+            formatter.dateFormat = format
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        return nil
     }
 }

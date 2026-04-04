@@ -36,13 +36,7 @@ final class LoginAddParent: UIViewController {
 
     // Floating Back Button
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(handleBackTap), for: .touchUpInside)
-        return b
+        ParentBackButtonFactory.make(target: self, action: #selector(handleBackTap))
     }()
 
     // Main Card
@@ -236,9 +230,7 @@ final class LoginAddParent: UIViewController {
         if backButton.superview != nil {
             NSLayoutConstraint.activate([
                 backButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 16),
-                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 8),
-                backButton.widthAnchor.constraint(equalToConstant: 44),
-                backButton.heightAnchor.constraint(equalToConstant: 44)
+                backButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 12)
             ])
         }
     }

@@ -37,7 +37,8 @@ final class KidAgendaViewController: UIViewController {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
-        button.setImage(UIImage(systemName: "person.circle"), for: .normal)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        button.setImage(UIImage(systemName: "person.circle.fill", withConfiguration: config), for: .normal)
         return button
     }()
 
@@ -149,7 +150,10 @@ final class KidAgendaViewController: UIViewController {
         
         switch index {
         case 1: // "To Do"
-            visibleTasks = allTasksForDate.filter { $0.submission_status == nil }
+            visibleTasks = allTasksForDate.filter {
+                let status = $0.submission_status?.lowercased()
+                return status == nil || status == "declined" || status == "rejected" || status == "redo"
+            }
             
         case 2: // "Done"
             visibleTasks = allTasksForDate.filter {
@@ -190,19 +194,24 @@ final class KidAgendaViewController: UIViewController {
         let status = task.submission_status?.lowercased()
         
         if status == "approved" {
-            card.setStatusColor(.systemGreen)
+            card.setStatusState(.approved)
             return
         }
         
         if status == "pending" {
-            card.setStatusColor(.systemYellow)
+            card.setStatusState(.pending)
+            return
+        }
+
+        if status == "declined" || status == "rejected" || status == "redo" {
+            card.setStatusState(.redo)
             return
         }
         
         if isPastDue(dateStr: task.due_date, timeStr: task.due_time) {
-            card.setStatusColor(.systemRed)
+            card.setStatusState(.overdue)
         } else {
-            card.setStatusColor(.systemYellow)
+            card.setStatusState(.todo)
         }
     }
     
@@ -233,6 +242,7 @@ final class KidAgendaViewController: UIViewController {
         // Add this method to auto-refresh data whenever the screen appears
         override func viewWillAppear(_ animated: Bool) {
             super.viewWillAppear(animated)
+            navigationController?.setNavigationBarHidden(true, animated: animated)
             
             // Reload data for the currently selected date
             print("🔄 Refreshing schedule data...")
@@ -334,8 +344,8 @@ final class KidAgendaViewController: UIViewController {
     // MARK: - Navigation Actions
     @objc private func didTapApprovalsButton() {
         // 1. Get the ID from your generic Session Manager (matches ChildHomeService logic)
-        guard let childId = ChildSessionManager.shared.currentChildId else {
-            print("❌ Error: No Child ID found in ChildSessionManager")
+        guard let childId = SessionManager.shared.childId else {
+            print("❌ Error: No Child ID found in SessionManager")
             return
         }
         
@@ -353,6 +363,17 @@ final class KidAgendaViewController: UIViewController {
         } else {
             // Fallback if no navigation controller
             present(approvalsVC, animated: true)
+        }
+    }
+
+    @objc private func didTapProfileButton() {
+        let profileVC = ProfileViewController()
+        profileVC.hidesBottomBarWhenPushed = true
+
+        if let navigationController = self.navigationController {
+            navigationController.pushViewController(profileVC, animated: true)
+        } else {
+            present(profileVC, animated: true)
         }
     }
 
@@ -375,15 +396,16 @@ final class KidAgendaViewController: UIViewController {
         
         // ✅ Target added here to link the button to the function
         approvalsIconButton.addTarget(self, action: #selector(didTapApprovalsButton), for: .touchUpInside)
+        profileAvatarButton.addTarget(self, action: #selector(didTapProfileButton), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
-            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -10),
+            titleHeaderLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
             profileAvatarButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            profileAvatarButton.widthAnchor.constraint(equalToConstant: 30),
-            profileAvatarButton.heightAnchor.constraint(equalToConstant: 30),
+            profileAvatarButton.widthAnchor.constraint(equalToConstant: 44),
+            profileAvatarButton.heightAnchor.constraint(equalToConstant: 44),
 
             notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
             notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
@@ -476,6 +498,3 @@ private extension Date {
         return df.string(from: self)
     }
 }
-
-
-

@@ -242,7 +242,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
         guard !isSubmitting else { return }
         isSubmitting = true
 
-        guard let childId = ChildSessionManager.shared.currentChildId else {
+        guard let childId = SessionManager.shared.childId else {
             isSubmitting = false
             return
         }
@@ -256,6 +256,7 @@ final class QuickRewardClaimPopupViewController: UIViewController {
                     )
 
                 await MainActor.run {
+                    self.onClaim?()
                     NotificationCenter.default.post(name: .rewardRedeemed, object: nil)
                     NotificationCenter.default.post(name: .taskDidComplete, object: nil)
                     self.dismiss(animated: true)

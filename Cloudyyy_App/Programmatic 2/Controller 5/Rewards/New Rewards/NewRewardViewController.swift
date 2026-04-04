@@ -156,8 +156,6 @@ final class NewRewardViewController: UIViewController {
         
         // Fetch Children (and assignments if editing)
         fetchData()
-        selectedClaimLimit = "Once"
-        claimLimitRow.setDetail("Once")
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -178,6 +176,8 @@ final class NewRewardViewController: UIViewController {
         switch mode {
         case .create:
             deleteButton.isHidden = true
+            selectedClaimLimit = "Once"
+            claimLimitRow.setDetail("Once")
             // Default
             applySegment(animated: false)
             
@@ -214,6 +214,9 @@ final class NewRewardViewController: UIViewController {
             if let limit = item.claim_limit {
                 selectedClaimLimit = limit
                 claimLimitRow.setDetail(limit)
+            } else if category == "Quick Rewards" {
+                selectedClaimLimit = nil
+                claimLimitRow.setDetail("Unlimited")
             }
 
             if let type = item.reward_sub_type { rewardTypeRow.setDetail(type) }

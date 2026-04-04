@@ -31,11 +31,11 @@ final class ChildHomeViewController: UIViewController {
     // ✨ Profile Button (Normal Icon Style)
     private let profileButton: UIButton = {
         let btn = UIButton(type: .system)
-        // Larger icon size since it has no background container now
-        let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .regular)
-        let icon = UIImage(systemName: "person.crop.circle", withConfiguration: config)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        let icon = UIImage(systemName: "person.circle.fill", withConfiguration: config)
         btn.setImage(icon, for: .normal)
         btn.tintColor = .white
+        btn.translatesAutoresizingMaskIntoConstraints = false
         return btn
     }()
     
@@ -89,6 +89,7 @@ final class ChildHomeViewController: UIViewController {
         setupUI()
         setupLayout()
         setupActions()
+        
         
         impactGenerator.prepare()
     }
@@ -292,7 +293,7 @@ final class ChildHomeViewController: UIViewController {
     
     // MARK: - Data Loading
     private func fetchAndDisplayData() {
-        if let name = ChildSessionManager.shared.currentChildName {
+        if let name = SessionManager.shared.childName {
             greetingLabel.text = "Hello \(name)."
         }
         
@@ -313,7 +314,8 @@ final class ChildHomeViewController: UIViewController {
         physicsBubbles.removeAll()
         
         let activeTasks = tasks.filter {
-            $0.submission_status != "approved" && $0.submission_status != "pending"
+            let status = $0.submission_status?.lowercased()
+            return status != "approved" && status != "pending"
         }
         
         self.currentTasks = activeTasks
@@ -363,6 +365,11 @@ final class ChildHomeViewController: UIViewController {
     private func createBubbleView(for task: ScheduleTaskModelChild, frame: CGRect, index: Int) -> UIView {
         let bubble = UIView(frame: frame)
         let themeColor = bubbleColors.randomElement() ?? bubbleColors[0]
+        let redoAccentColor = UIColor(red: 1.0, green: 0.62, blue: 0.28, alpha: 1.0)
+        let isRedoTask = {
+            let status = task.submission_status?.lowercased()
+            return status == "declined" || status == "rejected" || status == "redo"
+        }()
         
         bubble.backgroundColor = UIColor.black.withAlphaComponent(0.3)
         bubble.layer.borderColor = themeColor.withAlphaComponent(0.6).cgColor
@@ -381,13 +388,47 @@ final class ChildHomeViewController: UIViewController {
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 2
         
-        let subLabel = UILabel()
-        subLabel.text = "\(task.points) ⭐️"
-        subLabel.textColor = UIColor.white.withAlphaComponent(0.8)
-        subLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        subLabel.textAlignment = .center
-        
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, subLabel])
+        let infoStack = UIStackView()
+        infoStack.axis = .vertical
+        infoStack.spacing = isRedoTask ? 6 : 4
+        infoStack.alignment = .center
+
+        if isRedoTask {
+            let redoBadge = UILabel()
+            redoBadge.text = "REDO"
+            redoBadge.textColor = redoAccentColor
+            redoBadge.font = .systemFont(ofSize: 11, weight: .heavy)
+            redoBadge.textAlignment = .center
+            redoBadge.backgroundColor = redoAccentColor.withAlphaComponent(0.18)
+            redoBadge.layer.cornerRadius = 10
+            redoBadge.layer.borderWidth = 1
+            redoBadge.layer.borderColor = redoAccentColor.withAlphaComponent(0.45).cgColor
+            redoBadge.clipsToBounds = true
+            redoBadge.translatesAutoresizingMaskIntoConstraints = false
+
+            let pointsLabel = UILabel()
+            pointsLabel.text = "\(task.points) ⭐️"
+            pointsLabel.textColor = UIColor.white.withAlphaComponent(0.9)
+            pointsLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+            pointsLabel.textAlignment = .center
+
+            infoStack.addArrangedSubview(redoBadge)
+            infoStack.addArrangedSubview(pointsLabel)
+
+            NSLayoutConstraint.activate([
+                redoBadge.heightAnchor.constraint(equalToConstant: 20),
+                redoBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 48)
+            ])
+        } else {
+            let pointsLabel = UILabel()
+            pointsLabel.text = "\(task.points) ⭐️"
+            pointsLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+            pointsLabel.font = .systemFont(ofSize: 12, weight: .medium)
+            pointsLabel.textAlignment = .center
+            infoStack.addArrangedSubview(pointsLabel)
+        }
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, infoStack])
         textStack.axis = .vertical
         textStack.spacing = 4
         textStack.alignment = .center
@@ -504,8 +545,8 @@ final class ChildHomeViewController: UIViewController {
             // Profile Button (Right) - Normal Icon Style
             profileButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             profileButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
-            profileButton.widthAnchor.constraint(equalToConstant: 35),
-            profileButton.heightAnchor.constraint(equalToConstant: 35),
+            profileButton.widthAnchor.constraint(equalToConstant: 44),
+            profileButton.heightAnchor.constraint(equalToConstant: 44),
 
             // Gravity Button (Left of Profile) - Glassy Style
             gravityButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
@@ -617,6 +658,7 @@ final class ChildHomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: true)
         self.navigationController?.pushViewController(profileVC, animated: true)
     }
+    
 }
 
 // MARK: - SwiftUI Bridge (For Mission Detail)

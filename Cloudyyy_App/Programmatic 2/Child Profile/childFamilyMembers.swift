@@ -42,13 +42,7 @@ final class ProfileChildMembers: UIViewController {
 
     // Floating Back Button
     private lazy var backButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        b.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        b.tintColor = .white
-        b.addTarget(self, action: #selector(handleBackTap), for: .touchUpInside)
-        return b
+        ChildBackButtonFactory.make(target: self, action: #selector(handleBackTap))
     }()
 
     // Main Card
@@ -125,13 +119,7 @@ final class ProfileChildMembers: UIViewController {
         
         // Back Button Logic
         if let nav = navigationController, !nav.isNavigationBarHidden {
-            navigationItem.leftBarButtonItem = UIBarButtonItem(
-                image: UIImage(systemName: "chevron.left"),
-                style: .plain,
-                target: self,
-                action: #selector(handleBackTap)
-            )
-            navigationItem.leftBarButtonItem?.tintColor = .white
+            navigationItem.leftBarButtonItem = UIBarButtonItem(customView: backButton)
         } else {
             view.addSubview(backButton)
         }
