@@ -124,73 +124,7 @@ final class Login: UIViewController {
 
     private let loginButton = GradientButton(title: "Log In")
 
-    private let dividerLeft: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .systemGray5
-        return v
-    }()
 
-    private let dividerRight: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .systemGray5
-        return v
-    }()
-
-    private let dividerLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Or"
-        l.font = .systemFont(ofSize: 13, weight: .medium)
-        l.textColor = .tertiaryLabel
-        return l
-    }()
-
-    // Social Buttons
-    private let appleButton: UIButton = {
-        var config = UIButton.Configuration.bordered()
-        // Standard SF Symbol size
-        config.image = UIImage(systemName: "applelogo")
-        config.title = "Continue with Apple"
-        config.imagePadding = 10
-        config.baseForegroundColor = .label
-        config.background.backgroundColor = .systemBackground
-        config.background.strokeColor = .systemGray4
-        config.background.strokeWidth = 1
-        config.cornerStyle = .medium
-        
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
-
-    private let googleButton: UIButton = {
-        var config = UIButton.Configuration.bordered()
-        
-        // 1. Load Image
-        if let originalImage = UIImage(named: "googleImg") {
-            // 2. Resize to match Apple logo (approx 20x20)
-            let targetSize = CGSize(width: 18, height: 18)
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
-            let resized = renderer.image { _ in
-                originalImage.draw(in: CGRect(origin: .zero, size: targetSize))
-            }
-            config.image = resized.withRenderingMode(.alwaysOriginal)
-        }
-        
-        config.title = "Continue with Google"
-        config.imagePadding = 10
-        config.baseForegroundColor = .label
-        config.background.backgroundColor = .systemBackground
-        config.background.strokeColor = .systemGray4
-        config.background.strokeWidth = 1
-        config.cornerStyle = .medium
-
-        let b = UIButton(configuration: config)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        return b
-    }()
     
     private let noAccountLabel: UILabel = {
         let l = UILabel()
@@ -258,8 +192,7 @@ final class Login: UIViewController {
         contentView.addSubview(card)
 
         [emailField, passwordField, rememberCheckbox, rememberLabel, forgotPasswordButton,
-         loginButton, dividerLeft, dividerLabel, dividerRight,
-         appleButton, googleButton, footerStack]
+         loginButton, footerStack]
             .forEach { card.addSubview($0) }
 
         view.addSubview(closeButton)
@@ -316,8 +249,6 @@ final class Login: UIViewController {
         ])
 
         // --- Card Constraints ---
-        dividerLabel.setContentHuggingPriority(.required, for: .horizontal)
-
         NSLayoutConstraint.activate([
             emailField.topAnchor.constraint(equalTo: card.topAnchor, constant: 32),
             emailField.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
@@ -345,30 +276,7 @@ final class Login: UIViewController {
             loginButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
             loginButton.heightAnchor.constraint(equalToConstant: 52),
 
-            dividerLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-            dividerLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 30),
-
-            dividerLeft.centerYAnchor.constraint(equalTo: dividerLabel.centerYAnchor),
-            dividerLeft.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            dividerLeft.trailingAnchor.constraint(equalTo: dividerLabel.leadingAnchor, constant: -12),
-            dividerLeft.heightAnchor.constraint(equalToConstant: 1),
-
-            dividerRight.centerYAnchor.constraint(equalTo: dividerLabel.centerYAnchor),
-            dividerRight.leadingAnchor.constraint(equalTo: dividerLabel.trailingAnchor, constant: 12),
-            dividerRight.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            dividerRight.heightAnchor.constraint(equalToConstant: 1),
-
-            appleButton.topAnchor.constraint(equalTo: dividerLabel.bottomAnchor, constant: 20),
-            appleButton.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            appleButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            appleButton.heightAnchor.constraint(equalToConstant: 50),
-
-            googleButton.topAnchor.constraint(equalTo: appleButton.bottomAnchor, constant: 12),
-            googleButton.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            googleButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
-            googleButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            footerStack.topAnchor.constraint(equalTo: googleButton.bottomAnchor, constant: 30),
+            footerStack.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 30),
             footerStack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             footerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -30)
         ])
@@ -381,8 +289,6 @@ final class Login: UIViewController {
         rememberCheckbox.addTarget(self, action: #selector(toggleRemember), for: .touchUpInside)
         forgotPasswordButton.addTarget(self, action: #selector(handleForgot), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(handleLogin), for: .touchUpInside)
-        appleButton.addTarget(self, action: #selector(handleApple), for: .touchUpInside)
-        googleButton.addTarget(self, action: #selector(handleGoogle), for: .touchUpInside)
     }
 
     @objc private func didTapClose() {
@@ -460,13 +366,6 @@ final class Login: UIViewController {
         }
     }
 
-    @objc private func handleApple() {
-        showAlert("Apple", "Apple sign-in")
-    }
-
-    @objc private func handleGoogle() {
-        showAlert("Google", "Google sign-in")
-    }
 
     private func showAlert(_ title: String, _ msg: String) {
         let alert = UIAlertController(title: title, message: msg, preferredStyle: .alert)

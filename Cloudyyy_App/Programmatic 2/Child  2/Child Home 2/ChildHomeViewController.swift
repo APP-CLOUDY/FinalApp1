@@ -90,6 +90,7 @@ final class ChildHomeViewController: UIViewController {
         setupLayout()
         setupActions()
         
+        
         impactGenerator.prepare()
     }
 
@@ -657,6 +658,7 @@ final class ChildHomeViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: true)
         self.navigationController?.pushViewController(profileVC, animated: true)
     }
+    
 }
 
 // MARK: - SwiftUI Bridge (For Mission Detail)
