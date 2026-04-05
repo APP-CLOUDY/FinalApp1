@@ -57,14 +57,19 @@ final class Addchildform: UIViewController {
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .white
+        v.backgroundColor = .secondarySystemGroupedBackground
         v.layer.cornerRadius = 18
-        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.masksToBounds = false
+        updateCardShadow(v)
         v.layer.shadowOpacity = 0.12
         v.layer.shadowRadius = 16
         v.layer.shadowOffset = CGSize(width: 0, height: 10)
         return v
     }()
+
+    private static func updateCardShadow(_ view: UIView) {
+        view.layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
+    }
 
     private let titleLabel: UILabel = {
         let l = UILabel()
@@ -72,7 +77,7 @@ final class Addchildform: UIViewController {
         l.text = "Add Children"
         l.font = UIFont.systemFont(ofSize: 32, weight: .bold)
         l.textAlignment = .center
-        l.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
+        l.textColor = .label
         return l
     }()
 
@@ -120,6 +125,19 @@ final class Addchildform: UIViewController {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer?.frame = view.bounds
         genderSelector.refreshPillPosition(animated: false)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            Self.updateCardShadow(cardView)
+            refreshGradient()
+            genderSelector.updateColors()
+            
+            // Refresh text field borders
+            let fields: [UITextField] = [nameField, nickField, dobField]
+            fields.forEach { $0.layer.borderColor = UIColor.separator.cgColor }
+        }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -234,17 +252,20 @@ final class Addchildform: UIViewController {
     private func applyFullBackgroundGradient() {
         if backgroundGradientLayer == nil {
             let gradient = CAGradientLayer()
-            // Using the dark obsidian theme from other screens
-            gradient.colors = [
-                UIColor(red: 12/255, green: 12/255, blue: 12/255, alpha: 1).cgColor,
-                UIColor(red: 32/255, green: 59/255, blue: 111/255, alpha: 1).cgColor
-            ]
             gradient.startPoint = CGPoint(x: 0.5, y: 0.0)
             gradient.endPoint   = CGPoint(x: 0.5, y: 1.0)
             view.layer.insertSublayer(gradient, at: 0)
             backgroundGradientLayer = gradient
         }
+        refreshGradient()
         backgroundGradientLayer?.frame = view.bounds
+    }
+
+    private func refreshGradient() {
+        backgroundGradientLayer?.colors = [
+            CloudyyyColors.deepBlack.cgColor,
+            CloudyyyColors.deepBlue.cgColor
+        ]
     }
 
     // MARK: - Date Picker
@@ -419,8 +440,11 @@ final class Addchildform: UIViewController {
         )
         
         tf.font = UIFont.systemFont(ofSize: 15)
-        tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        tf.textColor = .label
+        tf.backgroundColor = .secondarySystemBackground
         tf.layer.cornerRadius = 10
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor.separator.cgColor
         tf.setLeftPaddingPoints(12)
         tf.heightAnchor.constraint(equalToConstant: 50).isActive = true
         return tf
@@ -443,6 +467,18 @@ private class GenderSelector: UIControl {
 
     private(set) var selectedIndex: Int = 0 {
         didSet { updateSelection(animated: true) }
+    }
+
+    func updateColors() {
+        backgroundColor = .systemGray6
+        pill.backgroundColor = CloudyyyColors.accentBlue
+        for (i, btn) in buttons.enumerated() {
+            if i == selectedIndex {
+                btn.setTitleColor(.white, for: .normal)
+            } else {
+                btn.setTitleColor(.secondaryLabel, for: .normal)
+            }
+        }
     }
 
     var selectedGender: Gender {
@@ -474,9 +510,11 @@ private class GenderSelector: UIControl {
         clipsToBounds = false
 
         pill.translatesAutoresizingMaskIntoConstraints = false
-        pill.backgroundColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        pill.backgroundColor = CloudyyyColors.accentBlue
         pill.layer.cornerRadius = 12
         addSubview(pill)
+        
+        updateColors()
 
         stack.axis = .horizontal
         stack.distribution = .fillEqually
@@ -490,11 +528,11 @@ private class GenderSelector: UIControl {
             btn.translatesAutoresizingMaskIntoConstraints = false
             btn.tag = i
             btn.titleLabel?.font = UIFont.systemFont(ofSize: 15)
-            btn.setTitleColor(i == selectedIndex ? .white : UIColor(white: 0.12, alpha: 1), for: .normal)
             btn.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
             buttons.append(btn)
             stack.addArrangedSubview(btn)
         }
+        updateColors()
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
@@ -535,7 +573,7 @@ private class GenderSelector: UIControl {
                 btn.setTitleColor(.white, for: .normal)
                 btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
             } else {
-                btn.setTitleColor(UIColor(white: 0.12, alpha: 1), for: .normal)
+                btn.setTitleColor(.secondaryLabel, for: .normal)
                 btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
             }
         }

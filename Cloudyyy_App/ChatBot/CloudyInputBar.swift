@@ -4,8 +4,11 @@ struct CloudyInputBar: View {
     @Binding var text: String
     let isThinking: Bool
     let onSend: () -> Void
+    let onDelete: () -> Void
+    let onReport: () -> Void
     
     @FocusState private var isInputFocused: Bool
+    @State private var showDeleteDialog = false
     
     var body: some View {
         HStack(spacing: 15) {
@@ -20,10 +23,22 @@ struct CloudyInputBar: View {
                         onSend()
                         isInputFocused = false
                     }
+                    .onLongPressGesture {
+                        showDeleteDialog = true
+                    }
             }
             .padding(14)
             .background(Color.white)
             .cornerRadius(25)
+            .confirmationDialog("Options", isPresented: $showDeleteDialog) {
+                Button("Delete Chat", role: .destructive) {
+                    onDelete()
+                }
+                Button("Report AI Response") {
+                    onReport()
+                }
+                Button("Cancel", role: .cancel) { }
+            }
             
             Button(action: {
                 onSend()

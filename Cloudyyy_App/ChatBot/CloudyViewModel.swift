@@ -218,6 +218,12 @@ class CloudyViewModel: ObservableObject {
         }
     }
     
+    func clearChat() {
+        withAnimation {
+            chatHistory.removeAll()
+        }
+    }
+
     // MARK: - Navigation Logic
     
     func goBack() {
