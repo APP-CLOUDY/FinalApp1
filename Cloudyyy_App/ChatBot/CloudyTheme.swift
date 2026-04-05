@@ -20,6 +20,7 @@ extension Color {
     static let neonBlue = Color(red: 0.4, green: 0.65, blue: 1.0)
     static let neonGreen = Color(red: 0.4, green: 0.8, blue: 0.6)
     static let neonYellow = Color(red: 1.0, green: 0.9, blue: 0.4)
+    
 }
 
 // MARK: - View Extensions
