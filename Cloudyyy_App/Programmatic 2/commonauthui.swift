@@ -376,12 +376,12 @@ public enum LegalDocument: Int, CaseIterable {
         }
     }
 
-    fileprivate var segmentedTitle: String {
+    fileprivate var summary: String {
         switch self {
         case .privacyPolicy:
-            return "Privacy"
+            return "How Cloudyyy collects, uses, and protects family information."
         case .termsOfService:
-            return "Terms"
+            return "The rules, responsibilities, and account terms for using the app."
         }
     }
 }
@@ -479,8 +479,6 @@ private enum LegalContentProvider {
 }
 
 public final class LegalDocumentsViewController: UIViewController {
-    private let initialDocument: LegalDocument
-
     private let backgroundView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -542,29 +540,16 @@ public final class LegalDocumentsViewController: UIViewController {
         return view
     }()
 
-    private lazy var segmentedControl: UISegmentedControl = {
-        let control = UISegmentedControl(items: LegalDocument.allCases.map(\.segmentedTitle))
-        control.translatesAutoresizingMaskIntoConstraints = false
-        control.selectedSegmentIndex = initialDocument.rawValue
-        return control
+    private let stackView: UIStackView = {
+        let stack = UIStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.alignment = .fill
+        return stack
     }()
 
-    private let textView: UITextView = {
-        let view = UITextView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear
-        view.textColor = .white
-        view.font = .systemFont(ofSize: 15)
-        view.isEditable = false
-        view.alwaysBounceVertical = true
-        view.showsVerticalScrollIndicator = false
-        view.textContainerInset = UIEdgeInsets(top: 0, left: 0, bottom: 16, right: 0)
-        view.textContainer.lineFragmentPadding = 0
-        return view
-    }()
-
-    public init(initialDocument: LegalDocument = .privacyPolicy) {
-        self.initialDocument = initialDocument
+    public init() {
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -577,7 +562,7 @@ public final class LegalDocumentsViewController: UIViewController {
         view.backgroundColor = .black
         setupLayout()
         setupActions()
-        updateDocument()
+        populateRows()
     }
 
     public override func viewDidLayoutSubviews() {
@@ -598,8 +583,7 @@ public final class LegalDocumentsViewController: UIViewController {
         view.addSubview(headerLabel)
         view.addSubview(subtitleLabel)
         view.addSubview(cardView)
-        cardView.contentView.addSubview(segmentedControl)
-        cardView.contentView.addSubview(textView)
+        cardView.contentView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
             backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -623,56 +607,172 @@ public final class LegalDocumentsViewController: UIViewController {
             cardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
             cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            cardView.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
 
-            segmentedControl.topAnchor.constraint(equalTo: cardView.contentView.topAnchor, constant: 18),
-            segmentedControl.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
-            segmentedControl.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
-            segmentedControl.heightAnchor.constraint(equalToConstant: 34),
-
-            textView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 18),
-            textView.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
-            textView.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
-            textView.bottomAnchor.constraint(equalTo: cardView.contentView.bottomAnchor, constant: -16)
+            stackView.topAnchor.constraint(equalTo: cardView.contentView.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: cardView.contentView.bottomAnchor, constant: -16)
         ])
     }
 
     private func setupActions() {
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
-        segmentedControl.addTarget(self, action: #selector(handleSegmentChange), for: .valueChanged)
     }
 
     @objc private func handleBack() {
         navigationController?.popViewController(animated: true)
     }
 
-    @objc private func handleSegmentChange() {
-        updateDocument()
+    private func populateRows() {
+        LegalDocument.allCases.forEach { document in
+            let row = makeRow(for: document)
+            stackView.addArrangedSubview(row)
+        }
     }
 
-    private func updateDocument() {
-        let document = LegalDocument(rawValue: segmentedControl.selectedSegmentIndex) ?? initialDocument
+    private func makeRow(for document: LegalDocument) -> UIButton {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = UIColor(white: 1, alpha: 0.06)
+        button.layer.cornerRadius = 18
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor(white: 1, alpha: 0.08).cgColor
+        button.contentHorizontalAlignment = .fill
+        button.contentVerticalAlignment = .fill
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 92).isActive = true
+        button.tag = document.rawValue
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = document.title
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textColor = .white
+
+        let summaryLabel = UILabel()
+        summaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        summaryLabel.text = document.summary
+        summaryLabel.font = .systemFont(ofSize: 14)
+        summaryLabel.textColor = UIColor(white: 1, alpha: 0.72)
+        summaryLabel.numberOfLines = 0
+
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevron.tintColor = UIColor(white: 1, alpha: 0.45)
+
+        let contentStack = UIStackView(arrangedSubviews: [titleLabel, summaryLabel])
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.axis = .vertical
+        contentStack.spacing = 6
+        contentStack.alignment = .fill
+
+        button.addSubview(contentStack)
+        button.addSubview(chevron)
+
+        NSLayoutConstraint.activate([
+            contentStack.topAnchor.constraint(equalTo: button.topAnchor, constant: 16),
+            contentStack.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 16),
+            contentStack.bottomAnchor.constraint(equalTo: button.bottomAnchor, constant: -16),
+
+            chevron.leadingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: 12),
+            chevron.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -16),
+            chevron.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            chevron.widthAnchor.constraint(equalToConstant: 14),
+            chevron.heightAnchor.constraint(equalToConstant: 20)
+        ])
+
+        button.addTarget(self, action: #selector(handleDocumentTap(_:)), for: .touchUpInside)
+        return button
+    }
+
+    @objc private func handleDocumentTap(_ sender: UIButton) {
+        guard let document = LegalDocument(rawValue: sender.tag) else { return }
+        let detailVC = LegalDocumentDetailViewController(document: document)
+        detailVC.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(detailVC, animated: true)
+    }
+}
+
+public final class LegalDocumentDetailViewController: UIViewController {
+    private let document: LegalDocument
+
+    private let textView: UITextView = {
+        let view = UITextView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .systemBackground
+        view.textColor = .label
+        view.font = .preferredFont(forTextStyle: .body)
+        view.adjustsFontForContentSizeCategory = true
+        view.isEditable = false
+        view.alwaysBounceVertical = true
+        view.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 28, right: 20)
+        return view
+    }()
+
+    public init(document: LegalDocument) {
+        self.document = document
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        title = document.title
+        navigationItem.largeTitleDisplayMode = .never
+        navigationController?.navigationBar.tintColor = .label
+        setupLayout()
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+        navigationController?.navigationBar.prefersLargeTitles = false
+    }
+
+    private func setupLayout() {
+        view.addSubview(textView)
+
+        NSLayoutConstraint.activate([
+            textView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            textView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            textView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            textView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        updateContent()
+    }
+
+    private func updateContent() {
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 4
+        paragraph.lineSpacing = 5
 
         textView.attributedText = NSAttributedString(
             string: LegalContentProvider.text(for: document),
             attributes: [
-                .font: UIFont.systemFont(ofSize: 15),
-                .foregroundColor: UIColor.white,
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .foregroundColor: UIColor.label,
                 .paragraphStyle: paragraph
             ]
         )
-        textView.setContentOffset(.zero, animated: false)
-        title = document.title
     }
 }
 
 public extension UIViewController {
     func showLegalDocuments(initialDocument: LegalDocument) {
-        let controller = LegalDocumentsViewController(initialDocument: initialDocument)
+        let controller = LegalDocumentsViewController()
         controller.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(controller, animated: true)
+
+        guard let navigationController else { return }
+
+        DispatchQueue.main.async {
+            let detailVC = LegalDocumentDetailViewController(document: initialDocument)
+            detailVC.hidesBottomBarWhenPushed = true
+            navigationController.pushViewController(detailVC, animated: false)
+        }
     }
 }
 
