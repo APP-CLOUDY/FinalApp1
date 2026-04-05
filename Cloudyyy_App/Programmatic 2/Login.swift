@@ -201,7 +201,7 @@ final class Login: UIViewController {
         contentView.addSubview(card)
 
         [emailField, passwordField, forgotPasswordButton,
-         loginButton, footerStack]
+         loginButton, legalLinksStack, footerStack]
             .forEach { card.addSubview($0) }
 
         view.addSubview(closeButton)
