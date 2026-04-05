@@ -400,22 +400,31 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func handleLogout() {
-        _Concurrency.Task {
-            do {
-                try await ProfileService.shared.signOut()
-                
-                await MainActor.run {
-                    if let window = view.window {
-                        let authVC = SelectUserViewController()
-                        let nav = UINavigationController(rootViewController: authVC)
-                        nav.isNavigationBarHidden = true
-                        window.rootViewController = nav
-                        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+        let popup = ChildLogoutPopupViewController()
+        popup.modalPresentationStyle = .overFullScreen
+        popup.modalTransitionStyle = .crossDissolve
+        
+        popup.onLogoutConfirmed = { [weak self] in
+            guard let self = self else { return }
+            _Concurrency.Task {
+                do {
+                    try await ProfileService.shared.signOut()
+                    
+                    await MainActor.run {
+                        if let window = self.view.window {
+                            let authVC = SelectUserViewController()
+                            let nav = UINavigationController(rootViewController: authVC)
+                            nav.isNavigationBarHidden = true
+                            window.rootViewController = nav
+                            UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+                        }
                     }
+                } catch {
+                    print("Logout Failed: \(error)")
                 }
-            } catch {
-                print("Logout Failed: \(error)")
             }
         }
+        
+        present(popup, animated: true)
     }
 }

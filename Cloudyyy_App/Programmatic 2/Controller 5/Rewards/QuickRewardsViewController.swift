@@ -70,7 +70,6 @@ final class QuickRewardsViewController: UIViewController {
             object: nil
         )
         // header appearance & callbacks — match Approval / DreamIt behavior
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         header.showPlusButton(true)     // if you want + visible on this screen
         header.showBackButton(true)     // show chevron-only back button
@@ -273,7 +272,6 @@ final class QuickRewardsViewController: UIViewController {
     private func setupHeader() { 
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),

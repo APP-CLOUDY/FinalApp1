@@ -32,7 +32,7 @@ final class RewardsViewController: UIViewController {
         v.backgroundColor = UIColor(red: 255/255, green: 204/255, blue: 92/255, alpha: 1.0)
         v.layer.cornerRadius = 14
         
-        v.isUserInteractionEnabled = true
+        v.isUserInteractionEnabled = false
         
         // ✨ Optional glow
         v.layer.shadowColor = UIColor(red: 255/255, green: 200/255, blue: 70/255, alpha: 1).cgColor
@@ -165,12 +165,7 @@ final class RewardsViewController: UIViewController {
         }
     }
     
-    @objc private func coinsTapped() {
-        let vc = CoinHistoryViewController()
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.pushViewController(vc, animated: true)
-    }
-
+    
     
     private func addIdlePulse() {
         let pulse = CABasicAnimation(keyPath: "transform.scale")
@@ -383,8 +378,7 @@ final class RewardsViewController: UIViewController {
         
         carouselCard.image = carouselImages.first ?? UIImage()
         
-        let tap = UITapGestureRecognizer(target: self, action: #selector(coinsTapped))
-        coinBadgeView.addGestureRecognizer(tap)
+        
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCardTap))
         carouselCard.addGestureRecognizer(tapGesture)

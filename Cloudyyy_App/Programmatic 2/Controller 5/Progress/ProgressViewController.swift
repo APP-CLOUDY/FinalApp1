@@ -14,7 +14,7 @@ final class ProgressViewController: UIViewController {
     private var selectedKid: ChildModel?
     private var currentScope: TimeScope = .weekly
     private var chartPoints: [DashboardChartPoint] = []
-    private var chartHostingController: UIHostingController<AnyView>?
+    private var trendArcView = ProgressSemiCircleView()
     private var latestDataRequestID = UUID()
 
     // MARK: - UI Components
@@ -53,7 +53,8 @@ final class ProgressViewController: UIViewController {
     private let trendCard = GlassView(style: .card, cornerRadius: 24)
     private let trendTitleLabel = UILabel()
     private let trendSubtitleLabel = UILabel()
-    private let chartHolder = UIView()
+    private let trendPercentageLabel = UILabel()
+    private let trendTasksLabel = UILabel()
 
     private let summaryRow = UIStackView()
     private let completedCard = SummaryStatCardView(title: "Completed")
@@ -137,23 +138,16 @@ final class ProgressViewController: UIViewController {
     @objc private func handleScopeChange(_ sender: UISegmentedControl) {
         currentScope = TimeScope(rawValue: sender.selectedSegmentIndex) ?? .weekly
         
-        UIView.animate(withDuration: 0.15, animations: {
+        UIView.animate(withDuration: 0.15) {
             self.trendCard.alpha = 0.55
             self.summaryRow.alpha = 0.55
             self.consistencySummaryCard.alpha = 0.55
             self.effortsCardContainer.alpha = 0.55
             self.insightsCard.alpha = 0.55
-        }) { _ in
-            if let kid = self.selectedKid {
-                self.updateDataView(for: kid)
-            }
-            UIView.animate(withDuration: 0.25) {
-                self.trendCard.alpha = 1.0
-                self.summaryRow.alpha = 1.0
-                self.consistencySummaryCard.alpha = 1.0
-                self.effortsCardContainer.alpha = 1.0
-                self.insightsCard.alpha = 1.0
-            }
+        }
+        
+        if let kid = self.selectedKid {
+            self.updateDataView(for: kid)
         }
     }
     
@@ -248,16 +242,24 @@ final class ProgressViewController: UIViewController {
                         return
                     }
 
-                    let orderedChartPoints = self.makeOrderedChartPoints(from: chartData)
-                    self.chartPoints = orderedChartPoints
-                    self.updateChart()
+                    // Clear previous data rows
+                    self.effortsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+                    self.insightsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+                    self.consistencySummaryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
+                    let orderedChartPoints = self.makeOrderedChartPoints(from: chartData)
                     let periodCompleted = max(orderedChartPoints.reduce(0) { $0 + $1.completed }, 0)
                     let periodPending = max(orderedChartPoints.reduce(0) { $0 + $1.assigned }, 0)
                     let periodTotal = periodCompleted + periodPending
                     let completionRate = periodTotal > 0
                         ? Int((Double(periodCompleted) / Double(periodTotal)) * 100)
                         : 0
+
+                    self.chartPoints = orderedChartPoints
+                    self.trendArcView.setProgress(CGFloat(Double(completionRate) / 100.0))
+                    self.trendPercentageLabel.text = "\(completionRate)%"
+                    self.trendTasksLabel.text = "\(periodCompleted) of \(periodTotal) Tasks Completed"
+
                     let activeDays = orderedChartPoints.filter { $0.completed > 0 }.count
                     let totalPeriodDays = orderedChartPoints.count
 
@@ -307,9 +309,26 @@ final class ProgressViewController: UIViewController {
                         chartPoints: orderedChartPoints,
                         bestCategory: bestCategory
                     )
+
+                    UIView.animate(withDuration: 0.3) {
+                        self.trendCard.alpha = 1.0
+                        self.summaryRow.alpha = 1.0
+                        self.consistencySummaryCard.alpha = 1.0
+                        self.effortsCardContainer.alpha = 1.0
+                        self.insightsCard.alpha = 1.0
+                    }
                 }
             } catch {
                 print("❌ Error fetching progress stats: \(error)")
+                await MainActor.run {
+                    UIView.animate(withDuration: 0.2) {
+                        self.trendCard.alpha = 1.0
+                        self.summaryRow.alpha = 1.0
+                        self.consistencySummaryCard.alpha = 1.0
+                        self.effortsCardContainer.alpha = 1.0
+                        self.insightsCard.alpha = 1.0
+                    }
+                }
             }
         }
     }
@@ -485,10 +504,11 @@ final class ProgressViewController: UIViewController {
     }
 
     private func setupTrendCard() {
-        trendCard.heightAnchor.constraint(equalToConstant: 310).isActive = true
+        trendCard.heightAnchor.constraint(equalToConstant: 320).isActive = true
+        trendCard.isUserInteractionEnabled = true
         mainStack.addArrangedSubview(trendCard)
 
-        [trendTitleLabel, trendSubtitleLabel, scopeSegment, chartHolder].forEach {
+        [trendTitleLabel, trendSubtitleLabel, scopeSegment, trendArcView, trendPercentageLabel, trendTasksLabel].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             trendCard.addSubview($0)
         }
@@ -502,7 +522,13 @@ final class ProgressViewController: UIViewController {
         trendSubtitleLabel.textColor = UIColor.white.withAlphaComponent(0.68)
         trendSubtitleLabel.numberOfLines = 0
 
-        chartHolder.backgroundColor = .clear
+        trendPercentageLabel.font = .systemFont(ofSize: 48, weight: .heavy)
+        trendPercentageLabel.textColor = .white
+        trendPercentageLabel.textAlignment = .center
+
+        trendTasksLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        trendTasksLabel.textColor = UIColor.white.withAlphaComponent(0.7)
+        trendTasksLabel.textAlignment = .center
 
         NSLayoutConstraint.activate([
             trendTitleLabel.topAnchor.constraint(equalTo: trendCard.topAnchor, constant: 20),
@@ -518,29 +544,18 @@ final class ProgressViewController: UIViewController {
             scopeSegment.trailingAnchor.constraint(equalTo: trendCard.trailingAnchor, constant: -20),
             scopeSegment.heightAnchor.constraint(equalToConstant: 34),
 
-            chartHolder.topAnchor.constraint(equalTo: scopeSegment.bottomAnchor, constant: 16),
-            chartHolder.leadingAnchor.constraint(equalTo: trendCard.leadingAnchor, constant: 8),
-            chartHolder.trailingAnchor.constraint(equalTo: trendCard.trailingAnchor, constant: -8),
-            chartHolder.bottomAnchor.constraint(equalTo: trendCard.bottomAnchor, constant: -10)
+            trendArcView.topAnchor.constraint(equalTo: scopeSegment.bottomAnchor, constant: 20),
+            trendArcView.centerXAnchor.constraint(equalTo: trendCard.centerXAnchor),
+            trendArcView.widthAnchor.constraint(equalToConstant: 240),
+            trendArcView.heightAnchor.constraint(equalToConstant: 120),
+
+            trendPercentageLabel.centerXAnchor.constraint(equalTo: trendArcView.centerXAnchor),
+            trendPercentageLabel.centerYAnchor.constraint(equalTo: trendArcView.centerYAnchor, constant: 15),
+
+            trendTasksLabel.topAnchor.constraint(equalTo: trendArcView.bottomAnchor, constant: 10),
+            trendTasksLabel.centerXAnchor.constraint(equalTo: trendCard.centerXAnchor),
+            trendTasksLabel.bottomAnchor.constraint(lessThanOrEqualTo: trendCard.bottomAnchor, constant: -16)
         ])
-
-        if #available(iOS 16.0, *) {
-            let hosting = UIHostingController(rootView: AnyView(DashboardChartView(points: [])))
-            hosting.view.backgroundColor = .clear
-            addChild(hosting)
-            chartHolder.addSubview(hosting.view)
-            hosting.view.translatesAutoresizingMaskIntoConstraints = false
-
-            NSLayoutConstraint.activate([
-                hosting.view.topAnchor.constraint(equalTo: chartHolder.topAnchor),
-                hosting.view.leadingAnchor.constraint(equalTo: chartHolder.leadingAnchor),
-                hosting.view.trailingAnchor.constraint(equalTo: chartHolder.trailingAnchor),
-                hosting.view.bottomAnchor.constraint(equalTo: chartHolder.bottomAnchor)
-            ])
-
-            hosting.didMove(toParent: self)
-            chartHostingController = hosting
-        }
     }
 
     private func setupSummaryRow() {
@@ -551,7 +566,7 @@ final class ProgressViewController: UIViewController {
         summaryRow.translatesAutoresizingMaskIntoConstraints = false
 
         [completedCard, consistencyCard, bestCategoryCard].forEach {
-            $0.heightAnchor.constraint(equalToConstant: 118).isActive = true
+            $0.heightAnchor.constraint(equalToConstant: 112).isActive = true
             summaryRow.addArrangedSubview($0)
         }
 
@@ -606,11 +621,6 @@ final class ProgressViewController: UIViewController {
         ])
     }
 
-    private func updateChart() {
-        if #available(iOS 16.0, *) {
-            chartHostingController?.rootView = AnyView(DashboardChartView(points: chartPoints))
-        }
-    }
 }
 
 private extension ProgressViewController {
@@ -1091,15 +1101,15 @@ final class SummaryStatCardView: UIView {
         titleLabel.text = title.uppercased()
         titleLabel.font = .systemFont(ofSize: 11, weight: .bold)
         titleLabel.textColor = UIColor.white.withAlphaComponent(0.55)
-        titleLabel.numberOfLines = 2
+        titleLabel.numberOfLines = 1
         titleLabel.adjustsFontSizeToFitWidth = true
-        titleLabel.minimumScaleFactor = 0.72
-        titleLabel.lineBreakMode = .byWordWrapping
+        titleLabel.minimumScaleFactor = 0.6
+        titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         valueLabel.font = .systemFont(ofSize: 22, weight: .bold)
         valueLabel.textColor = .white
-        valueLabel.numberOfLines = 2
+        valueLabel.numberOfLines = 1
         valueLabel.adjustsFontSizeToFitWidth = true
         valueLabel.minimumScaleFactor = 0.75
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -1121,9 +1131,9 @@ final class SummaryStatCardView: UIView {
             glass.trailingAnchor.constraint(equalTo: trailingAnchor),
             glass.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            titleLabel.topAnchor.constraint(equalTo: glass.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: glass.topAnchor, constant: 15),
+            titleLabel.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -12),
 
             valueLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
             valueLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
@@ -1132,7 +1142,7 @@ final class SummaryStatCardView: UIView {
             detailLabel.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 4),
             detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             detailLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            detailLabel.bottomAnchor.constraint(lessThanOrEqualTo: glass.bottomAnchor, constant: -16)
+            detailLabel.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -15)
         ])
     }
 

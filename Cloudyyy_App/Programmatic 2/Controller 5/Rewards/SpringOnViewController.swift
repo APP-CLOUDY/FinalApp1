@@ -37,7 +37,6 @@ final class SpringOnViewController: UIViewController {
         setupHeader()
         
         // Use built-in header (title + dropdown + chevron)
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         header.showPlusButton(true)      // optional
         header.showBackButton(true)      // show chevron-in-circle back button
@@ -295,7 +294,6 @@ final class SpringOnViewController: UIViewController {
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        header.showNotificationButton(false)
         header.showProfileButton(false)
 
         NSLayoutConstraint.activate([

@@ -406,27 +406,33 @@ class ParentProfileViewController: UIViewController {
     //@objc private func editAvatarTapped() { print("Edit Avatar") }
     
     @objc private func handleLogout() {
-        _Concurrency.Task {
-            do {
-                try await ProfileService.shared.signOut()
-                
-                await MainActor.run {
-                    if let sceneDelegate = view.window?.windowScene?.delegate as? SceneDelegate {
-                        sceneDelegate.switchToAuthFlow()
-                    } else if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                              let sceneDelegate = scene.delegate as? SceneDelegate {
-                        sceneDelegate.switchToAuthFlow()
-                    } else {
-                        let authVC = SelectUserViewController()
-                        let nav = UINavigationController(rootViewController: authVC)
-                        nav.isNavigationBarHidden = true
-                        nav.modalPresentationStyle = .fullScreen
-                        self.present(nav, animated: true)
+        let alert = UIAlertController(title: "Log out", message: "Are you sure you want to log out?", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "No", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Yes", style: .destructive, handler: { [weak self] _ in
+            guard let self = self else { return }
+            _Concurrency.Task {
+                do {
+                    try await ProfileService.shared.signOut()
+                    
+                    await MainActor.run {
+                        if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate {
+                            sceneDelegate.switchToAuthFlow()
+                        } else if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                  let sceneDelegate = scene.delegate as? SceneDelegate {
+                            sceneDelegate.switchToAuthFlow()
+                        } else {
+                            let authVC = SelectUserViewController()
+                            let nav = UINavigationController(rootViewController: authVC)
+                            nav.isNavigationBarHidden = true
+                            nav.modalPresentationStyle = .fullScreen
+                            self.present(nav, animated: true)
+                        }
                     }
+                } catch {
+                    print("Logout Failed: \(error)")
                 }
-            } catch {
-                print("Logout Failed: \(error)")
             }
-        }
+        }))
+        present(alert, animated: true)
     }
 }

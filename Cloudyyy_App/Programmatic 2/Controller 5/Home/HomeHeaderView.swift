@@ -10,7 +10,6 @@ final class HomeHeaderView: UIView {
 
     // MARK: - Callbacks
     var onChildTapped: (() -> Void)?
-    var onBellTapped: (() -> Void)?
     var onProfileTapped: (() -> Void)?
     var onPlusTapped: (() -> Void)?
     var onBackTapped: (() -> Void)?       // NEW: used by controllers that want the back chevron
@@ -75,7 +74,6 @@ final class HomeHeaderView: UIView {
         b.isHidden = true   // ✅ DEFAULT: hidden
         return b
     }()
-    private lazy var bellButton = makeIconButton(systemName: "bell", pointSize: 20)
     private lazy var profileButton = makeIconButton(systemName: "person.circle.fill", pointSize: 22)
 
     // MARK: - Init
@@ -100,7 +98,6 @@ final class HomeHeaderView: UIView {
         updateChildButton()
     }
 
-    func showNotificationButton(_ visible: Bool) { bellButton.isHidden = !visible }
     func showProfileButton(_ visible: Bool)      { profileButton.isHidden = !visible }
     func showPlusButton(_ visible: Bool)         { plusButton.isHidden = !visible }
     func showBackButton(_ visible: Bool)         { backButton.isHidden = !visible }
@@ -158,7 +155,6 @@ final class HomeHeaderView: UIView {
             titleLabel,
             spacer,
             plusButton,
-            bellButton,
             profileButton
         ])
         topRow.axis = .horizontal
@@ -190,13 +186,11 @@ final class HomeHeaderView: UIView {
         // Actions
         childButton.addTarget(self, action: #selector(childTapped), for: .touchUpInside)
         plusButton.addTarget(self, action: #selector(plusTapped), for: .touchUpInside)
-        bellButton.addTarget(self, action: #selector(bellTapped), for: .touchUpInside)
         profileButton.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
     }
 
     // MARK: - Actions
     @objc private func childTapped()  { onChildTapped?() }
-    @objc private func bellTapped()   { onBellTapped?() }
     @objc private func profileTapped(){ onProfileTapped?() }
     @objc private func plusTapped()   { onPlusTapped?() }
     @objc private func backTapped()   { onBackTapped?() }

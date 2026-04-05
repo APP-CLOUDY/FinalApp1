@@ -83,7 +83,6 @@ final class RewardTypeViewController: UIViewController,
         header.translatesAutoresizingMaskIntoConstraints = false
 
         header.showBackButton(true)
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         header.showPlusButton(false)
 

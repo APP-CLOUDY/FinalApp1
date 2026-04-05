@@ -9,8 +9,8 @@ final class KidAgendaViewController: UIViewController {
     // --- Header UI ---
     private let titleHeaderLabel: UILabel = {
         let label = UILabel()
-        label.text = "Schedules"
-        label.font = UIFont.systemFont(ofSize: 28, weight: .bold)
+        label.text = "Missions"
+        label.font = UIFont.systemFont(ofSize: 30, weight: .bold)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -22,14 +22,6 @@ final class KidAgendaViewController: UIViewController {
         button.tintColor = .white
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
         button.setImage(UIImage(systemName: "checkmark.seal", withConfiguration: config), for: .normal)
-        return button
-    }()
-    
-    private let notificationButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.tintColor = .white
-        button.setImage(UIImage(systemName: "bell"), for: .normal)
         return button
     }()
     
@@ -390,7 +382,6 @@ final class KidAgendaViewController: UIViewController {
 
     private func configureHeaderSection() {
         view.addSubview(titleHeaderLabel)
-        view.addSubview(notificationButton)
         view.addSubview(profileAvatarButton)
         view.addSubview(approvalsIconButton)
         
@@ -406,14 +397,9 @@ final class KidAgendaViewController: UIViewController {
             profileAvatarButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             profileAvatarButton.widthAnchor.constraint(equalToConstant: 44),
             profileAvatarButton.heightAnchor.constraint(equalToConstant: 44),
-
-            notificationButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-            notificationButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
-            notificationButton.widthAnchor.constraint(equalToConstant: 28),
-            notificationButton.heightAnchor.constraint(equalToConstant: 28),
             
             approvalsIconButton.centerYAnchor.constraint(equalTo: titleHeaderLabel.centerYAnchor),
-            approvalsIconButton.trailingAnchor.constraint(equalTo: notificationButton.leadingAnchor, constant: -16),
+            approvalsIconButton.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
             approvalsIconButton.widthAnchor.constraint(equalToConstant: 30),
             approvalsIconButton.heightAnchor.constraint(equalToConstant: 30)
         ])

@@ -128,7 +128,6 @@ final class ApprovalViewController: UIViewController {
     private func setupHeader() {
         header.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(header)
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         header.showPlusButton(false)
         header.showBackButton(true)

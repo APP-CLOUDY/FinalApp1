@@ -42,7 +42,6 @@ final class DreamItViewController: UIViewController {
         setupHeader()
 
         // Header appearance + callbacks (one place, no duplicates)
-        header.showNotificationButton(false)
         header.showProfileButton(false)
         header.showPlusButton(true)    // if you want the plus visible on Dream It
         header.showBackButton(true)    // enable chevron-only back button
@@ -277,7 +276,6 @@ final class DreamItViewController: UIViewController {
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        header.showNotificationButton(false)
         header.showProfileButton(false)
 
         NSLayoutConstraint.activate([

@@ -358,7 +358,7 @@ final class ScheduleViewController: UIViewController {
     private func setupHeader() {
         view.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        header.showNotificationButton(true); header.showProfileButton(true); header.showPlusButton(false)
+        header.showProfileButton(true); header.showPlusButton(false)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),

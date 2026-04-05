@@ -20,6 +20,12 @@ final class ChildHomeViewController: UIViewController {
     // MARK: - UI Elements
     private var bubbleContainerHeightConstraint: NSLayoutConstraint?
     
+    // Dynamic Constraints
+    private var mascotTopConstraint: NSLayoutConstraint?
+    private var mascotTrailingConstraint: NSLayoutConstraint?
+    private var quoteBubbleTrailingConstraint: NSLayoutConstraint?
+    private var quoteBubbleBottomConstraint: NSLayoutConstraint?
+    
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let gradientLayer = CAGradientLayer()
@@ -42,13 +48,13 @@ final class ChildHomeViewController: UIViewController {
     // ✨ Magic Motion Toggle (Glassy Style)
     private let gravityButton: UIButton = {
         let btn = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
+        let config = UIImage.SymbolConfiguration(pointSize: 15, weight: .bold)
         let icon = UIImage(systemName: "wind", withConfiguration: config)
         btn.setImage(icon, for: .normal)
         btn.tintColor = .white
         
         // Glassy Background for the Tool
-        btn.layer.cornerRadius = 20
+        btn.layer.cornerRadius = 14
         btn.backgroundColor = UIColor.white.withAlphaComponent(0.1)
         btn.layer.borderWidth = 1
         btn.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
@@ -69,6 +75,8 @@ final class ChildHomeViewController: UIViewController {
     private var currentTasks: [ScheduleTaskModelChild] = []
     private var physicsBubbles: [PhysicsBubble] = []
     private var displayLink: CADisplayLink?
+    
+    private var hasPerformedInitialLayout: Bool = false
     
     private let motionManager = CMMotionManager()
     private var isGravityEnabled: Bool = false
@@ -322,9 +330,45 @@ final class ChildHomeViewController: UIViewController {
 
         if activeTasks.isEmpty {
             self.bubbleContainerHeightConstraint?.constant = 400
+            
+            // Empty State constraints
+            mascotTopConstraint?.constant = 180
+            mascotTrailingConstraint?.constant = -60
+            quoteBubbleTrailingConstraint?.constant = 85
+            quoteBubbleBottomConstraint?.constant = 45
+            
+            quoteLabel.text = "No tasks there ! Have fun today 😊"
             showEmptyState()
+            
+            if hasPerformedInitialLayout {
+                UIView.animate(withDuration: 0.6, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, animations: {
+                    self.view.layoutIfNeeded()
+                })
+            } else {
+                self.view.layoutIfNeeded()
+            }
+            
+            hasPerformedInitialLayout = true
             return
         }
+        
+        // Active Tasks State constraints
+        mascotTopConstraint?.constant = 65
+        mascotTrailingConstraint?.constant = 10
+        quoteBubbleTrailingConstraint?.constant = 60
+        quoteBubbleBottomConstraint?.constant = 70
+        
+        quoteLabel.text = "Let’s Finish our Missions today !!"
+        
+        if hasPerformedInitialLayout {
+            UIView.animate(withDuration: 0.6, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, animations: {
+                self.view.layoutIfNeeded()
+            })
+        } else {
+            self.view.layoutIfNeeded()
+        }
+        
+        hasPerformedInitialLayout = true
         
         let baseHeight: CGFloat = 450
         let requiredHeight = max(baseHeight, CGFloat(activeTasks.count) * 85)
@@ -451,14 +495,7 @@ final class ChildHomeViewController: UIViewController {
     }
     
     private func showEmptyState() {
-        let emptyLabel = UILabel()
-        emptyLabel.text = "All caught up! 🎉"
-        emptyLabel.textColor = .white.withAlphaComponent(0.7)
-        emptyLabel.font = .boldSystemFont(ofSize: 20)
-        emptyLabel.textAlignment = .center
-        emptyLabel.frame = bubbleContainerView.bounds
-        emptyLabel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        bubbleContainerView.addSubview(emptyLabel)
+        // The "All caught up! 🎉" text has been removed
     }
 
     // MARK: - Setup UI & Layout
@@ -474,7 +511,7 @@ final class ChildHomeViewController: UIViewController {
 
     private func setupUI() {
         greetingLabel.text = "Hello Child."
-        greetingLabel.font = UIFont.boldSystemFont(ofSize: 32)
+        greetingLabel.font = UIFont.systemFont(ofSize: 30, weight: .bold)
         greetingLabel.textColor = .white
 
         subGreetingLabel.text = "We hope you have a Great day !!"
@@ -551,16 +588,12 @@ final class ChildHomeViewController: UIViewController {
             // Gravity Button (Left of Profile) - Glassy Style
             gravityButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -16),
             gravityButton.centerYAnchor.constraint(equalTo: greetingLabel.centerYAnchor),
-            gravityButton.widthAnchor.constraint(equalToConstant: 40),
-            gravityButton.heightAnchor.constraint(equalToConstant: 40),
+            gravityButton.widthAnchor.constraint(equalToConstant: 28),
+            gravityButton.heightAnchor.constraint(equalToConstant: 28),
 
-            mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65),
-            mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 10),
             mascotImageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.55),
             mascotImageView.heightAnchor.constraint(equalTo: mascotImageView.widthAnchor),
 
-            quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70),
-            quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 60),
             quoteBubble.widthAnchor.constraint(equalToConstant: 180),
             quoteBubble.heightAnchor.constraint(equalToConstant: 75),
             
@@ -582,6 +615,18 @@ final class ChildHomeViewController: UIViewController {
             bottomPaddingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bottomPaddingView.heightAnchor.constraint(equalToConstant: 50)
         ])
+        
+        // Define dynamic constraints
+        mascotTopConstraint = mascotImageView.topAnchor.constraint(equalTo: subGreetingLabel.bottomAnchor, constant: 65)
+        mascotTrailingConstraint = mascotImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 10)
+        quoteBubbleTrailingConstraint = quoteBubble.trailingAnchor.constraint(equalTo: mascotImageView.leadingAnchor, constant: 60)
+        quoteBubbleBottomConstraint = quoteBubble.bottomAnchor.constraint(equalTo: mascotImageView.topAnchor, constant: 70)
+        
+        // Activate default constraints
+        mascotTopConstraint?.isActive = true
+        mascotTrailingConstraint?.isActive = true
+        quoteBubbleTrailingConstraint?.isActive = true
+        quoteBubbleBottomConstraint?.isActive = true
     }
 
     private func startMascotFloatingAnimation() {

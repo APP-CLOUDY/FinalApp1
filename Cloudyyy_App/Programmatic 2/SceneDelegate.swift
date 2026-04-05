@@ -53,6 +53,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         window.rootViewController = nav
         window.makeKeyAndVisible()
+        
+        // Start network monitoring
+        NetworkMonitor.shared.startMonitoring()
     }
 
     // MARK: - Scene lifecycle
