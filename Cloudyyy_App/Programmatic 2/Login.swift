@@ -124,6 +124,34 @@ final class Login: UIViewController {
 
     private let loginButton = GradientButton(title: "Log In")
 
+    private let termsButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setTitle("Terms of Service", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        b.setTitleColor(.systemBlue, for: .normal)
+        return b
+    }()
+
+    private let privacyButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setTitle("Privacy Policy", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        b.setTitleColor(.systemBlue, for: .normal)
+        return b
+    }()
+
+    private lazy var legalLinksStack: UIStackView = {
+        let s = UIStackView(arrangedSubviews: [termsButton, privacyButton])
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.axis = .horizontal
+        s.spacing = 16
+        s.alignment = .center
+        s.distribution = .fillEqually
+        return s
+    }()
+
 
     
     private let noAccountLabel: UILabel = {
@@ -192,7 +220,7 @@ final class Login: UIViewController {
         contentView.addSubview(card)
 
         [emailField, passwordField, rememberCheckbox, rememberLabel, forgotPasswordButton,
-         loginButton, footerStack]
+         loginButton, legalLinksStack, footerStack]
             .forEach { card.addSubview($0) }
 
         view.addSubview(closeButton)
@@ -276,7 +304,11 @@ final class Login: UIViewController {
             loginButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
             loginButton.heightAnchor.constraint(equalToConstant: 52),
 
-            footerStack.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 30),
+            legalLinksStack.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 18),
+            legalLinksStack.leadingAnchor.constraint(equalTo: loginButton.leadingAnchor),
+            legalLinksStack.trailingAnchor.constraint(equalTo: loginButton.trailingAnchor),
+
+            footerStack.topAnchor.constraint(equalTo: legalLinksStack.bottomAnchor, constant: 22),
             footerStack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             footerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -30)
         ])
@@ -289,6 +321,8 @@ final class Login: UIViewController {
         rememberCheckbox.addTarget(self, action: #selector(toggleRemember), for: .touchUpInside)
         forgotPasswordButton.addTarget(self, action: #selector(handleForgot), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(handleLogin), for: .touchUpInside)
+        termsButton.addTarget(self, action: #selector(handleTerms), for: .touchUpInside)
+        privacyButton.addTarget(self, action: #selector(handlePrivacy), for: .touchUpInside)
     }
 
     @objc private func didTapClose() {
@@ -321,6 +355,12 @@ final class Login: UIViewController {
             let vc = ForgotPassword()
             navigationController?.pushViewController(vc, animated: true)
         }
+    @objc private func handleTerms() {
+        showLegalDocuments(initialDocument: .termsOfService)
+    }
+    @objc private func handlePrivacy() {
+        showLegalDocuments(initialDocument: .privacyPolicy)
+    }
     @objc private func handleLogin() {
         view.endEditing(true)
         let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -396,4 +436,3 @@ final class Login: UIViewController {
         }
     }
 }
-

@@ -344,6 +344,320 @@ public final class GradientButton: UIButton {
     }
 }
 
+// MARK: - Legal Documents
+public enum LegalDocument: Int, CaseIterable {
+    case privacyPolicy
+    case termsOfService
+
+    public var title: String {
+        switch self {
+        case .privacyPolicy:
+            return "Privacy Policy"
+        case .termsOfService:
+            return "Terms of Service"
+        }
+    }
+
+    fileprivate var segmentedTitle: String {
+        switch self {
+        case .privacyPolicy:
+            return "Privacy"
+        case .termsOfService:
+            return "Terms"
+        }
+    }
+}
+
+private enum LegalContentProvider {
+    static let lastUpdated = "April 4, 2026"
+
+    static func text(for document: LegalDocument) -> String {
+        switch document {
+        case .privacyPolicy:
+            return """
+            Cloudyyy Privacy Policy
+            Last updated: \(lastUpdated)
+
+            Cloudyyy helps families manage tasks, rewards, approvals, and progress for parents and children. This Privacy Policy explains what information we collect, how we use it, and the choices families have when using the app.
+
+            1. Information We Collect
+            We may collect account details such as a parent name, email address, role, family name, child nicknames, child profile details, avatars, assigned tasks, reward data, approval submissions, uploaded proof photos, and activity history inside the app.
+
+            2. How We Use Information
+            We use information to create and manage family accounts, let parents assign tasks and rewards, let children complete missions, process approvals and redos, track points and redemption history, personalize profile screens, and improve reliability and safety across the app.
+
+            3. Child Information
+            Cloudyyy is designed for family use under parent or guardian supervision. Child profiles are created and managed within a family account. Parents or guardians control assigned tasks, rewards, submitted proof, and profile information associated with their family group.
+
+            4. Photos and Submitted Proof
+            If a task requires photo proof, the image submitted by the child is stored so the parent can review, approve, or request a redo. These uploads are only used for the family workflow inside the app unless disclosure is required by law.
+
+            5. Sharing of Information
+            We do not use family data for public display. Information is shared only within the relevant family experience, with service providers that help operate the app, or when required for security, fraud prevention, or legal compliance.
+
+            6. Data Storage and Security
+            We use reasonable administrative, technical, and organizational safeguards to protect stored data. No system can guarantee absolute security, but we work to reduce unauthorized access, loss, or misuse.
+
+            7. Retention
+            We keep information for as long as it is needed to operate the family account, maintain records such as task and reward history, comply with legal obligations, resolve disputes, and enforce our agreements.
+
+            8. Your Choices
+            Parents may review and update profile details, family information, and account content available through the app. You may also stop using the service and request account-related support through the contact channel provided with the app distribution.
+
+            9. Children's Privacy
+            Parents or guardians are responsible for the information they create or submit for child profiles. If you believe child data has been added in error or without proper authorization, please contact us through the support channel listed for the app.
+
+            10. Changes to This Policy
+            We may update this Privacy Policy from time to time. When we do, the updated version will be reflected in the app with a new last-updated date.
+
+            11. Contact
+            For privacy questions or account requests, please use the support contact provided in the app or in the app listing.
+            """
+        case .termsOfService:
+            return """
+            Cloudyyy Terms of Service
+            Last updated: \(lastUpdated)
+
+            These Terms of Service govern access to and use of Cloudyyy. By creating an account or using the app, you agree to these terms on behalf of yourself and, if applicable, your family group.
+
+            1. Use of the Service
+            Cloudyyy is intended for personal family organization, including tasks, approvals, rewards, schedules, and progress tracking. You agree to use the app only for lawful purposes and in a way that does not harm the service or other users.
+
+            2. Accounts and Family Access
+            Parents or guardians are responsible for account creation, family setup, and the management of child profiles. You are responsible for keeping login credentials secure and for activity that occurs under your account.
+
+            3. Child Participation
+            Child use of the app must be supervised by a parent or guardian. Parents control family content, including assigned tasks, rewards, approvals, redos, and profile details.
+
+            4. Tasks, Rewards, and Points
+            Task completion, approvals, redos, points, and rewards are part of the in-app family workflow. Cloudyyy provides tools to support that workflow, but parents remain responsible for how they configure and use chores, approvals, and rewards inside their family account.
+
+            5. User Content
+            You retain responsibility for the information, text, photos, and other content submitted through the app. You agree not to upload unlawful, abusive, infringing, or harmful material.
+
+            6. Acceptable Use
+            You may not misuse the service, attempt unauthorized access, interfere with normal operation, reverse engineer protected parts of the app where prohibited, or use the app to violate any law or third-party rights.
+
+            7. Availability and Changes
+            We may update, improve, suspend, or discontinue features at any time. We do not guarantee that every feature will always be available or error free.
+
+            8. Termination
+            We may limit or terminate access if these terms are violated or if use of the service creates risk for the app, our systems, or other users.
+
+            9. Disclaimers
+            The service is provided on an as-is and as-available basis to the extent permitted by law. We do not guarantee uninterrupted service, perfect accuracy, or that the app will meet every family’s needs.
+
+            10. Limitation of Liability
+            To the extent permitted by law, Cloudyyy and its operators will not be liable for indirect, incidental, special, consequential, or punitive damages arising from use of the service.
+
+            11. Changes to These Terms
+            We may revise these Terms of Service from time to time. Continued use of the app after updates means you accept the revised terms.
+
+            12. Contact
+            For questions about these terms, please use the support contact provided in the app or in the app listing.
+            """
+        }
+    }
+}
+
+public final class LegalDocumentsViewController: UIViewController {
+    private let initialDocument: LegalDocument
+
+    private let backgroundView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+
+    private let gradientLayer: CAGradientLayer = {
+        let layer = CAGradientLayer()
+        layer.colors = [
+            CloudyyyColors.deepBlack.cgColor,
+            CloudyyyColors.deepBlue.cgColor
+        ]
+        layer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        layer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        return layer
+    }()
+
+    private let headerLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Legal"
+        label.font = .systemFont(ofSize: 34, weight: .bold)
+        label.textColor = .white
+        return label
+    }()
+
+    private let subtitleLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Review how Cloudyyy handles privacy and service use."
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.textColor = UIColor(white: 1, alpha: 0.78)
+        label.numberOfLines = 0
+        return label
+    }()
+
+    private let backButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = UIColor(white: 1, alpha: 0.08)
+        button.layer.cornerRadius = 20
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor(white: 1, alpha: 0.14).cgColor
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        button.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        button.tintColor = .white
+        return button
+    }()
+
+    private let cardView: UIVisualEffectView = {
+        let blur = UIBlurEffect(style: .systemUltraThinMaterialDark)
+        let view = UIVisualEffectView(effect: blur)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.layer.cornerRadius = 26
+        view.clipsToBounds = true
+        view.contentView.backgroundColor = UIColor(white: 1, alpha: 0.06)
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor(white: 1, alpha: 0.08).cgColor
+        return view
+    }()
+
+    private lazy var segmentedControl: UISegmentedControl = {
+        let control = UISegmentedControl(items: LegalDocument.allCases.map(\.segmentedTitle))
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.selectedSegmentIndex = initialDocument.rawValue
+        return control
+    }()
+
+    private let textView: UITextView = {
+        let view = UITextView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .clear
+        view.textColor = .white
+        view.font = .systemFont(ofSize: 15)
+        view.isEditable = false
+        view.alwaysBounceVertical = true
+        view.showsVerticalScrollIndicator = false
+        view.textContainerInset = UIEdgeInsets(top: 0, left: 0, bottom: 16, right: 0)
+        view.textContainer.lineFragmentPadding = 0
+        return view
+    }()
+
+    public init(initialDocument: LegalDocument = .privacyPolicy) {
+        self.initialDocument = initialDocument
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        setupLayout()
+        setupActions()
+        updateDocument()
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        gradientLayer.frame = backgroundView.bounds
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
+
+    private func setupLayout() {
+        view.addSubview(backgroundView)
+        backgroundView.layer.addSublayer(gradientLayer)
+
+        view.addSubview(backButton)
+        view.addSubview(headerLabel)
+        view.addSubview(subtitleLabel)
+        view.addSubview(cardView)
+        cardView.contentView.addSubview(segmentedControl)
+        cardView.contentView.addSubview(textView)
+
+        NSLayoutConstraint.activate([
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+
+            headerLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 18),
+            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+            subtitleLabel.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 8),
+            subtitleLabel.leadingAnchor.constraint(equalTo: headerLabel.leadingAnchor),
+            subtitleLabel.trailingAnchor.constraint(equalTo: headerLabel.trailingAnchor),
+
+            cardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
+            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+
+            segmentedControl.topAnchor.constraint(equalTo: cardView.contentView.topAnchor, constant: 18),
+            segmentedControl.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
+            segmentedControl.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
+            segmentedControl.heightAnchor.constraint(equalToConstant: 34),
+
+            textView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 18),
+            textView.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
+            textView.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
+            textView.bottomAnchor.constraint(equalTo: cardView.contentView.bottomAnchor, constant: -16)
+        ])
+    }
+
+    private func setupActions() {
+        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        segmentedControl.addTarget(self, action: #selector(handleSegmentChange), for: .valueChanged)
+    }
+
+    @objc private func handleBack() {
+        navigationController?.popViewController(animated: true)
+    }
+
+    @objc private func handleSegmentChange() {
+        updateDocument()
+    }
+
+    private func updateDocument() {
+        let document = LegalDocument(rawValue: segmentedControl.selectedSegmentIndex) ?? initialDocument
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 4
+
+        textView.attributedText = NSAttributedString(
+            string: LegalContentProvider.text(for: document),
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 15),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraph
+            ]
+        )
+        textView.setContentOffset(.zero, animated: false)
+        title = document.title
+    }
+}
+
+public extension UIViewController {
+    func showLegalDocuments(initialDocument: LegalDocument) {
+        let controller = LegalDocumentsViewController(initialDocument: initialDocument)
+        controller.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(controller, animated: true)
+    }
+}
+
 // MARK: - GlassButton
 public final class GlassButton: UIButton {
     private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
@@ -452,4 +766,3 @@ public extension DateFormatter {
         return f
     }
 }
-

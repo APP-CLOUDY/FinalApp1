@@ -118,6 +118,45 @@ final class Signup: UIViewController {
 
     private let signUpButton = GradientButton(title: "Sign Up")
 
+    private let legalNoticeLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.text = "By signing up, you agree to our Terms of Service and acknowledge our Privacy Policy."
+        l.font = .systemFont(ofSize: 12, weight: .medium)
+        l.textColor = .secondaryLabel
+        l.textAlignment = .center
+        l.numberOfLines = 0
+        return l
+    }()
+
+    private let termsButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setTitle("Terms of Service", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        b.setTitleColor(.systemBlue, for: .normal)
+        return b
+    }()
+
+    private let privacyButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.setTitle("Privacy Policy", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        b.setTitleColor(.systemBlue, for: .normal)
+        return b
+    }()
+
+    private lazy var legalLinksStack: UIStackView = {
+        let s = UIStackView(arrangedSubviews: [termsButton, privacyButton])
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.axis = .horizontal
+        s.spacing = 16
+        s.alignment = .center
+        s.distribution = .fillEqually
+        return s
+    }()
+
     private let closeButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -202,7 +241,7 @@ final class Signup: UIViewController {
         contentView.addSubview(card)
 
         // Card Subviews (Name -> Role -> Email -> Password -> Confirm Password)
-        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, footerStack].forEach {
+        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, legalNoticeLabel, legalLinksStack, footerStack].forEach {
             card.addSubview($0)
         }
         
@@ -298,9 +337,17 @@ final class Signup: UIViewController {
             signUpButton.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
             signUpButton.topAnchor.constraint(equalTo: confirmPasswordField.bottomAnchor, constant: 32),
             signUpButton.heightAnchor.constraint(equalToConstant: 52),
+
+            legalNoticeLabel.topAnchor.constraint(equalTo: signUpButton.bottomAnchor, constant: 16),
+            legalNoticeLabel.leadingAnchor.constraint(equalTo: signUpButton.leadingAnchor),
+            legalNoticeLabel.trailingAnchor.constraint(equalTo: signUpButton.trailingAnchor),
+
+            legalLinksStack.topAnchor.constraint(equalTo: legalNoticeLabel.bottomAnchor, constant: 10),
+            legalLinksStack.leadingAnchor.constraint(equalTo: signUpButton.leadingAnchor),
+            legalLinksStack.trailingAnchor.constraint(equalTo: signUpButton.trailingAnchor),
             
             // Footer Stack
-            footerStack.topAnchor.constraint(equalTo: signUpButton.bottomAnchor, constant: 24),
+            footerStack.topAnchor.constraint(equalTo: legalLinksStack.bottomAnchor, constant: 18),
             footerStack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             footerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -32)
         ])
@@ -311,6 +358,8 @@ final class Signup: UIViewController {
         closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(didTapLogin), for: .touchUpInside)
         signUpButton.addTarget(self, action: #selector(didTapSignUp), for: .touchUpInside)
+        termsButton.addTarget(self, action: #selector(didTapTerms), for: .touchUpInside)
+        privacyButton.addTarget(self, action: #selector(didTapPrivacy), for: .touchUpInside)
 
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -342,6 +391,14 @@ final class Signup: UIViewController {
             let vc = Login()
             navigationController?.pushViewController(vc, animated: true)
         }
+    }
+
+    @objc private func didTapTerms() {
+        showLegalDocuments(initialDocument: .termsOfService)
+    }
+
+    @objc private func didTapPrivacy() {
+        showLegalDocuments(initialDocument: .privacyPolicy)
     }
 
     // In Signup.swift

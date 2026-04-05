@@ -289,7 +289,7 @@ class ProfileViewController: UIViewController {
         let items: [(title: String, icon: String)] = [
             ("Family Members", "person.2.fill"),
             ("Account", "person.crop.circle"),
-            ("Privacy & Policy", "hand.raised.fill")
+            ("Privacy Policy & Terms", "hand.raised.fill")
         ]
         
         for item in items {
@@ -301,6 +301,8 @@ class ProfileViewController: UIViewController {
                 row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleFamilyMembers)))
             } else if item.title == "Account" {
                 row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleAccount)))
+            } else if item.title == "Privacy Policy & Terms" {
+                row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handlePrivacy)))
             }
         }
         
@@ -397,6 +399,10 @@ class ProfileViewController: UIViewController {
     @objc private func handleAccount() {
         let accountVC = ChildAccountViewController()
         navigationController?.pushViewController(accountVC, animated: true)
+    }
+
+    @objc private func handlePrivacy() {
+        showLegalDocuments(initialDocument: .privacyPolicy)
     }
     
     @objc private func handleLogout() {
