@@ -47,7 +47,7 @@ final class ChildAccountViewController: UIViewController {
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .white
+        v.backgroundColor = .secondarySystemGroupedBackground
         v.layer.cornerRadius = 18
         v.layer.shadowColor = UIColor.black.cgColor
         v.layer.shadowOpacity = 0.12
@@ -62,7 +62,7 @@ final class ChildAccountViewController: UIViewController {
         l.text = "Child Account"
         l.font = UIFont.systemFont(ofSize: 32, weight: .bold)
         l.textAlignment = .center
-        l.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
+        l.textColor = .label
         return l
     }()
 
@@ -120,6 +120,15 @@ final class ChildAccountViewController: UIViewController {
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            [nameField, nickField, dobField, familyField].forEach {
+                $0.layer.borderColor = UIColor.separator.cgColor
+            }
+        }
+    }
 
     // MARK: - Setup
 
@@ -346,8 +355,10 @@ final class ChildAccountViewController: UIViewController {
         tf.translatesAutoresizingMaskIntoConstraints = false
         tf.placeholder = placeholder
         tf.font = UIFont.systemFont(ofSize: 15, weight: .medium)
-        tf.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
-        tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        tf.textColor = .label
+        tf.backgroundColor = .systemGray6
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor.separator.cgColor
         tf.layer.cornerRadius = 14
         tf.attributedPlaceholder = NSAttributedString(
             string: placeholder,
@@ -416,7 +427,7 @@ private final class ProfileGenderSelector: UIControl {
     }
 
     private func setup() {
-        backgroundColor = UIColor(white: 0.96, alpha: 1)
+        backgroundColor = .systemGray6
         layer.cornerRadius = 14
         clipsToBounds = true
 

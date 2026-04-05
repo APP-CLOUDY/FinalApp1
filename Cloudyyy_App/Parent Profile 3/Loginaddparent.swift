@@ -43,21 +43,26 @@ final class LoginAddParent: UIViewController {
     private let formCardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .white
+        v.backgroundColor = .secondarySystemGroupedBackground
         v.layer.cornerRadius = 24
-        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.masksToBounds = false
+        updateCardShadow(v)
         v.layer.shadowOpacity = 0.15
         v.layer.shadowRadius = 20
         v.layer.shadowOffset = CGSize(width: 0, height: 8)
         return v
     }()
 
+    private static func updateCardShadow(_ view: UIView) {
+        view.layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
+    }
+
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Add Parent"
         l.font = UIFont.systemFont(ofSize: 28, weight: .bold)
-        l.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
+        l.textColor = .label
         l.textAlignment = .center
         return l
     }()
@@ -115,12 +120,43 @@ final class LoginAddParent: UIViewController {
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        setupGradient()
+        applyFullBackgroundGradient()
+    }
+
+    private func applyFullBackgroundGradient() {
+        if backgroundGradientLayer == nil {
+            let gradient = CAGradientLayer()
+            gradient.startPoint = CGPoint(x: 0.5, y: 0.0)
+            gradient.endPoint = CGPoint(x: 0.5, y: 1.0)
+            view.layer.insertSublayer(gradient, at: 0)
+            backgroundGradientLayer = gradient
+        }
+        refreshGradient()
+        backgroundGradientLayer?.frame = view.bounds
+    }
+
+    private func refreshGradient() {
+        backgroundGradientLayer?.colors = [
+            CloudyyyColors.deepBlack.cgColor,
+            CloudyyyColors.deepBlue.cgColor
+        ]
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         backgroundGradientLayer?.frame = view.bounds
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            Self.updateCardShadow(formCardView)
+            refreshGradient()
+            roleControl.updateColors()
+            nameTextField.layer.borderColor = UIColor.separator.cgColor
+            emailTextField.layer.borderColor = UIColor.separator.cgColor
+            passwordTextField.layer.borderColor = UIColor.separator.cgColor
+        }
     }
 
     deinit {
@@ -236,20 +272,7 @@ final class LoginAddParent: UIViewController {
     }
 
     private func setupGradient() {
-        if backgroundGradientLayer == nil {
-            let gradient = CAGradientLayer()
-            
-            // 4. Updated Gradient Colors as requested
-            gradient.colors = [
-                UIColor(red: 15/255, green: 18/255, blue: 24/255, alpha: 1).cgColor,
-                UIColor(red: 36/255, green: 55/255, blue: 99/255, alpha: 1).cgColor
-            ]
-            
-            gradient.startPoint = CGPoint(x: 0.5, y: 0.0)
-            gradient.endPoint = CGPoint(x: 0.5, y: 1.0)
-            view.layer.insertSublayer(gradient, at: 0)
-            backgroundGradientLayer = gradient
-        }
+        applyFullBackgroundGradient()
     }
 
     // MARK: - Actions
@@ -302,7 +325,7 @@ final class LoginAddParent: UIViewController {
         let l = UILabel()
         l.text = text
         l.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        l.textColor = .gray
+        l.textColor = .secondaryLabel
         return l
     }
 
@@ -310,10 +333,11 @@ final class LoginAddParent: UIViewController {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
         tf.placeholder = placeholder
-        tf.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        tf.textColor = .label
+        tf.backgroundColor = .secondarySystemBackground
         tf.layer.cornerRadius = 12
         tf.layer.borderWidth = 1
-        tf.layer.borderColor = UIColor(white: 0.9, alpha: 1).cgColor
+        tf.layer.borderColor = UIColor.separator.cgColor
         tf.font = UIFont.systemFont(ofSize: 16)
         tf.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
@@ -377,6 +401,15 @@ private class ParentRoleSelectionControl: UIControl {
         didSet { updateSelection() }
     }
     
+    func updateColors() {
+        backgroundColor = .systemGray6
+        selectionPill.backgroundColor = CloudyyyColors.accentBlue
+        buttons.forEach { $0.setTitleColor(.secondaryLabel, for: .normal) }
+        if buttons.indices.contains(selectedIndex) {
+            buttons[selectedIndex].setTitleColor(.white, for: .normal)
+        }
+    }
+    
     init(items: [String]) {
         self.items = items
         super.init(frame: .zero)
@@ -388,13 +421,15 @@ private class ParentRoleSelectionControl: UIControl {
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         heightAnchor.constraint(equalToConstant: 48).isActive = true
-        backgroundColor = UIColor(white: 0.95, alpha: 1)
+        backgroundColor = .systemGray6
         layer.cornerRadius = 14
         
-        selectionPill.backgroundColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        selectionPill.backgroundColor = CloudyyyColors.accentBlue
         selectionPill.layer.cornerRadius = 12
         selectionPill.translatesAutoresizingMaskIntoConstraints = false
         addSubview(selectionPill)
+        
+        updateColors()
         
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .horizontal
@@ -432,7 +467,7 @@ private class ParentRoleSelectionControl: UIControl {
         guard buttons.indices.contains(selectedIndex) else { return }
         let selectedButton = buttons[selectedIndex]
         
-        buttons.forEach { $0.setTitleColor(UIColor.darkGray, for: .normal) }
+        updateColors()
         selectedButton.setTitleColor(.white, for: .normal)
         
         NSLayoutConstraint.deactivate(pillConstraints)

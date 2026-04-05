@@ -310,6 +310,11 @@ class ParentProfileViewController: UIViewController {
         logoutRow.isUserInteractionEnabled = true
         logoutRow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleLogout)))
         menuStackView.addArrangedSubview(logoutRow)
+        
+        let deleteRow = createGlassMenuRow(title: "Delete Account", icon: "trash.fill", isDestructive: true)
+        deleteRow.isUserInteractionEnabled = true
+        deleteRow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleDeleteAccountPrompt)))
+        menuStackView.addArrangedSubview(deleteRow)
     }
     
     private func createGlassMenuRow(title: String, icon: String, isDestructive: Bool) -> UIView {
@@ -440,5 +445,54 @@ class ParentProfileViewController: UIViewController {
             }
         }))
         present(alert, animated: true)
+    }
+    
+    @objc private func handleDeleteAccountPrompt() {
+        let alert = UIAlertController(title: "Delete Account", message: "This action cannot be undone and will permanently delete your account, your family's data, and all child accounts. Type 'DELETE' to confirm.", preferredStyle: .alert)
+        
+        alert.addTextField { textField in
+            textField.placeholder = "Type DELETE"
+            textField.autocapitalizationType = .allCharacters
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        let deleteAction = UIAlertAction(title: "Confirm Delete", style: .destructive) { [weak self, weak alert] _ in
+            guard let self = self, let text = alert?.textFields?.first?.text, text.uppercased() == "DELETE" else { return }
+            self.executeAccountDeletion()
+        }
+        
+        alert.addAction(cancelAction)
+        alert.addAction(deleteAction)
+        
+        present(alert, animated: true)
+    }
+    
+    private func executeAccountDeletion() {
+        _Concurrency.Task {
+            do {
+                try await ProfileService.shared.deleteParentAccount()
+                
+                await MainActor.run {
+                    if let sceneDelegate = self.view.window?.windowScene?.delegate as? SceneDelegate {
+                        sceneDelegate.switchToAuthFlow()
+                    } else if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                              let sceneDelegate = scene.delegate as? SceneDelegate {
+                        sceneDelegate.switchToAuthFlow()
+                    } else {
+                        let authVC = SelectUserViewController()
+                        let nav = UINavigationController(rootViewController: authVC)
+                        nav.isNavigationBarHidden = true
+                        nav.modalPresentationStyle = .fullScreen
+                        self.present(nav, animated: true)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    let errAlert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    errAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(errAlert, animated: true)
+                }
+            }
+        }
     }
 }

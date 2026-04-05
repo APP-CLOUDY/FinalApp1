@@ -60,7 +60,7 @@ final class AddFamilyMembersViewController: UIViewController {
     private let sectionTitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Add Family Members"
+        l.text = "Add Child"
         l.textColor = UIColor(red: 92/255, green: 160/255, blue: 1, alpha: 1)
         l.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         l.textAlignment = .center
@@ -70,13 +70,14 @@ final class AddFamilyMembersViewController: UIViewController {
     private lazy var parentButtonContainer = makeCircleButtonContainer(title: "Parent", imageName: "parents")
     private lazy var childButtonContainer  = makeCircleButtonContainer(title: "Child",  imageName: "child")
     
-    // Horizontal stack for the Parent/Child buttons
+    // Horizontal stack for the Child button (Centered)
     private let buttonStackView: UIStackView = {
         let sv = UIStackView()
         sv.translatesAutoresizingMaskIntoConstraints = false
         sv.axis = .horizontal
-        sv.spacing = 30
-        sv.distribution = .fillEqually
+        sv.spacing = 0
+        sv.alignment = .center
+        sv.distribution = .fill
         return sv
     }()
     
@@ -154,7 +155,6 @@ final class AddFamilyMembersViewController: UIViewController {
         bottomCard.addSubview(bottomScrollView)
         bottomScrollView.addSubview(bottomStack)
         
-        buttonStackView.addArrangedSubview(parentButtonContainer)
         buttonStackView.addArrangedSubview(childButtonContainer)
     }
     
@@ -219,8 +219,8 @@ final class AddFamilyMembersViewController: UIViewController {
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor).isActive = true
         
         NSLayoutConstraint.activate([
-            parentButtonContainer.heightAnchor.constraint(equalToConstant: 150),
             childButtonContainer.heightAnchor.constraint(equalToConstant: 150),
+            childButtonContainer.widthAnchor.constraint(equalToConstant: 150)
         ])
     }
 

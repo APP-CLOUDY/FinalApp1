@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CloudyFlowView: View {
     @StateObject private var vm = CloudyViewModel()
+    @State private var showReportAlert = false
     
     var body: some View {
         ZStack {
@@ -32,8 +33,12 @@ struct CloudyFlowView: View {
                         
                         Spacer()
                         
-                        Color.clear
-                            .frame(width: 40, height: 40)
+                        Button(action: { showReportAlert = true }) {
+                            Image(systemName: "flag.fill")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.red)
+                        }
+                        .frame(width: 40, height: 40)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -74,11 +79,19 @@ struct CloudyFlowView: View {
                 Spacer()
                 
                 // Input Bar
-                CloudyInputBar(text: $vm.textInput, isThinking: vm.isAIThinking, onSend: vm.sendMessage)
+                CloudyInputBar(text: $vm.textInput, isThinking: vm.isAIThinking, onSend: vm.sendMessage, onDelete: vm.clearChat, onReport: { showReportAlert = true })
             }
         }
         .task { await vm.loadMissions() }
         .onTapGesture { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
         .toolbar(.hidden, for: .navigationBar)
+        .alert("Report Chat", isPresented: $showReportAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Report", role: .destructive) {
+                // Placeholder for actual reporting logic
+            }
+        } message: {
+            Text("Are you sure you want to report this chat for review?")
+        }
     }
 }

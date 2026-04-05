@@ -216,4 +216,10 @@ final class ProfileService: Sendable {
         UserDefaults.standard.removeObject(forKey: "current_child_id")
         UserDefaults.standard.removeObject(forKey: "current_parent_id")
     }
+    func deleteParentAccount() async throws {
+        // 1. Call Secure RPC to wipe Supabase backend state
+        try await client.database.rpc("delete_parent_account").execute()
+        // 2. Clear out local preferences and sessions
+        try await signOut()
+    }
 }

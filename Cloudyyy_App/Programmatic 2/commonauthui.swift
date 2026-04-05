@@ -121,10 +121,21 @@ public final class CardView: UIView {
         backgroundColor = .secondarySystemGroupedBackground
         layer.cornerRadius = 18
         layer.masksToBounds = false
-        layer.shadowColor = UIColor.black.cgColor
+        updateShadowColor()
         layer.shadowOpacity = 0.08
         layer.shadowOffset = CGSize(width: 0, height: 6)
         layer.shadowRadius = 12
+    }
+
+    private func updateShadowColor() {
+        layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateShadowColor()
+        }
     }
 }
 
@@ -136,7 +147,7 @@ public class CustomTextField: UITextField {
         backgroundColor = .systemGray6
         layer.cornerRadius = 12
         layer.borderWidth = 1
-        layer.borderColor = UIColor.systemGray4.cgColor
+        layer.borderColor = UIColor.separator.cgColor
         font = .systemFont(ofSize: 15)
         textColor = .label
         
@@ -153,6 +164,13 @@ public class CustomTextField: UITextField {
         autocapitalizationType = .none
         keyboardType = .default
         heightAnchor.constraint(equalToConstant: 52).isActive = true
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            layer.borderColor = UIColor.separator.cgColor
+        }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
@@ -681,7 +699,7 @@ public final class GlassButton: UIButton {
             blurView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        overlay.backgroundColor = UIColor(white: 1, alpha: 0.90)
+        overlay.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.4)
         overlay.translatesAutoresizingMaskIntoConstraints = false
         addSubview(overlay)
         NSLayoutConstraint.activate([
@@ -692,7 +710,7 @@ public final class GlassButton: UIButton {
         ])
 
         layer.borderWidth = 1
-        layer.borderColor = UIColor(white: 0.88, alpha: 1).cgColor
+        updateBorderColor()
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.contentMode = .scaleAspectFit
@@ -727,6 +745,21 @@ public final class GlassButton: UIButton {
         accessibilityLabel = title
     }
 
+    private func updateBorderColor() {
+        if #available(iOS 13.0, *) {
+            layer.borderColor = UIColor.separator.cgColor
+        } else {
+            layer.borderColor = UIColor(white: 0.88, alpha: 1).cgColor
+        }
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateBorderColor()
+        }
+    }
+
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     public override var isEnabled: Bool {
@@ -742,13 +775,13 @@ public func makeRoleSegmentedControl(items: [String] = ["Mom", "Dad" , "Guardian
     sc.translatesAutoresizingMaskIntoConstraints = false
     sc.selectedSegmentIndex = 0
     sc.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 14, weight: .semibold)], for: .normal)
-    sc.backgroundColor = UIColor(white: 0.95, alpha: 1)
+    sc.backgroundColor = .systemGray6
     if #available(iOS 13.0, *) {
         sc.selectedSegmentTintColor = CloudyyyColors.accentBlue
         sc.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
-        sc.setTitleTextAttributes([.foregroundColor: UIColor.darkGray], for: .normal)
+        sc.setTitleTextAttributes([.foregroundColor: UIColor.secondaryLabel], for: .normal)
     }
-    sc.layer.cornerRadius = 18
+    sc.layer.cornerRadius = 14
     sc.layer.masksToBounds = true
     sc.heightAnchor.constraint(equalToConstant: 36).isActive = true
     return sc

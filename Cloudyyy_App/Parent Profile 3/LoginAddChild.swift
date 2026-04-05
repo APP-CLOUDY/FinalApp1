@@ -40,14 +40,19 @@ final class LoginAddChild: UIViewController {
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .white
+        v.backgroundColor = .secondarySystemGroupedBackground
         v.layer.cornerRadius = 18
-        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.masksToBounds = false
+        updateCardShadow(v)
         v.layer.shadowOpacity = 0.12
         v.layer.shadowRadius = 16
         v.layer.shadowOffset = CGSize(width: 0, height: 10)
         return v
     }()
+
+    private static func updateCardShadow(_ view: UIView) {
+        view.layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
+    }
 
     private let titleLabel: UILabel = {
         let l = UILabel()
@@ -55,7 +60,7 @@ final class LoginAddChild: UIViewController {
         l.text = "Add Child Profile"
         l.font = UIFont.systemFont(ofSize: 32, weight: .bold)
         l.textAlignment = .center
-        l.textColor = UIColor(red: 12/255, green: 34/255, blue: 76/255, alpha: 1)
+        l.textColor = .label
         return l
     }()
 
@@ -90,23 +95,44 @@ final class LoginAddChild: UIViewController {
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
+        applyFullBackgroundGradient()
+    }
+
+    private func applyFullBackgroundGradient() {
         if backgroundGradientLayer == nil {
             let gradient = CAGradientLayer()
-            gradient.colors = [
-                UIColor(red: 12/255, green: 12/255, blue: 12/255, alpha: 1).cgColor,
-                UIColor(red: 32/255, green: 59/255, blue: 111/255, alpha: 1).cgColor
-            ]
             gradient.startPoint = CGPoint(x: 0.5, y: 0.0)
             gradient.endPoint = CGPoint(x: 0.5, y: 1.0)
             view.layer.insertSublayer(gradient, at: 0)
             backgroundGradientLayer = gradient
         }
+        refreshGradient()
         backgroundGradientLayer?.frame = view.bounds
+    }
+
+    private func refreshGradient() {
+        backgroundGradientLayer?.colors = [
+            CloudyyyColors.deepBlack.cgColor,
+            CloudyyyColors.deepBlue.cgColor
+        ]
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         genderSelector.refreshPillPosition(animated: false)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            Self.updateCardShadow(cardView)
+            refreshGradient()
+            genderSelector.updateColors()
+            
+            // Refresh text field borders
+            let fields: [UITextField] = [nameField, nickField, dobField]
+            fields.forEach { $0.layer.borderColor = UIColor.separator.cgColor }
+        }
     }
 
     // MARK: - Actions
@@ -251,10 +277,13 @@ final class LoginAddChild: UIViewController {
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor.systemGray])
+        tf.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor.placeholderText])
         tf.font = UIFont.systemFont(ofSize: 15)
-        tf.backgroundColor = UIColor(white: 0.96, alpha: 1)
+        tf.textColor = .label
+        tf.backgroundColor = .secondarySystemBackground
         tf.layer.cornerRadius = 10
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor.separator.cgColor
         let pad = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 48))
         tf.leftView = pad
         tf.leftViewMode = .always
@@ -322,6 +351,18 @@ private class GenderSelector: UIControl {
     private let titles: [String]
     private(set) var selectedIndex: Int = 0 { didSet { refreshPillPosition(animated: true) } }
     
+    func updateColors() {
+        backgroundColor = .systemGray6
+        pill.backgroundColor = CloudyyyColors.accentBlue
+        for (i, btn) in buttons.enumerated() {
+            if i == selectedIndex {
+                btn.setTitleColor(.white, for: .normal)
+            } else {
+                btn.setTitleColor(.secondaryLabel, for: .normal)
+            }
+        }
+    }
+    
     var selectedGender: Gender {
         switch titles[selectedIndex] {
         case "Female": return .female
@@ -343,12 +384,14 @@ private class GenderSelector: UIControl {
     required init?(coder: NSCoder) { fatalError() }
 
     private func setup() {
-        backgroundColor = UIColor(white: 0.94, alpha: 1)
+        backgroundColor = .systemGray6
         layer.cornerRadius = 14
         pill.translatesAutoresizingMaskIntoConstraints = false
-        pill.backgroundColor = UIColor(red: 44/255, green: 116/255, blue: 252/255, alpha: 1)
+        pill.backgroundColor = CloudyyyColors.accentBlue
         pill.layer.cornerRadius = 12
         addSubview(pill)
+        
+        updateColors()
         
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.distribution = .fillEqually
@@ -367,6 +410,7 @@ private class GenderSelector: UIControl {
             buttons.append(b)
             stack.addArrangedSubview(b)
         }
+        updateColors()
     }
     
     @objc private func tap(_ sender: UIButton) {
@@ -389,8 +433,13 @@ private class GenderSelector: UIControl {
         pLead?.isActive = true; pWidth?.isActive = true; pTop?.isActive = true; pHeight?.isActive = true
         
         buttons.enumerated().forEach { (i, btn) in
-            btn.setTitleColor(i == selectedIndex ? .white : .darkGray, for: .normal)
-            btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: i == selectedIndex ? .semibold : .regular)
+            if i == selectedIndex {
+                btn.setTitleColor(.white, for: .normal)
+                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+            } else {
+                btn.setTitleColor(.secondaryLabel, for: .normal)
+                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
+            }
         }
         
         if animated { UIView.animate(withDuration: 0.2) { self.layoutIfNeeded() } } else { layoutIfNeeded() }

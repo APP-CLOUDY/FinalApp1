@@ -95,24 +95,6 @@ final class Login: UIViewController {
             p.disableAutoFill = true
             return p
         }()
-    private let rememberCheckbox: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-        b.setImage(UIImage(systemName: "square", withConfiguration: config), for: .normal)
-        b.tintColor = .systemGray
-        return b
-    }()
-
-    private let rememberLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Remember me"
-        l.font = .systemFont(ofSize: 14, weight: .regular)
-        l.textColor = .secondaryLabel
-        return l
-    }()
-
     private let forgotPasswordButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -192,9 +174,8 @@ final class Login: UIViewController {
         setupHierarchy()
         setupConstraints()
         setupActions()
-        loadRememberedEmail()
     }
-    
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = backgroundContainer.bounds
@@ -219,8 +200,8 @@ final class Login: UIViewController {
         scrollView.addSubview(contentView)
         contentView.addSubview(card)
 
-        [emailField, passwordField, rememberCheckbox, rememberLabel, forgotPasswordButton,
-         loginButton, legalLinksStack, footerStack]
+        [emailField, passwordField, forgotPasswordButton,
+         loginButton, footerStack]
             .forEach { card.addSubview($0) }
 
         view.addSubview(closeButton)
@@ -288,18 +269,10 @@ final class Login: UIViewController {
             passwordField.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
             passwordField.heightAnchor.constraint(equalToConstant: 50),
 
-            rememberCheckbox.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 20),
-            rememberCheckbox.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
-            rememberCheckbox.widthAnchor.constraint(equalToConstant: 24),
-            rememberCheckbox.heightAnchor.constraint(equalToConstant: 24),
-
-            rememberLabel.centerYAnchor.constraint(equalTo: rememberCheckbox.centerYAnchor),
-            rememberLabel.leadingAnchor.constraint(equalTo: rememberCheckbox.trailingAnchor, constant: 8),
-
-            forgotPasswordButton.centerYAnchor.constraint(equalTo: rememberCheckbox.centerYAnchor),
+            forgotPasswordButton.topAnchor.constraint(equalTo: passwordField.bottomAnchor, constant: 16),
             forgotPasswordButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
 
-            loginButton.topAnchor.constraint(equalTo: rememberCheckbox.bottomAnchor, constant: 28),
+            loginButton.topAnchor.constraint(equalTo: forgotPasswordButton.bottomAnchor, constant: 28),
             loginButton.leadingAnchor.constraint(equalTo: emailField.leadingAnchor),
             loginButton.trailingAnchor.constraint(equalTo: emailField.trailingAnchor),
             loginButton.heightAnchor.constraint(equalToConstant: 52),
@@ -318,7 +291,6 @@ final class Login: UIViewController {
     private func setupActions() {
         closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
         signUpButton.addTarget(self, action: #selector(handleSignup), for: .touchUpInside)
-        rememberCheckbox.addTarget(self, action: #selector(toggleRemember), for: .touchUpInside)
         forgotPasswordButton.addTarget(self, action: #selector(handleForgot), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(handleLogin), for: .touchUpInside)
         termsButton.addTarget(self, action: #selector(handleTerms), for: .touchUpInside)
@@ -333,18 +305,7 @@ final class Login: UIViewController {
         }
     }
 
-    @objc private func toggleRemember() {
-        let checked = rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22))
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-        
-        if checked {
-            rememberCheckbox.setImage(UIImage(systemName: "square", withConfiguration: config), for: .normal)
-            rememberCheckbox.tintColor = .systemGray
-        } else {
-            rememberCheckbox.setImage(UIImage(systemName: "checkmark.square.fill", withConfiguration: config), for: .normal)
-            rememberCheckbox.tintColor = .systemBlue
-        }
-    }
+
 
     @objc private func handleSignup() {
         let vc = Signup()
@@ -376,16 +337,6 @@ final class Login: UIViewController {
         _Concurrency.Task {
             do {
                 try await SessionManager.shared.signInParent(email: email, password: password)
-
-                await MainActor.run {
-                    let isChecked = self.rememberCheckbox.image(for: .normal) == UIImage(systemName: "checkmark.square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22))
-                    
-                    if isChecked {
-                        UserDefaults.standard.set(email, forKey: "Cloudyyy_RememberedEmail")
-                    } else {
-                        UserDefaults.standard.removeObject(forKey: "Cloudyyy_RememberedEmail")
-                    }
-                }
 
                 await MainActor.run {
                     self.setLoading(false)
@@ -427,12 +378,5 @@ final class Login: UIViewController {
         }
     }
 
-    private func loadRememberedEmail() {
-        if let saved = UserDefaults.standard.string(forKey: "Cloudyyy_RememberedEmail") {
-            emailField.text = saved
-            let config = UIImage.SymbolConfiguration(pointSize: 22)
-            rememberCheckbox.setImage(UIImage(systemName: "checkmark.square.fill", withConfiguration: config), for: .normal)
-            rememberCheckbox.tintColor = .systemBlue
-        }
-    }
+
 }
