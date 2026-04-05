@@ -366,6 +366,7 @@ public final class GradientButton: UIButton {
 public enum LegalDocument: Int, CaseIterable {
     case privacyPolicy
     case termsOfService
+    case iconAttribution
 
     public var title: String {
         switch self {
@@ -373,6 +374,8 @@ public enum LegalDocument: Int, CaseIterable {
             return "Privacy Policy"
         case .termsOfService:
             return "Terms of Service"
+        case .iconAttribution:
+            return "Icon Attribution"
         }
     }
 
@@ -382,6 +385,8 @@ public enum LegalDocument: Int, CaseIterable {
             return "How Cloudyyy collects, uses, and protects family information."
         case .termsOfService:
             return "The rules, responsibilities, and account terms for using the app."
+        case .iconAttribution:
+            return "Credits for icons used within the application."
         }
     }
 }
@@ -474,6 +479,14 @@ private enum LegalContentProvider {
             12. Contact
             For questions about these terms, please use the support contact provided in the app or in the app listing.
             """
+        case .iconAttribution:
+            return """
+            Icon Attribution
+
+            Some icons used in this app are designed by Adorableninana from Flaticon (www.flaticon.com).
+
+            These icons are used under Flaticon's Free License (with attribution).
+            """
         }
     }
 }
@@ -500,8 +513,9 @@ public final class LegalDocumentsViewController: UIViewController {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = "Legal"
-        label.font = .systemFont(ofSize: 34, weight: .bold)
+        label.font = .systemFont(ofSize: 20, weight: .semibold)
         label.textColor = .white
+        label.textAlignment = .center
         return label
     }()
 
@@ -528,23 +542,13 @@ public final class LegalDocumentsViewController: UIViewController {
         return button
     }()
 
-    private let cardView: UIVisualEffectView = {
-        let blur = UIBlurEffect(style: .systemUltraThinMaterialDark)
-        let view = UIVisualEffectView(effect: blur)
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.layer.cornerRadius = 26
-        view.clipsToBounds = true
-        view.contentView.backgroundColor = UIColor(white: 1, alpha: 0.06)
-        view.layer.borderWidth = 1
-        view.layer.borderColor = UIColor(white: 1, alpha: 0.08).cgColor
-        return view
-    }()
+
 
     private let stackView: UIStackView = {
         let stack = UIStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
-        stack.spacing = 14
+        stack.spacing = 16
         stack.alignment = .fill
         return stack
     }()
@@ -582,8 +586,7 @@ public final class LegalDocumentsViewController: UIViewController {
         view.addSubview(backButton)
         view.addSubview(headerLabel)
         view.addSubview(subtitleLabel)
-        view.addSubview(cardView)
-        cardView.contentView.addSubview(stackView)
+        view.addSubview(stackView)
 
         NSLayoutConstraint.activate([
             backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -596,23 +599,17 @@ public final class LegalDocumentsViewController: UIViewController {
             backButton.widthAnchor.constraint(equalToConstant: 40),
             backButton.heightAnchor.constraint(equalToConstant: 40),
 
-            headerLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 18),
-            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            headerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            headerLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
 
-            subtitleLabel.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 8),
-            subtitleLabel.leadingAnchor.constraint(equalTo: headerLabel.leadingAnchor),
-            subtitleLabel.trailingAnchor.constraint(equalTo: headerLabel.trailingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 28),
+            subtitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            subtitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
-            cardView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
-            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            cardView.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-
-            stackView.topAnchor.constraint(equalTo: cardView.contentView.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: cardView.contentView.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: cardView.contentView.trailingAnchor, constant: -16),
-            stackView.bottomAnchor.constraint(equalTo: cardView.contentView.bottomAnchor, constant: -16)
+            stackView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 24),
+            stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20)
         ])
     }
 
@@ -632,16 +629,30 @@ public final class LegalDocumentsViewController: UIViewController {
     }
 
     private func makeRow(for document: LegalDocument) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.backgroundColor = UIColor(white: 1, alpha: 0.06)
-        button.layer.cornerRadius = 18
-        button.layer.borderWidth = 1
-        button.layer.borderColor = UIColor(white: 1, alpha: 0.08).cgColor
-        button.contentHorizontalAlignment = .fill
-        button.contentVerticalAlignment = .fill
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: 92).isActive = true
         button.tag = document.rawValue
+        
+        // 1. Create Glass Background
+        let blurEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+        let glassView = UIVisualEffectView(effect: blurEffect)
+        glassView.translatesAutoresizingMaskIntoConstraints = false
+        glassView.layer.cornerRadius = 24
+        glassView.clipsToBounds = true
+        glassView.isUserInteractionEnabled = false
+        glassView.contentView.backgroundColor = UIColor(white: 1, alpha: 0.05)
+        glassView.layer.borderWidth = 1
+        glassView.layer.borderColor = UIColor(white: 1, alpha: 0.1).cgColor
+        
+        button.insertSubview(glassView, at: 0)
+        
+        NSLayoutConstraint.activate([
+            glassView.topAnchor.constraint(equalTo: button.topAnchor),
+            glassView.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+            glassView.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+            glassView.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+        ])
 
         let titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -656,33 +667,54 @@ public final class LegalDocumentsViewController: UIViewController {
         summaryLabel.textColor = UIColor(white: 1, alpha: 0.72)
         summaryLabel.numberOfLines = 0
 
-        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold)))
         chevron.translatesAutoresizingMaskIntoConstraints = false
         chevron.tintColor = UIColor(white: 1, alpha: 0.45)
+        chevron.contentMode = .scaleAspectFit
 
         let contentStack = UIStackView(arrangedSubviews: [titleLabel, summaryLabel])
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         contentStack.axis = .vertical
         contentStack.spacing = 6
         contentStack.alignment = .fill
+        contentStack.isUserInteractionEnabled = false
 
         button.addSubview(contentStack)
         button.addSubview(chevron)
 
         NSLayoutConstraint.activate([
-            contentStack.topAnchor.constraint(equalTo: button.topAnchor, constant: 16),
-            contentStack.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 16),
-            contentStack.bottomAnchor.constraint(equalTo: button.bottomAnchor, constant: -16),
+            contentStack.topAnchor.constraint(equalTo: button.topAnchor, constant: 18),
+            contentStack.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 20),
+            contentStack.bottomAnchor.constraint(equalTo: button.bottomAnchor, constant: -18),
 
             chevron.leadingAnchor.constraint(equalTo: contentStack.trailingAnchor, constant: 12),
-            chevron.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -16),
+            chevron.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -20),
             chevron.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            chevron.widthAnchor.constraint(equalToConstant: 14),
-            chevron.heightAnchor.constraint(equalToConstant: 20)
+            chevron.widthAnchor.constraint(equalToConstant: 12),
+            chevron.heightAnchor.constraint(equalToConstant: 18)
         ])
 
         button.addTarget(self, action: #selector(handleDocumentTap(_:)), for: .touchUpInside)
+        
+        // Add hover/press effect
+        button.addTarget(self, action: #selector(buttonPressed), for: .touchDown)
+        button.addTarget(self, action: #selector(buttonReleased), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        
         return button
+    }
+    
+    @objc private func buttonPressed(_ sender: UIButton) {
+        UIView.animate(withDuration: 0.2) {
+            sender.alpha = 0.7
+            sender.transform = CGAffineTransform(scaleX: 0.98, y: 0.98)
+        }
+    }
+    
+    @objc private func buttonReleased(_ sender: UIButton) {
+        UIView.animate(withDuration: 0.2) {
+            sender.alpha = 1.0
+            sender.transform = .identity
+        }
     }
 
     @objc private func handleDocumentTap(_ sender: UIButton) {
@@ -704,6 +736,8 @@ public final class LegalDocumentDetailViewController: UIViewController {
         view.font = .preferredFont(forTextStyle: .body)
         view.adjustsFontForContentSizeCategory = true
         view.isEditable = false
+        view.isSelectable = true // Required for link interaction
+        view.dataDetectorTypes = .link // Automatically detect links
         view.alwaysBounceVertical = true
         view.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 28, right: 20)
         return view
@@ -761,18 +795,23 @@ public final class LegalDocumentDetailViewController: UIViewController {
 }
 
 public extension UIViewController {
-    func showLegalDocuments(initialDocument: LegalDocument) {
+    func showLegalDocuments(initialDocument: LegalDocument? = nil) {
         let controller = LegalDocumentsViewController()
         controller.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(controller, animated: true)
 
-        guard let navigationController else { return }
-
-        DispatchQueue.main.async {
-            let detailVC = LegalDocumentDetailViewController(document: initialDocument)
-            detailVC.hidesBottomBarWhenPushed = true
-            navigationController.pushViewController(detailVC, animated: false)
+        if let initialDocument = initialDocument {
+            guard let navigationController else { return }
+            DispatchQueue.main.async {
+                let detailVC = LegalDocumentDetailViewController(document: initialDocument)
+                detailVC.hidesBottomBarWhenPushed = true
+                navigationController.pushViewController(detailVC, animated: false)
+            }
         }
+    }
+
+    func showLegalMenu() {
+        showLegalDocuments(initialDocument: nil)
     }
 }
 

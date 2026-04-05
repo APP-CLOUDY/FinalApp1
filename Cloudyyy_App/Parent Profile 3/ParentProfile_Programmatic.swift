@@ -288,7 +288,6 @@ class ParentProfileViewController: UIViewController {
         let items: [(title: String, icon: String)] = [
             ("Family", "person.2"),
             ("Account", "person.circle"),
-            ("Password & Security", "lock.fill"),
             ("Privacy Policy & Terms", "hand.raised")
         ]
         
@@ -411,7 +410,7 @@ class ParentProfileViewController: UIViewController {
     }
 
     @objc private func privacyTapped() {
-        showLegalDocuments(initialDocument: .privacyPolicy)
+        showLegalMenu()
     }
     
     //@objc private func editAvatarTapped() { print("Edit Avatar") }
