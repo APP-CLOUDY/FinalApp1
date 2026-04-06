@@ -5,7 +5,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
 
     private let task: ScheduleTaskModelChild
     private let titleLabel = UILabel()
-    private let cameraButton = UIButton(type: .system)
+    private let photoLibraryButton = UIButton(type: .system)
     private let submitButton = UIButton(type: .system)
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
     private var selectedImage: UIImage?
@@ -30,13 +30,13 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(titleLabel)
 
-        cameraButton.setTitle("Take Photo", for: .normal)
-        cameraButton.backgroundColor = .systemBlue
-        cameraButton.setTitleColor(.white, for: .normal)
-        cameraButton.layer.cornerRadius = 8
-        cameraButton.translatesAutoresizingMaskIntoConstraints = false
-        cameraButton.addTarget(self, action: #selector(openCamera), for: .touchUpInside)
-        view.addSubview(cameraButton)
+        photoLibraryButton.setTitle("Choose from Library", for: .normal)
+        photoLibraryButton.backgroundColor = .systemBlue
+        photoLibraryButton.setTitleColor(.white, for: .normal)
+        photoLibraryButton.layer.cornerRadius = 8
+        photoLibraryButton.translatesAutoresizingMaskIntoConstraints = false
+        photoLibraryButton.addTarget(self, action: #selector(openPhotoLibrary), for: .touchUpInside)
+        view.addSubview(photoLibraryButton)
 
         submitButton.setTitle("Submit", for: .normal)
         submitButton.backgroundColor = .systemGreen
@@ -56,12 +56,12 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
             titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             
-            cameraButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            cameraButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            cameraButton.widthAnchor.constraint(equalToConstant: 200),
-            cameraButton.heightAnchor.constraint(equalToConstant: 50),
+            photoLibraryButton.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            photoLibraryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            photoLibraryButton.widthAnchor.constraint(equalToConstant: 200),
+            photoLibraryButton.heightAnchor.constraint(equalToConstant: 50),
             
-            submitButton.topAnchor.constraint(equalTo: cameraButton.bottomAnchor, constant: 20),
+            submitButton.topAnchor.constraint(equalTo: photoLibraryButton.bottomAnchor, constant: 20),
             submitButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             submitButton.widthAnchor.constraint(equalToConstant: 200),
             submitButton.heightAnchor.constraint(equalToConstant: 50),
@@ -71,11 +71,10 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
         ])
     }
 
-    @objc private func openCamera() {
+    @objc private func openPhotoLibrary() {
         let picker = UIImagePickerController()
         picker.delegate = self
-        // Use photo library for Simulator testing (Camera crashes Simulator)
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        picker.sourceType = .photoLibrary
         present(picker, animated: true)
     }
 
@@ -85,7 +84,7 @@ final class TaskSubmissionViewController: UIViewController, UIImagePickerControl
             selectedImage = image
             submitButton.isEnabled = true
             submitButton.alpha = 1.0
-            cameraButton.setTitle("Photo Taken ✅", for: .normal)
+            photoLibraryButton.setTitle("Photo Selected ✅", for: .normal)
         }
     }
 

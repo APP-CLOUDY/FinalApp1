@@ -19,5 +19,11 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Cloudyyy needs access to your photo library to select proof for completing missions.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Cloudyyy needs permission to save photos to your library.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Cloudyyy needs access to your camera to take photos for mission proof.</string>
 </dict>
 </plist>

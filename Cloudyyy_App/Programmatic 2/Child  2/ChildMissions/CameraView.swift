@@ -18,11 +18,7 @@ struct CameraView: UIViewControllerRepresentable {
         picker.delegate = context.coordinator
         
         // Safety check: Use camera if available (Real Device), otherwise Photo Library (Simulator)
-        if UIImagePickerController.isSourceTypeAvailable(.camera) {
-            picker.sourceType = .camera
-        } else {
-            picker.sourceType = .photoLibrary
-        }
+        picker.sourceType = .photoLibrary
         
         picker.allowsEditing = false
         return picker

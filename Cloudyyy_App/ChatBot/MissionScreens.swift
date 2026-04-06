@@ -165,8 +165,7 @@ struct MissionDetailView: View {
     
     // Logic States
     @State private var showCamera = false
-    @State private var showSourceSelection = false
-    @State private var sourceType: UIImagePickerController.SourceType = .camera
+    @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
     @State private var capturedImage: UIImage?
     @State private var isUploading = false
     @State private var submissionErrorMessage: String?
@@ -324,18 +323,6 @@ struct MissionDetailView: View {
             }
             .blur(radius: isUploading ? 2 : 0)
         }
-        // 1. The Menu (Camera or Library)
-        .confirmationDialog("Choose Photo Source", isPresented: $showSourceSelection, titleVisibility: .visible) {
-            Button("Camera") {
-                self.sourceType = .camera
-                self.showCamera = true
-            }
-            Button("Photo Library") {
-                self.sourceType = .photoLibrary
-                self.showCamera = true
-            }
-            Button("Cancel", role: .cancel) {}
-        }
         // 2. The Actual Picker
         .fullScreenCover(isPresented: $showCamera) {
             ImagePicker(selectedImage: $capturedImage, sourceType: sourceType)
@@ -354,7 +341,8 @@ struct MissionDetailView: View {
     func handleDoneTap() {
         // If photo required but not taken, Ask for Photo
         if mission.requiresPhoto && capturedImage == nil {
-            showSourceSelection = true // 👈 Trigger the menu
+            self.sourceType = .photoLibrary
+            self.showCamera = true 
             return
         }
         // Otherwise, submit
