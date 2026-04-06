@@ -129,32 +129,13 @@ final class Signup: UIViewController {
         return l
     }()
 
-    private let termsButton: UIButton = {
+    private let privacyTermsButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.setTitle("Terms of Service", for: .normal)
+        b.setTitle("Privacy Policy & Terms", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
         b.setTitleColor(.systemBlue, for: .normal)
         return b
-    }()
-
-    private let privacyButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setTitle("Privacy Policy", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        b.setTitleColor(.systemBlue, for: .normal)
-        return b
-    }()
-
-    private lazy var legalLinksStack: UIStackView = {
-        let s = UIStackView(arrangedSubviews: [termsButton, privacyButton])
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.axis = .horizontal
-        s.spacing = 16
-        s.alignment = .center
-        s.distribution = .fillEqually
-        return s
     }()
 
     private let closeButton: UIButton = {
@@ -241,7 +222,7 @@ final class Signup: UIViewController {
         contentView.addSubview(card)
 
         // Card Subviews (Name -> Role -> Email -> Password -> Confirm Password)
-        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, legalNoticeLabel, legalLinksStack, footerStack].forEach {
+        [nameField, roleSegmented, emailField, passwordField, confirmPasswordField, signUpButton, legalNoticeLabel, privacyTermsButton, footerStack].forEach {
             card.addSubview($0)
         }
         
@@ -342,12 +323,11 @@ final class Signup: UIViewController {
             legalNoticeLabel.leadingAnchor.constraint(equalTo: signUpButton.leadingAnchor),
             legalNoticeLabel.trailingAnchor.constraint(equalTo: signUpButton.trailingAnchor),
 
-            legalLinksStack.topAnchor.constraint(equalTo: legalNoticeLabel.bottomAnchor, constant: 10),
-            legalLinksStack.leadingAnchor.constraint(equalTo: signUpButton.leadingAnchor),
-            legalLinksStack.trailingAnchor.constraint(equalTo: signUpButton.trailingAnchor),
+            privacyTermsButton.topAnchor.constraint(equalTo: legalNoticeLabel.bottomAnchor, constant: 10),
+            privacyTermsButton.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             
             // Footer Stack
-            footerStack.topAnchor.constraint(equalTo: legalLinksStack.bottomAnchor, constant: 18),
+            footerStack.topAnchor.constraint(equalTo: privacyTermsButton.bottomAnchor, constant: 18),
             footerStack.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             footerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -32)
         ])
@@ -358,8 +338,7 @@ final class Signup: UIViewController {
         closeButton.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
         loginButton.addTarget(self, action: #selector(didTapLogin), for: .touchUpInside)
         signUpButton.addTarget(self, action: #selector(didTapSignUp), for: .touchUpInside)
-        termsButton.addTarget(self, action: #selector(didTapTerms), for: .touchUpInside)
-        privacyButton.addTarget(self, action: #selector(didTapPrivacy), for: .touchUpInside)
+        privacyTermsButton.addTarget(self, action: #selector(didTapPrivacyTerms), for: .touchUpInside)
 
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -393,12 +372,8 @@ final class Signup: UIViewController {
         }
     }
 
-    @objc private func didTapTerms() {
-        showLegalDocuments(initialDocument: .termsOfService)
-    }
-
-    @objc private func didTapPrivacy() {
-        showLegalDocuments(initialDocument: .privacyPolicy)
+    @objc private func didTapPrivacyTerms() {
+        showLegalMenu()
     }
 
     // In Signup.swift
