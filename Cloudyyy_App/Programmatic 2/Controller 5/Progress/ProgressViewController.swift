@@ -100,8 +100,14 @@ final class ProgressViewController: UIViewController {
         setupScrollView()
         setupMainStack()
         
-        // Dropdown Action
+        // Header Actions
         header.onChildTapped = { [weak self] in self?.showKidsMenu() }
+        header.onProfileTapped = { [weak self] in
+            let vc = ParentProfileViewController()
+            vc.hidesBottomBarWhenPushed = true
+            self?.navigationController?.pushViewController(vc, animated: true)
+        }
+        header.showProfileButton(true)
         
         // 1. Initial Load via Service
         fetchKidsAndLoad()
