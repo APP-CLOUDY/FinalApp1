@@ -119,6 +119,10 @@ final class NetworkMonitor {
             window.isHidden = true
             window.resignKey()
             self.alertWindow = nil
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                windowScene.windows.first(where: { $0.isKeyWindow == false })?.makeKeyAndVisible()
+            }
         }
     }
 }

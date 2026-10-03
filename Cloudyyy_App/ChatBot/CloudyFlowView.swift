@@ -80,6 +80,7 @@ struct CloudyFlowView: View {
                 
                 // Input Bar
                 CloudyInputBar(text: $vm.textInput, isThinking: vm.isAIThinking, onSend: vm.sendMessage, onDelete: vm.clearChat, onReport: { showReportAlert = true })
+                    .padding(.bottom, 60) // Push up above DarkGlassTabBar
             }
         }
         .task { await vm.loadMissions() }

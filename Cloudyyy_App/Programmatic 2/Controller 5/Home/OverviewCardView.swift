@@ -99,8 +99,17 @@ final class OverviewCardGlassView: UIView {
         progress: CGFloat,
         animated: Bool
     ) {
-        missionsLabel.text = "\(missionsDone)/\(missionsTotal) Missions"
-        redeemedLabel.text = redeemedText.isEmpty ? "" : "Redeemed \(redeemedText)"
+        if missionsTotal == 0 {
+            missionsLabel.text = "Add New Task"
+            missionsLabel.font = .systemFont(ofSize: 24, weight: .bold)
+            redeemedLabel.text = "Tap here to get started!"
+            redeemedLabel.textColor = .systemBlue
+        } else {
+            missionsLabel.text = "\(missionsDone)/\(missionsTotal) Missions"
+            missionsLabel.font = .systemFont(ofSize: 28, weight: .bold)
+            redeemedLabel.text = redeemedText.isEmpty ? "" : "Redeemed \(redeemedText)"
+            redeemedLabel.textColor = UIColor.white.withAlphaComponent(0.6)
+        }
         arcView.setProgress(progress, animated: animated)
     }
 }

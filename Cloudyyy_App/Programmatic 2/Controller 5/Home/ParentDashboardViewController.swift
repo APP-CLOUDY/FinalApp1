@@ -23,6 +23,8 @@ extension Color {
         private var kids: [ChildModel] = []
         private var selectedKid: ChildModel?
         
+        private var todayTotalMissions: Int = 0 // Track missions to determine if empty state
+        
         private var dashboardPoints: [DashboardChartPoint] = []
         private var dashboardChartHostingController: UIHostingController<AnyView>?
         private let chartSegment = UISegmentedControl(items: ["Weekly", "Monthly"])
@@ -118,10 +120,14 @@ extension Color {
                         let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
                         header.setKids(uiKids)
 
-                        if let first = kids.first {
+                        if let globalSelection = SelectedKidStore.shared.selectedKid, let realKid = kids.first(where: { $0.id.uuidString == globalSelection.id }) {
+                            header.setSelectedKid(globalSelection)
+                            self.selectKid(realKid)
+                        } else if let first = kids.first {
                             let uiKid = Kid(id: first.id.uuidString, name: first.name)
                             header.setSelectedKid(uiKid)
-                            selectKid(first)
+                            self.selectKid(first)
+                            SelectedKidStore.shared.updateKid(uiKid)
                         }
                     }
                 } catch {
@@ -221,6 +227,8 @@ extension Color {
         ) {
             let completedToday = todaySchedule.filter { $0.submission_status?.lowercased() == "approved" }.count
             let totalToday = todaySchedule.count
+            self.todayTotalMissions = totalToday
+            
             let progress = totalToday > 0
             ? CGFloat(completedToday) / CGFloat(totalToday)
             : 0.0
@@ -482,7 +490,16 @@ extension Color {
         }
 
         
-        @objc private func openProgressPage() { DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } }
+        @objc private func openProgressPage() { 
+            if todayTotalMissions == 0 {
+                let vc = NewTaskViewController()
+                let nav = UINavigationController(rootViewController: vc)
+                nav.modalPresentationStyle = .fullScreen
+                present(nav, animated: true)
+            } else {
+                DispatchQueue.main.async { self.tabBarController?.selectedIndex = 1 } 
+            }
+        }
         @objc private func openApprovalPage() {
             let vc = ApprovalViewController()
             vc.hidesBottomBarWhenPushed = true

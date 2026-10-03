@@ -18,7 +18,7 @@ private struct RewardClaimRow: Decodable {
     let submitted_at: String?
     let approved_at: String?
     let declined_at: String?
-    let rewards: RewardRow
+    let rewards: RewardRow?
 }
 
 private struct TaskRow: Decodable {
@@ -109,9 +109,9 @@ final class ApprovalService: Sendable {
                 "id": $0.id.uuidString,
                 "type": "reward",
                 "title": "Reward",
-                "subtitle": $0.rewards.title,
+                "subtitle": $0.rewards?.title ?? "Unknown Reward",
                 "date": "Requested on \(formatDate($0.submitted_at))",
-                "points": "\($0.rewards.points) ⭐️",
+                "points": "\($0.rewards?.points ?? 0) ⭐️",
                 "raw_date": $0.submitted_at ?? "" // ✅ Needed for Filter
             ]
         }
@@ -162,9 +162,9 @@ final class ApprovalService: Sendable {
                 "id": $0.id.uuidString,
                 "type": "reward",
                 "title": "Reward",
-                "subtitle": $0.rewards.title,
+                "subtitle": $0.rewards?.title ?? "Unknown Reward",
                 "date": "Approved on \(formatDate($0.approved_at))",
-                "points": "\($0.rewards.points) ⭐️",
+                "points": "\($0.rewards?.points ?? 0) ⭐️",
                 "raw_date": $0.approved_at ?? ""
             ]
         }
@@ -216,9 +216,9 @@ final class ApprovalService: Sendable {
                 "id": $0.id.uuidString,
                 "type": "reward",
                 "title": "Reward (Redo)",
-                "subtitle": $0.rewards.title,
+                "subtitle": $0.rewards?.title ?? "Unknown Reward",
                 "date": "Redo requested on \(formatDate($0.declined_at))",
-                "points": "\($0.rewards.points) ⭐️",
+                "points": "\($0.rewards?.points ?? 0) ⭐️",
                 "raw_date": $0.declined_at ?? ""
             ]
         }
@@ -286,7 +286,7 @@ final class ApprovalService: Sendable {
     }
 
     func decline(item: [String: String]) async throws {
-        let id = item["id"]!
+        guard let id = item["id"] else { return }
         let now = ISO8601DateFormatter().string(from: Date())
 
         if item["type"] == "task" {

@@ -169,16 +169,40 @@ final class KidAgendaViewController: UIViewController {
 
         noTasksLabel.isHidden = true
 
-        for task in visibleTasks {
+        for (index, task) in visibleTasks.enumerated() {
             let card = KidAgendaItemPanel(task: task)
             configureCardAppearance(card: card, task: task)
             card.heightAnchor.constraint(equalToConstant: 84).isActive = true
+            
+            card.isUserInteractionEnabled = true
+            let tap = UITapGestureRecognizer(target: self, action: #selector(didTapTaskCard(_:)))
+            card.tag = index
+            card.addGestureRecognizer(tap)
+            
             agendaVerticalStack.addArrangedSubview(card)
         }
 
         let spacer = UIView()
         spacer.heightAnchor.constraint(equalToConstant: 50).isActive = true
         agendaVerticalStack.addArrangedSubview(spacer)
+    }
+    
+    @objc private func didTapTaskCard(_ sender: UITapGestureRecognizer) {
+        guard let view = sender.view else { return }
+        let index = view.tag
+        guard visibleTasks.indices.contains(index) else { return }
+        
+        let task = visibleTasks[index]
+        
+        // Prevent tapping tasks that are already pending or approved
+        let status = task.submission_status?.lowercased()
+        if status == "pending" || status == "approved" {
+            return
+        }
+        
+        let vc = TaskSubmissionViewController(task: task)
+        vc.modalPresentationStyle = .formSheet
+        present(vc, animated: true)
     }
     
     // MARK: - Dynamic Color Logic

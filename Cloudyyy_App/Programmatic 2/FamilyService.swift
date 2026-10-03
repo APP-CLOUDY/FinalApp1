@@ -41,8 +41,7 @@ final class FamilyService: Sendable {
     static let shared = FamilyService()
     private init() {}
 
-    /// Cached family id (from dashboard)
-    var familyId: UUID?
+
 
     // Supabase client
     private var client: SupabaseClient {
@@ -72,8 +71,6 @@ final class FamilyService: Sendable {
             .execute()
             .value
 
-        // cache for reuse
-        self.familyId = response.family_id
         return response
     }
 

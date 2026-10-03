@@ -26,21 +26,35 @@ final class RewardsViewController: UIViewController {
 
     
     // Coin Badge Container
+    // Coin Badge Container
     private let coinBadgeView: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = UIColor(red: 255/255, green: 204/255, blue: 92/255, alpha: 1.0)
-        v.layer.cornerRadius = 14
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
         
-        v.isUserInteractionEnabled = false
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        blur.layer.cornerRadius = 16
+        blur.clipsToBounds = true
+        container.addSubview(blur)
+        NSLayoutConstraint.activate([
+            blur.topAnchor.constraint(equalTo: container.topAnchor),
+            blur.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            blur.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        ])
         
-        // ✨ Optional glow
-        v.layer.shadowColor = UIColor(red: 255/255, green: 200/255, blue: 70/255, alpha: 1).cgColor
-        v.layer.shadowOpacity = 0.55
-        v.layer.shadowRadius = 10
-        v.layer.shadowOffset = .zero
+        // Subtle clean border
+        container.layer.cornerRadius = 16
+        container.layer.borderWidth = 0.5
+        container.layer.borderColor = UIColor(white: 1.0, alpha: 0.1).cgColor
         
-        return v
+        // Natural subtle drop shadow (no neon)
+        container.layer.shadowColor = UIColor.black.cgColor
+        container.layer.shadowOpacity = 0.2
+        container.layer.shadowRadius = 4
+        container.layer.shadowOffset = CGSize(width: 0, height: 2)
+        
+        return container
     }()
     
     static func normalizeQuickRewardSubtype(_ title: String) -> String {
@@ -89,7 +103,7 @@ final class RewardsViewController: UIViewController {
             }
 
             let backendGrouped = Dictionary(grouping: allRewards) {
-                RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type!)
+                RewardsViewController.normalizeQuickRewardSubtype($0.reward_sub_type ?? "")
             }
 
 
@@ -178,28 +192,20 @@ final class RewardsViewController: UIViewController {
     }
     
     
-    private let starIcon: UIImageView = {
-        let iv = UIImageView()
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .black)
-        iv.image = UIImage(systemName: "star.fill", withConfiguration: config)
-        iv.tintColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
-        iv.contentMode = .scaleAspectFit
-        return iv
-    }()
+
     
     private let coinLabel: UILabel = {
         let lb = UILabel()
         lb.translatesAutoresizingMaskIntoConstraints = false
         lb.text = ""
-        lb.font = .systemFont(ofSize: 14, weight: .bold)
-        lb.textColor = UIColor(red: 62/255, green: 52/255, blue: 37/255, alpha: 1.0)
+        lb.font = .systemFont(ofSize: 15, weight: .semibold)
+        lb.textColor = .white
         return lb
     }()
     
     
     private func updateCoins(_ newValue: Int) {
-        coinLabel.text = "\(newValue)"
+        coinLabel.text = "⭐ \(newValue)"
     }
     
     // Header
@@ -216,6 +222,15 @@ final class RewardsViewController: UIViewController {
         l.font = .systemFont(ofSize: 30, weight: .bold)
         l.textColor = .white
         return l
+    }()
+    
+    private let profileAvatarButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.tintColor = .white
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        button.setImage(UIImage(systemName: "person.circle.fill", withConfiguration: config), for: .normal)
+        return button
     }()
     
 
@@ -412,6 +427,16 @@ final class RewardsViewController: UIViewController {
         }
     }
     
+    @objc private func didTapProfileButton() {
+        let profileVC = ProfileViewController()
+        profileVC.hidesBottomBarWhenPushed = true
+        if let nav = navigationController {
+            nav.pushViewController(profileVC, animated: true)
+        } else {
+            present(profileVC, animated: true)
+        }
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
@@ -601,8 +626,8 @@ final class RewardsViewController: UIViewController {
         
         headerContainer.addSubview(headerTitle)
         headerContainer.addSubview(coinBadgeView)
+        headerContainer.addSubview(profileAvatarButton)
         
-        coinBadgeView.addSubview(starIcon)
         coinBadgeView.addSubview(coinLabel)
         
         
@@ -642,23 +667,23 @@ final class RewardsViewController: UIViewController {
             headerTitle.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 20),
             headerTitle.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 16),
             
+            // PROFILE BUTTON
+            profileAvatarButton.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -20),
+            profileAvatarButton.centerYAnchor.constraint(equalTo: headerTitle.centerYAnchor),
+            profileAvatarButton.widthAnchor.constraint(equalToConstant: 44),
+            profileAvatarButton.heightAnchor.constraint(equalToConstant: 44),
+            
             // COIN BADGE
-            coinBadgeView.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -20),
+            // COIN BADGE
+            coinBadgeView.trailingAnchor.constraint(equalTo: profileAvatarButton.leadingAnchor, constant: -16),
             coinBadgeView.centerYAnchor.constraint(equalTo: headerTitle.centerYAnchor),
-            coinBadgeView.heightAnchor.constraint(equalToConstant: 25),
+            coinBadgeView.heightAnchor.constraint(equalToConstant: 32),
             coinBadgeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
 
-            // ⭐ Star Icon
-            starIcon.leadingAnchor.constraint(equalTo: coinBadgeView.leadingAnchor, constant: 10),
-            starIcon.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
-            starIcon.widthAnchor.constraint(equalToConstant: 12),
-            starIcon.heightAnchor.constraint(equalToConstant: 12),
-            
             // ⭐ Coin Label
-            coinLabel.leadingAnchor.constraint(equalTo: starIcon.trailingAnchor, constant: 4),
-            coinLabel.trailingAnchor.constraint(equalTo: coinBadgeView.trailingAnchor, constant: -10),
+            coinLabel.leadingAnchor.constraint(equalTo: coinBadgeView.leadingAnchor, constant: 12),
+            coinLabel.trailingAnchor.constraint(equalTo: coinBadgeView.trailingAnchor, constant: -12),
             coinLabel.centerYAnchor.constraint(equalTo: coinBadgeView.centerYAnchor),
-            
             
             // --- Scroll View ---
             scrollView.topAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: 2),
@@ -731,6 +756,7 @@ final class RewardsViewController: UIViewController {
     private func setupActions() {
         leftSegment.addTarget(self, action: #selector(selectLeft), for: .touchUpInside)
         rightSegment.addTarget(self, action: #selector(selectRight), for: .touchUpInside)
+        profileAvatarButton.addTarget(self, action: #selector(didTapProfileButton), for: .touchUpInside)
     }
     
     // MARK: - Actions

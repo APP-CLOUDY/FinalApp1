@@ -133,10 +133,13 @@ final class ScheduleViewController: UIViewController {
                     let uiKids = kids.map { Kid(id: $0.id.uuidString, name: $0.name) }
                     header.setKids(uiKids)
 
-                    if let first = kids.first {
-                        selectKid(first)
+                    if let globalSelection = SelectedKidStore.shared.selectedKid, let realKid = self.kids.first(where: { $0.id.uuidString == globalSelection.id }) {
+                        self.selectKid(realKid)
+                    } else if let first = self.kids.first {
+                        self.selectKid(first)
+                        SelectedKidStore.shared.updateKid(Kid(id: first.id.uuidString, name: first.name))
                     } else {
-                        header.childButton.setTitle("No Kids", for: .normal)
+                        self.header.childButton.setTitle("No Kids", for: .normal)
                     }
                 }
             } catch {
@@ -236,6 +239,7 @@ final class ScheduleViewController: UIViewController {
     class TaskTapGesture: UITapGestureRecognizer { var taskIndex: Int = 0 }
     
     @objc private func cardTapped(_ sender: TaskTapGesture) {
+        guard displayedTasks.indices.contains(sender.taskIndex) else { return }
         let task = displayedTasks[sender.taskIndex]
         
         // ✅ NEW CODE (Use this)

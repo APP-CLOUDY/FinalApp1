@@ -211,8 +211,10 @@ final class ProfileService: Sendable {
     // MARK: - 4. Sign Out
     
     func signOut() async throws {
-        try await client.auth.signOut()
-
+        await MainActor.run {
+            // Need MainActor because SessionManager methods are isolated
+        }
+        await SessionManager.shared.signOut()
         UserDefaults.standard.removeObject(forKey: "current_child_id")
         UserDefaults.standard.removeObject(forKey: "current_parent_id")
     }

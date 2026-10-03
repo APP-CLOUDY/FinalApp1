@@ -167,14 +167,14 @@ final class KidCoordinator {
     // ... (End of KidCoordinator implementation) ...
     
     // MARK: - Dummy functions for other screens (Included here for compilation)
-    func homeData(for childIdentifier: String) -> (overview: HomeDashboardOverview, pending: HomePendingItems, allocated: HomeAssignedRewards, weeklyChart: [HomeTimelinePoint]) { fatalError() }
-    func monthlyChartAggregated(for childIdentifier: String) -> [HomeTimelinePoint] { fatalError() }
-    func dataForKid(_ childIdentifier: String) -> ProgressSnapshot { fatalError() }
-    func rewardsSummary(for childIdentifier: String) -> RewardsHeaderSummary { fatalError() }
-    func rewardCategories(for childIdentifier: String) -> [RewardCategorySummaryItem] { fatalError() }
-    func quickRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
-    func dreamItRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
-    func springOnRewards(for childIdentifier: String) -> [RewardDetailRow] { fatalError() }
+    func homeData(for childIdentifier: String) -> (overview: HomeDashboardOverview, pending: HomePendingItems, allocated: HomeAssignedRewards, weeklyChart: [HomeTimelinePoint]) { return (HomeDashboardOverview(completedMissionsCount: 0, totalMissionsCount: 0, redeemedStatusText: ""), HomePendingItems(totalPendingItems: 0), HomeAssignedRewards(totalAssignedRewards: 0), []) }
+    func monthlyChartAggregated(for childIdentifier: String) -> [HomeTimelinePoint] { return [] }
+    func dataForKid(_ childIdentifier: String) -> ProgressSnapshot { return ProgressSnapshot(completionRatio: 0, completedTasksDescription: "", pointsForTodayText: "", cumulativePointsText: "", milestones: [], effortMetrics: []) }
+    func rewardsSummary(for childIdentifier: String) -> RewardsHeaderSummary { return RewardsHeaderSummary(activeRewardsCount: 0, weeklyStarsEarned: 0, totalStarsEarned: 0) }
+    func rewardCategories(for childIdentifier: String) -> [RewardCategorySummaryItem] { return [] }
+    func quickRewards(for childIdentifier: String) -> [RewardDetailRow] { return [] }
+    func dreamItRewards(for childIdentifier: String) -> [RewardDetailRow] { return [] }
+    func springOnRewards(for childIdentifier: String) -> [RewardDetailRow] { return [] }
     // In KidCoordinator.swift
 
     func approvals(for childIdentifier: String) -> [ApprovalRequestItem] {

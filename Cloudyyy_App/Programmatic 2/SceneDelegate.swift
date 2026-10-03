@@ -19,27 +19,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // 🔒 LOCK TAB BAR APPEARANCE (GLOBAL – DO THIS ONCE)
-        let tabAppearance = UITabBarAppearance()
-        tabAppearance.configureWithOpaqueBackground()
-        tabAppearance.backgroundColor = .black   // Cloudyyy base color
-
-        tabAppearance.stackedLayoutAppearance.normal.iconColor = .lightGray
-        tabAppearance.stackedLayoutAppearance.selected.iconColor = .white
-        tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.lightGray
-        ]
-        tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor.white
-        ]
-
-        // 🔑 IMPORTANT — lock BOTH states
-        UITabBar.appearance().standardAppearance = tabAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
-
-        // Optional: remove top shadow line
-        UITabBar.appearance().layer.borderWidth = 0
-        UITabBar.appearance().clipsToBounds = true
+        // Tab bar appearance is configured per-instance in each TabBarController
+        // to support dark Liquid Glass. Do NOT set UITabBar.appearance() here.
 
         // ----------------------------------------------------
 

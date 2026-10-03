@@ -14,21 +14,71 @@ import SwiftUI
 
 final class AppTabBarController: UITabBarController, UITabBarControllerDelegate {
 
+    private var darkGlassBar: DarkGlassTabBar!
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
         delegate = self   // ✅ REQUIRED to intercept Add tab
 
-        // ❗ DO NOT configure tab bar appearance here
-        // Appearance is locked globally in SceneDelegate
-
         configureTabs(for: SessionManager.shared.currentRole ?? .parent)
+        setupDarkGlassBar(for: SessionManager.shared.currentRole ?? .parent)
 
         print("🔥 AppTabBarController CREATED")
     }
 
     deinit {
         print("❌ AppTabBarController DEALLOCATED")
+    }
+
+    // MARK: - Dark Glass Tab Bar Setup
+
+    private func setupDarkGlassBar(for role: UserRole) {
+        // 1. Hide the native tab bar (the snowy white one)
+        tabBar.isHidden = true
+        
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        appearance.backgroundEffect = nil
+        appearance.shadowColor = .clear
+        tabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            tabBar.scrollEdgeAppearance = appearance
+        }
+
+        // 2. Build custom dark glass bar matching GlassView card style
+        let items: [DarkGlassTabItem]
+        if role == .parent {
+            items = [
+                DarkGlassTabItem(title: "Home",     icon: "house.fill"),
+                DarkGlassTabItem(title: "Progress", icon: "chart.bar.fill"),
+                DarkGlassTabItem(title: "Add",      icon: "plus.circle.fill"),
+                DarkGlassTabItem(title: "Schedule", icon: "calendar"),
+                DarkGlassTabItem(title: "Reward",   icon: "star.fill"),
+            ]
+        } else {
+            items = [
+                DarkGlassTabItem(title: "Home",     icon: "house.fill"),
+                DarkGlassTabItem(title: "Missions", icon: "list.bullet.clipboard"),
+                DarkGlassTabItem(title: "Add",      icon: "plus.circle.fill"),
+                DarkGlassTabItem(title: "Ask",      icon: "cloud.fill"),
+                DarkGlassTabItem(title: "Rewards",  icon: "star.fill"),
+            ]
+        }
+
+        darkGlassBar = DarkGlassTabBar(items: items)
+        darkGlassBar.delegate = self
+        view.addSubview(darkGlassBar)
+
+        NSLayoutConstraint.activate([
+            darkGlassBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            darkGlassBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            darkGlassBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            darkGlassBar.heightAnchor.constraint(equalToConstant: 56),
+        ])
+
+        darkGlassBar.selectTab(at: 0, animated: false)
     }
 }
 
@@ -163,7 +213,7 @@ private extension AppTabBarController {
     }
 }
 
-// MARK: - Tab Bar Delegate (Intercept Add)
+// MARK: - Tab Bar Delegate (Intercept native — kept as safety)
 
 extension AppTabBarController {
 
@@ -172,10 +222,9 @@ extension AppTabBarController {
         shouldSelect viewController: UIViewController
     ) -> Bool {
 
-        // 🔴 Intercept Add tab (tag = 2)
         if viewController.tabBarItem.tag == 2 {
             openNewTask()
-            return false   // ⛔ Prevent switching to dummy tab
+            return false
         }
 
         return true
@@ -189,3 +238,24 @@ extension AppTabBarController {
     }
 }
 
+// MARK: - Dark Glass Tab Bar Delegate
+
+extension AppTabBarController: DarkGlassTabBarDelegate {
+
+    func darkGlassTabBar(_ tabBar: DarkGlassTabBar, didSelectIndex index: Int) {
+        // Intercept Add button (index 2)
+        if index == 2 {
+            openNewTask()
+            // Reset pill back to current tab
+            darkGlassBar.selectTab(at: self.selectedIndex, animated: true)
+            return
+        }
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+
+        // Switch the actual tab
+        self.selectedIndex = index
+    }
+}

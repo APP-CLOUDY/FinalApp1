@@ -261,6 +261,9 @@ final class TaskService {
         // DEBUG: Check if 'due_time' is present in raw JSON
         if let str = String(data: response.data, encoding: .utf8) {
             print("📥 RAW RESPONSE: \(str)")
+            if str.trimmingCharacters(in: .whitespacesAndNewlines) == "null" {
+                return []
+            }
         }
             
         return try JSONDecoder().decode([ScheduleTaskModel].self, from: response.data)

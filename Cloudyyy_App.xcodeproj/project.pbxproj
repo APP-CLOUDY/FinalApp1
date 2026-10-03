@@ -320,6 +320,9 @@
 				DEVELOPMENT_TEAM = D8339T89XB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Cloudyyy_App/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudyyy needs access to your camera to take photos for mission proof.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Cloudyyy needs permission to save photos to your library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cloudyyy needs access to your photo library to select proof for completing missions.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -354,6 +357,9 @@
 				DEVELOPMENT_TEAM = D8339T89XB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Cloudyyy_App/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudyyy needs access to your camera to take photos for mission proof.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Cloudyyy needs permission to save photos to your library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cloudyyy needs access to your photo library to select proof for completing missions.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;

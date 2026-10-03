@@ -445,6 +445,7 @@ final class Signup: UIViewController {
                 )
 
                 print("✅ Signup/Auth Request Successful! Proceeding to App...")
+                try await SessionManager.shared.initialize()
                 
                 await MainActor.run {
                     self.setLoading(false)
