@@ -53,22 +53,24 @@ final class Addchildform: UIViewController {
         return b
     }()
 
-    // White rounded card
+    // Glass rounded card
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .secondarySystemGroupedBackground
-        v.layer.cornerRadius = 18
+        v.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        v.layer.cornerRadius = 24
         v.layer.masksToBounds = false
-        updateCardShadow(v)
-        v.layer.shadowOpacity = 0.12
-        v.layer.shadowRadius = 16
-        v.layer.shadowOffset = CGSize(width: 0, height: 10)
+        v.layer.borderWidth = 1.2
+        v.layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
+        v.layer.shadowColor = UIColor.black.cgColor
+        v.layer.shadowOpacity = 0.35
+        v.layer.shadowRadius = 24
+        v.layer.shadowOffset = CGSize(width: 0, height: 12)
         return v
     }()
 
     private static func updateCardShadow(_ view: UIView) {
-        view.layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
+        view.layer.shadowColor = UIColor.black.cgColor
     }
 
     private let titleLabel: UILabel = {
@@ -77,7 +79,7 @@ final class Addchildform: UIViewController {
         l.text = "Add Children"
         l.font = UIFont.systemFont(ofSize: 32, weight: .bold)
         l.textAlignment = .center
-        l.textColor = .label
+        l.textColor = .white
         return l
     }()
 
@@ -433,18 +435,19 @@ final class Addchildform: UIViewController {
     private func makeTextField(placeholder: String) -> UITextField {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        
+        tf.font = UIFont.systemFont(ofSize: 15)
+        tf.textColor = .white
+        tf.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        tf.layer.cornerRadius = 14
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
         tf.attributedPlaceholder = NSAttributedString(
             string: placeholder,
-            attributes: [NSAttributedString.Key.foregroundColor: UIColor.systemGray]
+            attributes: [.foregroundColor: UIColor.white.withAlphaComponent(0.45)]
         )
-        
-        tf.font = UIFont.systemFont(ofSize: 15)
-        tf.textColor = .label
-        tf.backgroundColor = .secondarySystemBackground
-        tf.layer.cornerRadius = 10
-        tf.layer.borderWidth = 1
-        tf.layer.borderColor = UIColor.separator.cgColor
+        tf.autocorrectionType = .no
+        tf.spellCheckingType = .no
+        tf.smartInsertDeleteType = .no
         tf.setLeftPaddingPoints(12)
         tf.heightAnchor.constraint(equalToConstant: 50).isActive = true
         return tf
@@ -470,13 +473,17 @@ private class GenderSelector: UIControl {
     }
 
     func updateColors() {
-        backgroundColor = .systemGray6
+        backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        layer.borderWidth = 1
+        layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
         pill.backgroundColor = CloudyyyColors.accentBlue
         for (i, btn) in buttons.enumerated() {
             if i == selectedIndex {
                 btn.setTitleColor(.white, for: .normal)
+                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
             } else {
-                btn.setTitleColor(.secondaryLabel, for: .normal)
+                btn.setTitleColor(UIColor.white.withAlphaComponent(0.65), for: .normal)
+                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
             }
         }
     }
@@ -505,16 +512,16 @@ private class GenderSelector: UIControl {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setup() {
-        backgroundColor = UIColor(white: 0.94, alpha: 1)
+        backgroundColor = UIColor.white.withAlphaComponent(0.12)
         layer.cornerRadius = 14
-        clipsToBounds = false
+        layer.borderWidth = 1
+        layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
+        clipsToBounds = true
 
         pill.translatesAutoresizingMaskIntoConstraints = false
         pill.backgroundColor = CloudyyyColors.accentBlue
-        pill.layer.cornerRadius = 12
+        pill.layer.cornerRadius = 11
         addSubview(pill)
-        
-        updateColors()
 
         stack.axis = .horizontal
         stack.distribution = .fillEqually
@@ -527,19 +534,20 @@ private class GenderSelector: UIControl {
             btn.setTitle(t, for: .normal)
             btn.translatesAutoresizingMaskIntoConstraints = false
             btn.tag = i
-            btn.titleLabel?.font = UIFont.systemFont(ofSize: 15)
+            btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
             btn.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
             buttons.append(btn)
             stack.addArrangedSubview(btn)
         }
-        updateColors()
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
         ])
+
+        updateColors()
     }
 
     override func layoutSubviews() {
@@ -558,10 +566,12 @@ private class GenderSelector: UIControl {
         let target = buttons[selectedIndex]
         let frameInSelf = target.convert(target.bounds, to: self)
 
-        pillLeading = pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: frameInSelf.minX + 6)
-        pillWidth = pill.widthAnchor.constraint(equalToConstant: max(44, frameInSelf.width - 12))
-        pillTop = pill.topAnchor.constraint(equalTo: topAnchor, constant: 6)
-        pillHeight = pill.heightAnchor.constraint(equalToConstant: bounds.height - 12)
+        let insetX: CGFloat = 2
+        let insetY: CGFloat = 2
+        pillLeading = pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: frameInSelf.minX + insetX)
+        pillWidth = pill.widthAnchor.constraint(equalToConstant: max(40, frameInSelf.width - (insetX * 2)))
+        pillTop = pill.topAnchor.constraint(equalTo: topAnchor, constant: frameInSelf.minY + insetY)
+        pillHeight = pill.heightAnchor.constraint(equalToConstant: frameInSelf.height - (insetY * 2))
 
         pillLeading?.isActive = true
         pillWidth?.isActive = true
@@ -573,8 +583,8 @@ private class GenderSelector: UIControl {
                 btn.setTitleColor(.white, for: .normal)
                 btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
             } else {
-                btn.setTitleColor(.secondaryLabel, for: .normal)
-                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
+                btn.setTitleColor(UIColor.white.withAlphaComponent(0.65), for: .normal)
+                btn.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
             }
         }
 

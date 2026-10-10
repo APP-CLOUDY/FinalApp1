@@ -114,7 +114,7 @@ final class Login: UIViewController {
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Don’t have an account?"
         l.font = .systemFont(ofSize: 14)
-        l.textColor = .secondaryLabel
+        l.textColor = UIColor.white.withAlphaComponent(0.65)
         return l
     }()
     
@@ -161,7 +161,6 @@ final class Login: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .secondarySystemGroupedBackground
     }
 
     // MARK: - Hierarchy

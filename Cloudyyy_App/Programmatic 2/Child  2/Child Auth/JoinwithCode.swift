@@ -61,6 +61,12 @@ final class JoinWithCode: PremiumBaseViewController, UITextFieldDelegate {
     
     // MARK: - Layout
     private func setupContent() {
+        // Glass Styling on Card
+        cardView.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        cardView.layer.cornerRadius = 24
+        cardView.layer.borderWidth = 1.2
+        cardView.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
+
         // Card Content
         cardView.addSubview(codeStack)
         cardView.addSubview(joinButton)
@@ -98,16 +104,18 @@ final class JoinWithCode: PremiumBaseViewController, UITextFieldDelegate {
         for index in 0..<codeLength {
             let tf = UITextField()
             
-            tf.backgroundColor = .systemGray6
+            tf.backgroundColor = UIColor.white.withAlphaComponent(0.12)
             tf.layer.borderWidth = 1.0
-            tf.layer.borderColor = UIColor.systemGray4.cgColor
+            tf.layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
             tf.layer.cornerRadius = 12
             
             tf.textAlignment = .center
             tf.font = .systemFont(ofSize: 22, weight: .bold)
-            tf.textColor = .label
+            tf.textColor = .white
             tf.keyboardType = .numberPad
-            tf.tintColor = .systemBlue
+            tf.tintColor = .white
+            tf.autocorrectionType = .no
+            tf.spellCheckingType = .no
             
             tf.tag = index
             tf.delegate = self

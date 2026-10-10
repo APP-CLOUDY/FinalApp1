@@ -10,6 +10,14 @@ final class SelectUserViewController: UIViewController {
         return v
     }()
 
+    private let appLogoImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.image = UIImage(named: "cloudyy_logo")
+        iv.contentMode = .scaleAspectFit
+        return iv
+    }()
+
     private let appTitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -24,11 +32,17 @@ final class SelectUserViewController: UIViewController {
     private let subtitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.text = "Organize tasks, Motivate Kids , Track Progress"
-        l.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        l.textColor = UIColor(white: 1.0, alpha: 0.95)
+        l.text = "Organize tasks, Motivate kids, Track progress"
+        l.font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        l.textColor = UIColor(white: 1.0, alpha: 0.85)
         l.textAlignment = .center
         l.numberOfLines = 2
+        
+        // Subtle drop shadow for better readability on the blue gradient
+        l.layer.shadowColor = UIColor.black.cgColor
+        l.layer.shadowOffset = CGSize(width: 0, height: 1)
+        l.layer.shadowOpacity = 0.15
+        l.layer.shadowRadius = 2
         return l
     }()
     
@@ -140,6 +154,7 @@ final class SelectUserViewController: UIViewController {
         view.addSubview(topContainer)
         view.addSubview(bottomCard)
 
+        topContainer.addSubview(appLogoImageView)
         topContainer.addSubview(appTitleLabel)
         topContainer.addSubview(subtitleLabel)
 
@@ -175,8 +190,13 @@ final class SelectUserViewController: UIViewController {
 
         // Title & subtitle
         NSLayoutConstraint.activate([
+            appLogoImageView.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
+            appLogoImageView.bottomAnchor.constraint(equalTo: appTitleLabel.topAnchor, constant: -16),
+            appLogoImageView.widthAnchor.constraint(equalToConstant: 80),
+            appLogoImageView.heightAnchor.constraint(equalToConstant: 80),
+
             appTitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),
-            appTitleLabel.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor, constant: -10),
+            appTitleLabel.centerYAnchor.constraint(equalTo: topContainer.centerYAnchor, constant: 20),
 
             subtitleLabel.topAnchor.constraint(equalTo: appTitleLabel.bottomAnchor, constant: 8),
             subtitleLabel.centerXAnchor.constraint(equalTo: topContainer.centerXAnchor),

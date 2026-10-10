@@ -20,6 +20,7 @@ final class AppTabBarController: UITabBarController, UITabBarControllerDelegate 
         super.viewDidLoad()
 
         delegate = self   // ✅ REQUIRED to intercept Add tab
+        view.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0) // Match dark theme to hide white shade at bottom
 
         configureTabs(for: SessionManager.shared.currentRole ?? .parent)
         setupDarkGlassBar(for: SessionManager.shared.currentRole ?? .parent)
@@ -59,9 +60,9 @@ final class AppTabBarController: UITabBarController, UITabBarControllerDelegate 
             ]
         } else {
             items = [
-                DarkGlassTabItem(title: "Home",     icon: "house.fill"),
-                DarkGlassTabItem(title: "Missions", icon: "list.bullet.clipboard"),
-                DarkGlassTabItem(title: "Add",      icon: "plus.circle.fill"),
+                DarkGlassTabItem(title: "Tasks",     icon: "house.fill"),
+                // DarkGlassTabItem(title: "Missions", icon: "list.bullet.clipboard"),
+                // DarkGlassTabItem(title: "Add",      icon: "plus.circle.fill"),
                 DarkGlassTabItem(title: "Ask",      icon: "cloud.fill"),
                 DarkGlassTabItem(title: "Rewards",  icon: "star.fill"),
             ]
@@ -144,7 +145,7 @@ private extension AppTabBarController {
 
         let home = nav(
             ChildHomeViewController(),
-            title: "Home",
+            title: "Tasks",
             icon: "house.fill",
             tag: 0
         )
@@ -172,7 +173,8 @@ private extension AppTabBarController {
             tag: 4
         )
 
-        viewControllers = [home, missions, add, ask, rewards]
+        // viewControllers = [home, missions, add, ask, rewards]
+        viewControllers = [home, ask, rewards]
     }
 }
 
@@ -243,8 +245,8 @@ extension AppTabBarController {
 extension AppTabBarController: DarkGlassTabBarDelegate {
 
     func darkGlassTabBar(_ tabBar: DarkGlassTabBar, didSelectIndex index: Int) {
-        // Intercept Add button (index 2)
-        if index == 2 {
+        // Intercept Add button
+        if SessionManager.shared.currentRole == .parent && index == 2 {
             openNewTask()
             // Reset pill back to current tab
             darkGlassBar.selectTab(at: self.selectedIndex, animated: true)

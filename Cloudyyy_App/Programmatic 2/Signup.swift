@@ -91,6 +91,25 @@ final class Signup: UIViewController {
             let sc = UISegmentedControl(items: ["Mom", "Dad", "Guardian"])
             sc.translatesAutoresizingMaskIntoConstraints = false
             sc.selectedSegmentIndex = 0
+            // Dark glass styling
+            sc.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+            sc.selectedSegmentTintColor = UIColor(red: 0/255, green: 122/255, blue: 255/255, alpha: 1)
+            sc.setTitleTextAttributes([
+                .foregroundColor: UIColor.white.withAlphaComponent(0.65),
+                .font: UIFont.systemFont(ofSize: 14, weight: .medium)
+            ], for: .normal)
+            sc.setTitleTextAttributes([
+                .foregroundColor: UIColor.white,
+                .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+            ], for: .selected)
+            sc.layer.cornerRadius = 12
+            sc.layer.borderWidth = 1
+            sc.layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
+            sc.clipsToBounds = true
+            let clearImg = UIImage()
+            sc.setDividerImage(clearImg, forLeftSegmentState: .normal, rightSegmentState: .normal, barMetrics: .default)
+            sc.setDividerImage(clearImg, forLeftSegmentState: .selected, rightSegmentState: .normal, barMetrics: .default)
+            sc.setDividerImage(clearImg, forLeftSegmentState: .normal, rightSegmentState: .selected, barMetrics: .default)
             return sc
         }()
         
@@ -123,7 +142,7 @@ final class Signup: UIViewController {
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "By signing up, you agree to our Terms of Service and acknowledge our Privacy Policy."
         l.font = .systemFont(ofSize: 12, weight: .medium)
-        l.textColor = .secondaryLabel
+        l.textColor = UIColor.white.withAlphaComponent(0.65)
         l.textAlignment = .center
         l.numberOfLines = 0
         return l
@@ -155,7 +174,7 @@ final class Signup: UIViewController {
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Already have an account?"
         l.font = .systemFont(ofSize: 14)
-        l.textColor = .secondaryLabel
+        l.textColor = UIColor.white.withAlphaComponent(0.65)
         return l
     }()
     
@@ -207,7 +226,7 @@ final class Signup: UIViewController {
         card.layer.shadowOpacity = 0.15
         card.layer.shadowOffset = CGSize(width: 0, height: 10)
         card.layer.shadowRadius = 20
-        card.backgroundColor = .secondarySystemGroupedBackground
+        // Background handled by CardView glassmorphism
     }
 
     // MARK: - Hierarchy
@@ -293,7 +312,7 @@ final class Signup: UIViewController {
             roleSegmented.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
             roleSegmented.trailingAnchor.constraint(equalTo: nameField.trailingAnchor),
             roleSegmented.topAnchor.constraint(equalTo: nameField.bottomAnchor, constant: spacing),
-            roleSegmented.heightAnchor.constraint(equalToConstant: 36),
+            roleSegmented.heightAnchor.constraint(equalToConstant: 42),
 
             // 3. Email
             emailField.leadingAnchor.constraint(equalTo: nameField.leadingAnchor),
@@ -343,8 +362,7 @@ final class Signup: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
-        // Segment Styling
-        roleSegmented.layer.cornerRadius = 18
+        // Segment compression priority
         roleSegmented.setContentCompressionResistancePriority(UILayoutPriority.defaultLow, for: NSLayoutConstraint.Axis.horizontal)
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))

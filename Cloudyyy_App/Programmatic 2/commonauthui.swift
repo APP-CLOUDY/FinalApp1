@@ -118,24 +118,15 @@ public final class CardView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .secondarySystemGroupedBackground
-        layer.cornerRadius = 18
+        backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        layer.cornerRadius = 24
         layer.masksToBounds = false
-        updateShadowColor()
-        layer.shadowOpacity = 0.08
-        layer.shadowOffset = CGSize(width: 0, height: 6)
-        layer.shadowRadius = 12
-    }
-
-    private func updateShadowColor() {
-        layer.shadowColor = UIColor.label.withAlphaComponent(0.2).cgColor
-    }
-
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            updateShadowColor()
-        }
+        layer.borderWidth = 1.2
+        layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.35
+        layer.shadowOffset = CGSize(width: 0, height: 12)
+        layer.shadowRadius = 24
     }
 }
 
@@ -144,33 +135,29 @@ public class CustomTextField: UITextField {
     public init(placeholder: String) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .systemGray6
-        layer.cornerRadius = 12
+        backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        layer.cornerRadius = 14
         layer.borderWidth = 1
-        layer.borderColor = UIColor.separator.cgColor
+        layer.borderColor = UIColor.white.withAlphaComponent(0.20).cgColor
         font = .systemFont(ofSize: 15)
-        textColor = .label
-        
-        // Default placeholder color fix
+        textColor = .white
         attributedPlaceholder = NSAttributedString(
             string: placeholder,
-            attributes: [NSAttributedString.Key.foregroundColor: UIColor.placeholderText]
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.45)]
         )
-        
-        leftView = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 0))
+        leftView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 0))
         leftViewMode = .always
         autocorrectionType = .no
         spellCheckingType = .no
         autocapitalizationType = .none
         keyboardType = .default
-        heightAnchor.constraint(equalToConstant: 52).isActive = true
+        let hConstraint = heightAnchor.constraint(equalToConstant: 52)
+        hConstraint.priority = .defaultHigh
+        hConstraint.isActive = true
+        tintColor = .white
     }
-
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        if #available(iOS 13.0, *), traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            layer.borderColor = UIColor.separator.cgColor
-        }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
@@ -285,7 +272,7 @@ public class PasswordField: CustomTextField {
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         toggleButton.setImage(UIImage(systemName: "eye.slash", withConfiguration: config), for: .normal)
         
-        toggleButton.tintColor = .systemGray
+        toggleButton.tintColor = UIColor.white.withAlphaComponent(0.65)
         toggleButton.addTarget(self, action: #selector(toggleSecureEntry), for: .touchUpInside)
         
         container.addSubview(toggleButton)

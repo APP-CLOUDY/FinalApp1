@@ -16,6 +16,7 @@ final class ChildTabBarController: UITabBarController, UITabBarControllerDelegat
     override func viewDidLoad() {
         super.viewDidLoad()
         delegate = self
+        view.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0)
 
         // 1. Setup the 4 Tabs (Home, Rewards, Missions, Ask)
         setupViewControllers()
@@ -40,9 +41,9 @@ final class ChildTabBarController: UITabBarController, UITabBarControllerDelegat
         }
 
         let items: [DarkGlassTabItem] = [
-            DarkGlassTabItem(title: "Home",     icon: "house.fill"),
+            DarkGlassTabItem(title: "Tasks",     icon: "house.fill"),
             DarkGlassTabItem(title: "Rewards",  icon: "star.fill"),
-            DarkGlassTabItem(title: "Missions", icon: "list.bullet.clipboard"),
+            // DarkGlassTabItem(title: "Missions", icon: "list.bullet.clipboard"),
             DarkGlassTabItem(title: "Ask",      icon: "cloud.fill"),
         ]
 
@@ -72,15 +73,15 @@ final class ChildTabBarController: UITabBarController, UITabBarControllerDelegat
         let rewardsNav = UINavigationController(rootViewController: rewardsVC)
 
         // --- Tab 3: Missions (Kid Agenda) ---
-        let missionsVC = KidAgendaViewController()
-        let missionsNav = UINavigationController(rootViewController: missionsVC)
+        // let missionsVC = KidAgendaViewController()
+        // let missionsNav = UINavigationController(rootViewController: missionsVC)
 
         // --- Tab 4: Ask (Cloud) ---
         let askHosting = UIHostingController(rootView: CloudyFlowView())
         let askNav = UINavigationController(rootViewController: askHosting)
 
         // Assign view controllers
-        self.viewControllers = [homeNav, rewardsNav, missionsNav, askNav]
+        self.viewControllers = [homeNav, rewardsNav, /*missionsNav,*/ askNav]
     }
 
     // MARK: - UITabBarControllerDelegate
